@@ -4,3 +4,11 @@ dist/
 .env.local
 playwright-report/
 test-results/
+.env.*
+!.env.example
+*.session
+*.session-*
+*.session.*
+.venv/
+__pycache__/
+*.py[cod]
