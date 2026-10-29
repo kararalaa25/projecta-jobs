@@ -52,7 +52,7 @@ Set credentials securely in `.env` or environment settings. Exported variables o
 
 ### Database migration
 
-Apply `supabase/migrations/202610300002_reconcile_job_offers.sql` in the Supabase SQL editor. This migration works independently for existing tables: it adds required columns, preserves rows, uses text channel-qualified `telegram_message_id` keys, backfills earlier ingestion identities, creates a unique index, and reloads the API schema. It also retains source metadata needed by the worker. Duplicate existing keys or incompatible ID types cause an atomic failure requiring manual reconciliation; the migration does not delete data. Existing RLS policies are preserved and RLS is enabled.
+The published marketplace schema is supported directly without a migration (see the mapping below). If using the separate ingestion-specific schema, apply `supabase/migrations/202610300002_reconcile_job_offers.sql` in the Supabase SQL editor. This migration works independently for existing tables: it adds required columns, preserves rows, uses text channel-qualified `telegram_message_id` keys, backfills earlier ingestion identities, creates a unique index, and reloads the API schema. It also retains source metadata needed by the worker. Duplicate existing keys or incompatible ID types cause an atomic failure requiring manual reconciliation; the migration does not delete data. Existing RLS policies are preserved and RLS is enabled.
 
 Alternatively, configure the PostgreSQL connection string `SUPABASE_DB_URL` securely and run:
 
@@ -78,7 +78,7 @@ HTTPS fallback uses only Telegram's public website and does not join channels or
 
 ### Gemini parsing and running
 
-The default model is `gemini-2.5-flash`, with `gemini-1.5-flash` fallback on model-not-found (404). Both must be available to your account; code cannot restore retired or restricted models. `GEMINI_MODEL` optionally overrides the primary. Gemini receives standard `response_mime_type="application/json"` only—neither request schema parameter is sent. The expected shape is included in the system prompt and output is validated locally with Pydantic. Missing facts stay null; non-offers, candidates seeking work, missing titles, and uncertain categories are skipped. Short transient rate limits/server errors get bounded retries.
+The model is pinned to exactly `gemini-2.5-flash`, with no environment override or silent model fallback. Model-not-found errors remain visible; code cannot restore retired or account-restricted models. Gemini receives standard `response_mime_type="application/json"` only—neither request schema parameter is sent. The expected shape is included in the system prompt and output is validated locally with Pydantic. Missing facts stay null; non-offers, candidates seeking work, missing titles, and uncertain categories are skipped. Short transient rate limits/server errors get bounded retries.
 
 ```sh
 # Reads Telegram and calls Gemini (may incur API charges), never accesses Supabase:
@@ -96,3 +96,9 @@ The default model is `gemini-2.5-flash`, with `gemini-1.5-flash` fallback on mod
 ```
 
 Tests mock external services. Live readiness additionally requires accessible channels, an available Gemini model, and the applied database migration. Frontend listing reads are still demo/device-local; public display of ingested rows requires a separately designed read policy and frontend integration.
+
+### Published marketplace schema mapping
+
+The worker checks column availability before reading posts. If the live table uses the published marketplace schema, no migration is required: parsed `city` maps to `location_city`, `salary_text` to `salary_range`, and the original post to `description`. `title` and `role_category` retain their parsed values. Explicit employment types use the table's snake_case convention (`full_time`, `part_time`, `contract`, `internship`); unknown types use the table default. Posts with no known city are skipped because `location_city` is required.
+
+`contact_info` stores JSON text containing `phone`, `telegram`, `company_name`, `source_url`, and `telegram_message_id`. This preserves extracted details without writing nonexistent columns. `source` is `telegram`. A deterministic UUID derived from channel and message ID is used as `id`, allowing upsert/deduplication on the existing primary key. `created_at`, `status`, and nullable `publisher_id` use table defaults. Unchanged raw `description` hashes skip repeated Gemini calls. The optional ingestion-specific schema remains supported as a fallback when its columns are present instead.

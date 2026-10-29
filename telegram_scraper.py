@@ -19,6 +19,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+from uuid import NAMESPACE_URL, uuid5
 
 from dotenv import load_dotenv
 from google import genai
@@ -78,28 +79,22 @@ async def parse_job(client, text: str) -> ParsedJob:
     # Schema is prompt data only. No response_schema/response_json_schema fields
     # are sent; validate the resulting JSON locally with Pydantic.
     instruction = SYSTEM_PROMPT + "\nReturn every field in this JSON schema, using null for unknowns:\n" + json.dumps(ParsedJob.model_json_schema(), ensure_ascii=False)
-    models = list(dict.fromkeys([(os.getenv("GEMINI_MODEL") or MODEL), "gemini-1.5-flash"]))
-    for model_index, model in enumerate(models):
-        for attempt in range(3):
-            try:
-                response = await client.aio.models.generate_content(
-                    model=model, contents=text,
-                    config=types.GenerateContentConfig(
-                        system_instruction=instruction, temperature=0,
-                        response_mime_type="application/json",
-                    ),
-                )
-                if not response.text:
-                    raise ValueError("Gemini returned no JSON")
-                return ParsedJob.model_validate_json(response.text)
-            except errors.APIError as exc:
-                if exc.code == 404 and model_index < len(models) - 1:
-                    LOG.warning("Gemini model unavailable; trying fallback model")
-                    break
-                if attempt == 2 or not (exc.code == 429 or (exc.code or 0) >= 500):
-                    raise
-                await asyncio.sleep(2 ** (attempt + 1))
-    raise RuntimeError("No supported Gemini model available")
+    for attempt in range(3):
+        try:
+            response = await client.aio.models.generate_content(
+                model=MODEL, contents=text,
+                config=types.GenerateContentConfig(
+                    system_instruction=instruction, temperature=0,
+                    response_mime_type="application/json",
+                ),
+            )
+            if not response.text:
+                raise ValueError("Gemini returned no JSON")
+            return ParsedJob.model_validate_json(response.text)
+        except errors.APIError as exc:
+            if attempt == 2 or not (exc.code == 429 or (exc.code or 0) >= 500):
+                raise
+            await asyncio.sleep(2 ** (attempt + 1))
 
 
 def text_hash(text: str) -> str:
@@ -130,33 +125,65 @@ def message_key(chat_id: int, channel: str, message_id: int) -> str:
     return f"{source}:{message_id}"
 
 
-def existing_hash(db, chat_id: int, message_id: int, channel: str) -> str | None:
+def native_id(chat_id: int, channel: str, message_id: int) -> str:
+    return str(uuid5(NAMESPACE_URL, "projecta-jobs:telegram:" + message_key(chat_id, channel, message_id)))
+
+
+def native_record(record: dict) -> dict | None:
+    # The live table requires a known city. Do not fabricate missing locations.
+    if not record["city"]:
+        return None
+    return {
+        "id": native_id(record["source_chat_id"], record["source_channel"], record["source_message_id"]),
+        "title": record["title"], "role_category": record["role_category"],
+        "location_city": record["city"], "salary_range": record["salary_text"],
+        "description": record["raw_text"], "source": "telegram",
+        "contact_info": json.dumps({
+            "phone": record["contact_phone"], "telegram": record["contact_telegram"],
+            "company_name": record["company_name"], "source_url": record["source_url"],
+            "telegram_message_id": record["telegram_message_id"],
+        }, ensure_ascii=False),
+        # Omit employment_type if unknown, preserving the table's default.
+        **({"employment_type": record["employment_type"].lower().replace("-", "_")}
+           if record["employment_type"] else {}),
+    }
+
+
+def existing_hash(db, chat_id: int, message_id: int, channel: str, storage="ingestion") -> str | None:
+    if storage == "native":
+        result = (db.table("job_offers").select("description")
+                  .eq("id", native_id(chat_id, channel, message_id)).limit(1).execute())
+        return text_hash(result.data[0]["description"]) if result.data else None
     result = (db.table("job_offers").select("source_text_hash")
               .eq("telegram_message_id", message_key(chat_id, channel, message_id))
               .limit(1).execute())
     return result.data[0]["source_text_hash"] if result.data else None
 
 
-async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_run=False) -> str:
+async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_run=False, storage="ingestion") -> str:
     if not message.raw_text or not message.raw_text.strip():
         return "empty"
     if not dry_run:
-        saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id, channel)
+        saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id, channel, storage)
         if saved_hash == text_hash(message.raw_text):
             return "unchanged"
     job = await parse_job(gemini, message.raw_text)
     record = build_record(job, message, chat_id, channel)
+    if record is not None and storage == "native":
+        record = native_record(record)
+    identity_column = "id" if storage == "native" else "telegram_message_id"
+    identity_value = native_id(chat_id, channel, message.id) if storage == "native" else message_key(chat_id, channel, message.id)
     if record is None:
         # If an existing offer was edited into a non-job, remove the stale offer.
         if not dry_run and saved_hash:
             await asyncio.to_thread(lambda: db.table("job_offers").delete()
-                                    .eq("telegram_message_id", message_key(chat_id, channel, message.id)).execute())
+                                    .eq(identity_column, identity_value).execute())
         return "not_job"
     if dry_run:
         return "would_upsert"
     # Channel-qualified conflict key makes re-runs and edited posts idempotent.
     await asyncio.to_thread(lambda: db.table("job_offers").upsert(
-        record, on_conflict="telegram_message_id").execute())
+        record, on_conflict=identity_column).execute())
     return "upserted"
 
 
@@ -226,12 +253,22 @@ def session_client() -> TelegramClient:
     return client
 
 
-def check_database_schema(db) -> None:
+def check_database_schema(db) -> str:
+    # Support both the published marketplace schema and the optional ingestion migration.
+    native_columns = ("id,title,role_category,employment_type,location_city,salary_range,"
+                      "description,contact_info,source,created_at")
+    try:
+        db.table("job_offers").select(native_columns).limit(0).execute()
+        return "native"
+    except Exception as exc:
+        if getattr(exc, "code", None) not in {"42703", "PGRST204"}:
+            raise
     columns = ("id,telegram_message_id,raw_text,title,company_name,city,role_category,"
                "contact_phone,contact_telegram,salary_text,employment_type,created_at,"
                "source_chat_id,source_message_id,source_channel,source_url,source_posted_at,"
                "source_text_hash,ingested_at")
     db.table("job_offers").select(columns).limit(0).execute()
+    return "ingestion"
 
 
 async def run(args) -> int:
@@ -255,9 +292,11 @@ async def run(args) -> int:
             raise ValueError("Fetch limit must be between 1 and 10000")
         gemini = genai.Client(api_key=required("GEMINI_API_KEY"), http_options=types.HttpOptions(timeout=30000))
         db = None if args.dry_run else create_client(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"))
+        storage = "ingestion"
         if db is not None:
             try:
-                await asyncio.to_thread(check_database_schema, db)
+                storage = await asyncio.to_thread(check_database_schema, db)
+                LOG.info("Supabase insert mapping verified: %s", storage)
             except Exception as exc:
                 LOG.error("Supabase schema/access check failed (%s, code=%s). Apply "
                           "supabase/migrations/202610300002_reconcile_job_offers.sql before ingestion.",
@@ -288,7 +327,7 @@ async def run(args) -> int:
                     chat_id, source, posts = await fetch_public_posts(channel, limit)
                 for message in posts:
                     try:
-                        outcome = await ingest_message(gemini, db, message, chat_id, source, args.dry_run)
+                        outcome = await ingest_message(gemini, db, message, chat_id, source, args.dry_run, storage)
                         counts[outcome] = counts.get(outcome, 0) + 1
                     except Exception as exc:
                         failures += 1

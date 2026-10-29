@@ -81,15 +81,42 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             scraper.ParsedJob.model_validate({**self.job.model_dump(), 'role_category': 'Other'})
 
-    async def test_missing_model_falls_back(self):
+    async def test_model_is_pinned_despite_environment_override(self):
         client = MagicMock()
-        client.aio.models.generate_content = AsyncMock(side_effect=[
-            scraper.errors.ClientError(404, {'error': {'message': 'model unavailable'}}),
-            SimpleNamespace(text=self.job.model_dump_json())])
-        with patch.dict('os.environ', {'GEMINI_MODEL': 'gemini-2.5-flash'}):
+        client.aio.models.generate_content = AsyncMock(return_value=SimpleNamespace(text=self.job.model_dump_json()))
+        with patch.dict('os.environ', {'GEMINI_MODEL': 'wrong-model'}):
             await scraper.parse_job(client, self.message.raw_text)
-        calls = client.aio.models.generate_content.call_args_list
-        self.assertEqual([c.kwargs['model'] for c in calls], ['gemini-2.5-flash', 'gemini-1.5-flash'])
+        self.assertEqual(client.aio.models.generate_content.call_args.kwargs['model'], 'gemini-2.5-flash')
+
+    async def test_unavailable_model_is_reported_without_fallback(self):
+        client = MagicMock()
+        client.aio.models.generate_content = AsyncMock(side_effect=scraper.errors.ClientError(404, {'error': {'message': 'unavailable'}}))
+        with self.assertRaises(scraper.errors.ClientError):
+            await scraper.parse_job(client, self.message.raw_text)
+        self.assertEqual(client.aio.models.generate_content.call_count, 1)
+
+    async def test_native_upsert_only_uses_live_columns(self):
+        with patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(return_value=self.job)):
+            result = await scraper.ingest_message(None, self.db, self.message, 123, 'test', storage='native')
+        self.assertEqual(result, 'upserted')
+        call = self.db.table.return_value.upsert.call_args
+        self.assertEqual(call.kwargs['on_conflict'], 'id')
+        row = call.args[0]
+        self.assertEqual(set(row), {'id','title','role_category','location_city','salary_range','description','source','contact_info'})
+        self.assertEqual(row['location_city'], 'Baghdad')
+        self.assertEqual(row['description'], self.message.raw_text)
+        self.assertEqual(row['id'], scraper.native_id(-123, 'test', 17))
+
+    def test_native_mapping_skips_unknown_city(self):
+        record = scraper.build_record(self.job.model_copy(update={'city':None}), self.message, 123, 'test')
+        self.assertIsNone(scraper.native_record(record))
+
+    def test_native_schedule_and_metadata(self):
+        import json
+        job = self.job.model_copy(update={'employment_type':'Full-time','company_name':'Clinic'})
+        record = scraper.native_record(scraper.build_record(job, self.message, 123, 'test'))
+        self.assertEqual(record['employment_type'], 'full_time')
+        self.assertEqual(json.loads(record['contact_info'])['company_name'], 'Clinic')
 
     async def test_invalid_request_does_not_switch_models(self):
         client = MagicMock()
