@@ -8,8 +8,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import json
 import logging
 import os
+import re
+from types import SimpleNamespace
+
+import httpx
+from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -69,23 +75,31 @@ async def parse_job(client, text: str) -> ParsedJob:
     # Bound costs and avoid silently extracting incomplete contacts from truncation.
     if len(text) > 20000:
         raise ValueError("Post exceeds the 20,000-character parsing limit")
-    for attempt in range(3):
-        try:
-            response = await client.aio.models.generate_content(
-                model=MODEL, contents=text,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT, temperature=0,
-                    response_mime_type="application/json", response_schema=ParsedJob,
-                ),
-            )
-            if not response.text:
-                raise ValueError("Gemini returned no JSON")
-            return ParsedJob.model_validate_json(response.text)
-        except errors.APIError as exc:
-            if attempt == 2 or not (exc.code == 429 or (exc.code or 0) >= 500):
-                raise
-            await asyncio.sleep(2 ** (attempt + 1))
-    raise RuntimeError("Unreachable parsing state")
+    # Schema is prompt data only. No response_schema/response_json_schema fields
+    # are sent; validate the resulting JSON locally with Pydantic.
+    instruction = SYSTEM_PROMPT + "\nReturn every field in this JSON schema, using null for unknowns:\n" + json.dumps(ParsedJob.model_json_schema(), ensure_ascii=False)
+    models = list(dict.fromkeys([(os.getenv("GEMINI_MODEL") or MODEL), "gemini-1.5-flash"]))
+    for model_index, model in enumerate(models):
+        for attempt in range(3):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=model, contents=text,
+                    config=types.GenerateContentConfig(
+                        system_instruction=instruction, temperature=0,
+                        response_mime_type="application/json",
+                    ),
+                )
+                if not response.text:
+                    raise ValueError("Gemini returned no JSON")
+                return ParsedJob.model_validate_json(response.text)
+            except errors.APIError as exc:
+                if exc.code == 404 and model_index < len(models) - 1:
+                    LOG.warning("Gemini model unavailable; trying fallback model")
+                    break
+                if attempt == 2 or not (exc.code == 429 or (exc.code or 0) >= 500):
+                    raise
+                await asyncio.sleep(2 ** (attempt + 1))
+    raise RuntimeError("No supported Gemini model available")
 
 
 def text_hash(text: str) -> str:
@@ -98,6 +112,7 @@ def build_record(job: ParsedJob, message, chat_id: int, channel: str) -> dict | 
     record = job.model_dump(exclude={"is_job_offer"})
     record["title"] = job.title.strip()
     record.update(
+        telegram_message_id=message_key(chat_id, channel, message.id),
         source_chat_id=chat_id, source_message_id=message.id,
         source_channel=channel,
         source_url=f"https://t.me/{channel}/{message.id}" if not channel.lstrip("-").isdigit() else None,
@@ -108,9 +123,16 @@ def build_record(job: ParsedJob, message, chat_id: int, channel: str) -> dict | 
     return record
 
 
-def existing_hash(db, chat_id: int, message_id: int) -> str | None:
+def message_key(chat_id: int, channel: str, message_id: int) -> str:
+    # Message IDs are unique only within a channel. Public HTTPS and Telethon
+    # ingestion use the same canonical username-based key.
+    source = channel.lstrip("@").lower() if not channel.lstrip("-").isdigit() else str(chat_id)
+    return f"{source}:{message_id}"
+
+
+def existing_hash(db, chat_id: int, message_id: int, channel: str) -> str | None:
     result = (db.table("job_offers").select("source_text_hash")
-              .eq("source_chat_id", chat_id).eq("source_message_id", message_id)
+              .eq("telegram_message_id", message_key(chat_id, channel, message_id))
               .limit(1).execute())
     return result.data[0]["source_text_hash"] if result.data else None
 
@@ -119,7 +141,7 @@ async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_ru
     if not message.raw_text or not message.raw_text.strip():
         return "empty"
     if not dry_run:
-        saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id)
+        saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id, channel)
         if saved_hash == text_hash(message.raw_text):
             return "unchanged"
     job = await parse_job(gemini, message.raw_text)
@@ -128,58 +150,150 @@ async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_ru
         # If an existing offer was edited into a non-job, remove the stale offer.
         if not dry_run and saved_hash:
             await asyncio.to_thread(lambda: db.table("job_offers").delete()
-                                    .eq("source_chat_id", chat_id)
-                                    .eq("source_message_id", message.id).execute())
+                                    .eq("telegram_message_id", message_key(chat_id, channel, message.id)).execute())
         return "not_job"
     if dry_run:
         return "would_upsert"
-    # Composite conflict target makes re-runs and edited posts idempotent.
+    # Channel-qualified conflict key makes re-runs and edited posts idempotent.
     await asyncio.to_thread(lambda: db.table("job_offers").upsert(
-        record, on_conflict="source_chat_id,source_message_id").execute())
+        record, on_conflict="telegram_message_id").execute())
     return "upserted"
+
+
+async def fetch_public_posts(channel: str | int, limit: int) -> tuple[int, str, list]:
+    """Read Telegram's public HTTPS preview; never join or access private channels."""
+    name = str(channel).strip().lstrip("@")
+    if name.startswith("https://t.me/"):
+        name = name.removeprefix("https://t.me/").removeprefix("s/").strip("/")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{3,31}", name):
+        raise ValueError("HTTPS polling requires a public Telegram channel username")
+    name = name.lower()
+    posts = {}
+    before = None
+    async with httpx.AsyncClient(timeout=20, follow_redirects=False) as http:
+        # Bound pagination even for media-only channels.
+        for _page in range(min(1000, (limit + 19) // 20 + 2)):
+            if len(posts) >= limit:
+                break
+            response = await http.get(f"https://t.me/s/{name}", params={"before": before} if before else None)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            nodes = soup.select(".tgme_widget_message[data-post]")
+            ids = []
+            for node in nodes:
+                source, _, number = node.get("data-post", "").rpartition("/")
+                if source.lower() != name or not number.isdigit():
+                    continue
+                mid = int(number)
+                ids.append(mid)
+                text = node.select_one(".tgme_widget_message_text")
+                date = node.select_one("time[datetime]")
+                if not text or not date:
+                    continue
+                # Preserve Arabic text, line breaks and inline contacts.
+                for br in text.find_all("br"):
+                    br.replace_with("\n")
+                posts[mid] = SimpleNamespace(id=mid, raw_text=text.get_text(separator="", strip=False).strip(),
+                                            date=datetime.fromisoformat(date["datetime"].replace("Z", "+00:00")))
+            if not ids:
+                if not posts:
+                    raise ValueError("Channel has no readable public text posts; it may be private or unavailable")
+                break
+            next_before = min(ids)
+            if before is not None and next_before >= before:
+                break
+            before = next_before
+            if len(posts) < limit:
+                await asyncio.sleep(1)
+    # Synthetic namespace used only for source metadata; dedupe uses canonical username.
+    chat_id = -int.from_bytes(hashlib.sha256(name.encode()).digest()[:7], "big")
+    latest = sorted(posts.values(), key=lambda m: m.id, reverse=True)[:limit]
+    return chat_id, name, list(reversed(latest))
+
+
+def session_client() -> TelegramClient:
+    api_id = int(required("TELEGRAM_API_ID"))
+    if api_id <= 0:
+        raise ValueError("TELEGRAM_API_ID must be positive")
+    session = Path(os.getenv("TELEGRAM_SESSION", "telegram_scraper")).expanduser()
+    session.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    client = TelegramClient(str(session), api_id, required("TELEGRAM_API_HASH"),
+                            connection_retries=0, request_retries=1, timeout=8)
+    # Telethon uses direct MTProto sockets; HTTP_PROXY does not tunnel them.
+    session_file = Path(str(session) if str(session).endswith(".session") else str(session) + ".session")
+    if session_file.exists():
+        session_file.chmod(0o600)
+    return client
+
+
+def check_database_schema(db) -> None:
+    columns = ("id,telegram_message_id,raw_text,title,company_name,city,role_category,"
+               "contact_phone,contact_telegram,salary_text,employment_type,created_at,"
+               "source_chat_id,source_message_id,source_channel,source_url,source_posted_at,"
+               "source_text_hash,ingested_at")
+    db.table("job_offers").select(columns).limit(0).execute()
 
 
 async def run(args) -> int:
     load_dotenv(Path(__file__).with_name(".env"), override=False)
-    api_id = int(required("TELEGRAM_API_ID"))
-    if api_id <= 0:
-        raise ValueError("TELEGRAM_API_ID must be positive")
-    phone = required("TELEGRAM_PHONE_NUMBER")
-    session = os.getenv("TELEGRAM_SESSION", "telegram_scraper")
-    client = TelegramClient(session, api_id, required("TELEGRAM_API_HASH"))
+    transport = os.getenv("TELEGRAM_TRANSPORT", "auto").lower()
+    if transport not in {"auto", "https", "telethon"}:
+        raise ValueError("TELEGRAM_TRANSPORT must be auto, https, or telethon")
+    client = None
     gemini = None
     failures = 0
     try:
         if args.login:
             # This explicitly requested interactive step may send an account login code.
-            await client.start(phone=phone)
+            client = session_client()
+            await client.start(phone=required("TELEGRAM_PHONE_NUMBER"))
             LOG.info("Telegram session authorized. Keep the session file private.")
             return 0
         channels = channels_from_env()
         limit = args.limit if args.limit is not None else int(os.getenv("TELEGRAM_FETCH_LIMIT", "100"))
         if not 1 <= limit <= 10000:
             raise ValueError("Fetch limit must be between 1 and 10000")
-        gemini = genai.Client(api_key=required("GEMINI_API_KEY"))
+        gemini = genai.Client(api_key=required("GEMINI_API_KEY"), http_options=types.HttpOptions(timeout=30000))
         db = None if args.dry_run else create_client(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"))
-        await client.connect()
-        if not await client.is_user_authorized():
-            raise ValueError("Telegram session is not authorized. Run python telegram_scraper.py --login first.")
+        if db is not None:
+            try:
+                await asyncio.to_thread(check_database_schema, db)
+            except Exception as exc:
+                LOG.error("Supabase schema/access check failed (%s, code=%s). Apply "
+                          "supabase/migrations/202610300002_reconcile_job_offers.sql before ingestion.",
+                          type(exc).__name__, getattr(exc, "code", "unknown"))
+                return 1
+        if transport != "https":
+            try:
+                client = session_client()
+                await asyncio.wait_for(client.connect(), timeout=12)
+                if not await asyncio.wait_for(client.is_user_authorized(), timeout=12):
+                    raise ValueError("Telegram session requires --login")
+            except (OSError, ConnectionError, asyncio.TimeoutError, ValueError) as exc:
+                if client:
+                    await client.disconnect()
+                client = None
+                if transport == "telethon":
+                    raise ValueError("TELEGRAM_TRANSPORT=telethon requires connectivity and an authorized --login session") from exc
+                LOG.warning("MTProto unavailable (%s); trying public HTTPS previews", type(exc).__name__)
         counts: dict[str, int] = {}
         for channel in channels:
             try:
-                entity = await client.get_entity(channel)
-                chat_id = entity.id
-                source = getattr(entity, "username", None) or str(chat_id)
-                # Latest N messages, oldest first within the fetched window.
-                posts = await client.get_messages(entity, limit=limit)
-                for message in reversed(posts):
+                if client:
+                    entity = await client.get_entity(channel)
+                    chat_id = entity.id
+                    source = getattr(entity, "username", None) or str(chat_id)
+                    posts = list(reversed(await client.get_messages(entity, limit=limit)))
+                else:
+                    chat_id, source, posts = await fetch_public_posts(channel, limit)
+                for message in posts:
                     try:
                         outcome = await ingest_message(gemini, db, message, chat_id, source, args.dry_run)
                         counts[outcome] = counts.get(outcome, 0) + 1
                     except Exception as exc:
                         failures += 1
                         # Exceptions can include URLs, request headers or post text; log type only.
-                        LOG.error("Message %s/%s failed (%s)", chat_id, message.id, type(exc).__name__)
+                        LOG.error("Message %s/%s failed (%s, code=%s)", chat_id, message.id, type(exc).__name__, getattr(exc, "code", "unknown"))
             except telegram_errors.FloodWaitError as exc:
                 failures += 1
                 LOG.error("Telegram rate limit: retry this run after %s seconds", exc.seconds)
@@ -189,7 +303,8 @@ async def run(args) -> int:
         LOG.info("Run complete: %s; failures=%d", counts, failures)
         return 1 if failures else 0
     finally:
-        await client.disconnect()
+        if client:
+            await client.disconnect()
         if gemini:
             await gemini.aio.aclose()
             gemini.close()

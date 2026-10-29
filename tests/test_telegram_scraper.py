@@ -15,7 +15,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             role_category='Dentists', contact_phone=None, contact_telegram=None,
             salary_text=None, employment_type=None)
         self.db = MagicMock()
-        self.db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+        self.db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
 
     async def test_parse_uses_structured_model(self):
         client = MagicMock()
@@ -24,7 +24,10 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(parsed.city, 'Baghdad')
         kwargs = client.aio.models.generate_content.call_args.kwargs
         self.assertEqual(kwargs['model'], 'gemini-2.5-flash')
-        self.assertIs(kwargs['config'].response_schema, scraper.ParsedJob)
+        self.assertIsNone(kwargs['config'].response_schema)
+        self.assertIsNone(kwargs['config'].response_json_schema)
+        self.assertEqual(kwargs['config'].response_mime_type, 'application/json')
+        self.assertIn('role_category', kwargs['config'].system_instruction)
 
     async def test_invalid_json_is_rejected(self):
         client = MagicMock()
@@ -36,7 +39,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(scraper, 'parse_job', AsyncMock(return_value=self.job)):
             self.assertEqual(await scraper.ingest_message(None, self.db, self.message, 123, 'test_channel'), 'upserted')
         call = self.db.table.return_value.upsert.call_args
-        self.assertEqual(call.kwargs['on_conflict'], 'source_chat_id,source_message_id')
+        self.assertEqual(call.kwargs['on_conflict'], 'telegram_message_id')
         row = call.args[0]
         self.assertEqual(row['source_url'], 'https://t.me/test_channel/17')
         self.assertEqual(row['source_text_hash'], scraper.text_hash(self.message.raw_text))
@@ -77,6 +80,61 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
     def test_invalid_role_rejected(self):
         with self.assertRaises(ValueError):
             scraper.ParsedJob.model_validate({**self.job.model_dump(), 'role_category': 'Other'})
+
+    async def test_missing_model_falls_back(self):
+        client = MagicMock()
+        client.aio.models.generate_content = AsyncMock(side_effect=[
+            scraper.errors.ClientError(404, {'error': {'message': 'model unavailable'}}),
+            SimpleNamespace(text=self.job.model_dump_json())])
+        with patch.dict('os.environ', {'GEMINI_MODEL': 'gemini-2.5-flash'}):
+            await scraper.parse_job(client, self.message.raw_text)
+        calls = client.aio.models.generate_content.call_args_list
+        self.assertEqual([c.kwargs['model'] for c in calls], ['gemini-2.5-flash', 'gemini-1.5-flash'])
+
+    async def test_invalid_request_does_not_switch_models(self):
+        client = MagicMock()
+        client.aio.models.generate_content = AsyncMock(side_effect=scraper.errors.ClientError(
+            400, {'error': {'message': 'invalid request'}}))
+        with self.assertRaises(scraper.errors.ClientError):
+            await scraper.parse_job(client, self.message.raw_text)
+        self.assertEqual(client.aio.models.generate_content.call_count, 1)
+
+    async def test_https_preview_preserves_arabic_and_contacts(self):
+        html = '<div class="tgme_widget_message" data-post="clinic/17"><div class="tgme_widget_message_text">مطلوب طبيب<br/>@contact</div><time datetime="2026-10-30T08:00:00Z"></time></div>'
+        http = MagicMock()
+        http.get = AsyncMock(return_value=SimpleNamespace(text=html, raise_for_status=lambda: None))
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=http)
+        cm.__aexit__ = AsyncMock(return_value=None)
+        with patch.object(scraper.httpx, 'AsyncClient', return_value=cm):
+            cid, source, posts = await scraper.fetch_public_posts('@clinic', 1)
+        self.assertEqual(source, 'clinic')
+        self.assertEqual(posts[0].raw_text, 'مطلوب طبيب\n@contact')
+        self.assertEqual(scraper.message_key(cid, source, 17), scraper.message_key(123, source, 17))
+        self.assertEqual(http.get.call_args.args[0], 'https://t.me/s/clinic')
+
+    async def test_private_id_cannot_use_public_https(self):
+        with self.assertRaises(ValueError):
+            await scraper.fetch_public_posts(-100123, 1)
+
+    async def test_unreadable_public_channel_is_not_success(self):
+        http = MagicMock()
+        http.get = AsyncMock(return_value=SimpleNamespace(text='<html></html>', raise_for_status=lambda: None))
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=http)
+        cm.__aexit__ = AsyncMock(return_value=None)
+        with patch.object(scraper.httpx, 'AsyncClient', return_value=cm):
+            with self.assertRaises(ValueError):
+                await scraper.fetch_public_posts('clinic', 1)
+
+    def test_schema_preflight_rejects_missing_columns(self):
+        db = MagicMock()
+        db.table.return_value.select.return_value.limit.return_value.execute.side_effect = RuntimeError('missing column')
+        with self.assertRaises(RuntimeError):
+            scraper.check_database_schema(db)
+
+    def test_message_ids_are_channel_scoped(self):
+        self.assertNotEqual(scraper.message_key(1, 'clinic', 17), scraper.message_key(2, 'other', 17))
 
     def test_channel_configuration(self):
         with patch.dict('os.environ', {'TELEGRAM_CHANNELS': '@clinic, -100123, @clinic'}):

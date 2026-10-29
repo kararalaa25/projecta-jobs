@@ -40,37 +40,59 @@ Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's env
 
 ## Telegram → Gemini → Supabase ingestion
 
-The Python worker is separate from the Vite frontend and Vercel's static hosting. Run it on a trusted machine or worker with Python 3.11+, HTTPS access to Gemini/Supabase, and Telegram network access. Use only channels you are authorized to access and whose posts you are permitted to process. Raw post text and any contact details it contains are sent to Gemini and stored in Supabase; account for this when selecting sources.
+The Python worker runs separately from Vite/Vercel static hosting. It requires Python 3.11+ and HTTPS access to Telegram public previews, Gemini and Supabase. Process only channels you may access and whose posts you may process: post text and contact details are sent to Gemini and stored in Supabase.
 
-1. Create a virtual environment and install dependencies:
-   ```sh
-   python3 -m venv .venv
-   .venv/bin/pip install -r requirements.txt
-   cp .env.example .env
-   ```
-   If `.env` already exists, edit it rather than overwriting it. The scraper loads `.env` next to the script; exported environment variables take precedence. Vite uses its separate `VITE_` variables.
-2. Apply [the job_offers migration](supabase/migrations/202610300001_job_offers.sql) to your Supabase project. It enables RLS and allows service-role ingestion only; it does not expose scraped posts publicly. If a `job_offers` table already exists, compare its schema before applying: `create table if not exists` does not migrate incompatible existing columns.
-3. Obtain your Telegram API ID/hash from `my.telegram.org` and set all server-side variables in `.env`. Set `TELEGRAM_CHANNELS` to comma-separated real channel usernames (e.g. `@your_channel`) or numeric IDs; there are no invented default channels. The Telegram account must already have access, including membership for private channels. The phone number must include its country code. Set the Gemini API key and Supabase URL/service-role key securely. Never use a `VITE_` prefix for server credentials.
-4. Authorize once interactively:
-   ```sh
-   .venv/bin/python telegram_scraper.py --login
-   ```
-   Telethon will request the login code and, if enabled, the account's two-factor password in the terminal. Protect the generated `.session` file as a credential. Use a private `TELEGRAM_SESSION` path if desired; its parent directory must exist. No login code or password belongs in Git or chat.
-5. Validate parsing without accessing Supabase, then ingest:
-   ```sh
-   .venv/bin/python telegram_scraper.py --dry-run --limit 10
-   .venv/bin/python telegram_scraper.py --limit 100
-   ```
-   Dry runs still read Telegram and call Gemini (which may incur API charges); logs show aggregate outcomes, not raw posts or secrets. Normal runs require the service-role key. Fetch size defaults to `TELEGRAM_FETCH_LIMIT=100` latest messages per channel (maximum 10,000). Increase it for backfills; this is a bounded polling worker, not a complete channel archive.
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+# Create .env from .env.example only if you do not already have one.
+```
 
-Gemini `gemini-2.5-flash` returns schema-validated JSON with the requested eight job fields plus an internal `is_job_offer` classification. Non-job posts, candidate requests, uncertain healthcare categories, and missing titles are skipped; missing details stay null. Short transient Gemini rate-limit/server errors are retried with backoff. Channel/message failures are isolated and the process exits nonzero if any failed, so a scheduler can alert or retry. Telegram flood waits are reported as retry delays; the worker does not join channels or send posts/messages.
+Set credentials securely in `.env` or environment settings. Exported variables override `.env`. Never put the service-role key, Telegram credentials, session files or a database connection URL in frontend `VITE_` variables or Git.
 
-The unique `(source_chat_id, source_message_id)` constraint prevents duplicate rows from reprocessing the same post. A SHA-256 hash skips unchanged messages before calling Gemini; edits update the same row. An existing offer edited into non-job content is removed. Identical reposts with different message IDs or from different channels remain separate source listings. Deleted source messages are not reconciled automatically. Keep the private session and `.env` outside backups/artifacts intended for public sharing.
+### Database migration
 
-For periodic ingestion, schedule the normal command in this repository's working directory using your worker's scheduler (e.g. cron). Avoid concurrent jobs sharing one Telethon SQLite session. Keep credentials and the session on the worker, never in frontend deployments or logs.
+Apply `supabase/migrations/202610300002_reconcile_job_offers.sql` in the Supabase SQL editor. This migration works independently for existing tables: it adds required columns, preserves rows, uses text channel-qualified `telegram_message_id` keys, backfills earlier ingestion identities, creates a unique index, and reloads the API schema. It also retains source metadata needed by the worker. Duplicate existing keys or incompatible ID types cause an atomic failure requiring manual reconciliation; the migration does not delete data. Existing RLS policies are preserved and RLS is enabled.
+
+Alternatively, configure the PostgreSQL connection string `SUPABASE_DB_URL` securely and run:
+
+```sh
+.venv/bin/python scripts/apply_ingestion_migration.py
+```
+
+The helper verifies TLS certificates and hostnames. It requires actual database credentials and a permitted PostgreSQL network route. The service-role REST key cannot execute arbitrary SQL or create an SQL RPC; no such RPC is assumed. Migration 001 is the original fresh-table schema; use migration 002 to reconcile an existing table even if 001 cannot run on it.
+
+### Telegram transport and sessions
+
+Set `TELEGRAM_CHANNELS` to comma-separated public usernames, `@usernames`, `https://t.me/usernames` URLs, or numeric channel IDs (numeric IDs require authenticated Telethon access).
+
+- `TELEGRAM_TRANSPORT=auto` (default) tries a bounded direct MTProto connection. If unavailable or unauthenticated, it reads public `https://t.me/s/<channel>` previews over the inherited HTTPS proxy.
+- `TELEGRAM_TRANSPORT=https` skips Telethon entirely. Public previews need neither a phone login nor a Telegram session. They cannot read private channels, protected/unavailable previews, media-only content or content not exposed by Telegram. Empty/unreadable previews fail visibly. Fetches are bounded and paginate older public text posts.
+- `TELEGRAM_TRANSPORT=telethon` requires a reachable Telegram socket and authorized session; it never silently falls back. `HTTP_PROXY` does not tunnel MTProto traffic. For this mode, authorize once from a machine with Telegram connectivity:
+  ```sh
+  .venv/bin/python telegram_scraper.py --login
+  ```
+  Enter the code and any two-factor password privately in the terminal. Session parent directories are created and session files get owner-only permissions. Do not run concurrent workers sharing the same SQLite session.
+
+HTTPS fallback uses only Telegram's public website and does not join channels or impersonate the user's session. The worker does not send channel posts or user messages.
+
+### Gemini parsing and running
+
+The default model is `gemini-2.5-flash`, with `gemini-1.5-flash` fallback on model-not-found (404). Both must be available to your account; code cannot restore retired or restricted models. `GEMINI_MODEL` optionally overrides the primary. Gemini receives standard `response_mime_type="application/json"` only—neither request schema parameter is sent. The expected shape is included in the system prompt and output is validated locally with Pydantic. Missing facts stay null; non-offers, candidates seeking work, missing titles, and uncertain categories are skipped. Short transient rate limits/server errors get bounded retries.
+
+```sh
+# Reads Telegram and calls Gemini (may incur API charges), never accesses Supabase:
+.venv/bin/python telegram_scraper.py --dry-run --limit 1
+# Actual ingestion:
+.venv/bin/python telegram_scraper.py --limit 100
+```
+
+`TELEGRAM_FETCH_LIMIT` defaults to 100 newest messages per channel (maximum 10,000). This is a bounded polling worker, not a full channel archive. Schedule it on a trusted worker; Vercel static hosting does not run it.
+
+`telegram_message_id` is `channel_username:message_id` (or `chat_id:message_id` for private channels). This prevents collisions between channels and deduplicates public HTTPS/Telethon runs. SHA-256 hashes skip unchanged posts before Gemini; edits update the row. Renaming a public channel changes its canonical namespace; reconcile earlier rows if that occurs. An offer edited into non-job content is removed. Deleted Telegram posts are not reconciled; reposts with different IDs remain separate source listings. Logs show outcome counts/error types and codes, not raw posts or secrets. Failures produce a nonzero exit status.
 
 ```sh
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Tests use mocked Telegram messages, Gemini responses, and Supabase calls; they do not contact live accounts. Actual ingestion requires your credentials, channel selection, session authorization, and applied SQL migration. The frontend still uses demo/device-local listings; reading and displaying `job_offers` requires a separate public-read/API policy and frontend integration.
+Tests mock external services. Live readiness additionally requires accessible channels, an available Gemini model, and the applied database migration. Frontend listing reads are still demo/device-local; public display of ingested rows requires a separately designed read policy and frontend integration.
