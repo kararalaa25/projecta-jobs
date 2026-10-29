@@ -1,6 +1,6 @@
 # Projecta Jobs Marketplace
 
-A responsive dental and medical careers frontend for Iraq, built with React, Vite, Tailwind CSS, Lucide icons, and Supabase Auth. Its soft lilac palette, rounded cards, and playful illustration take inspiration from the Paperpillar Job App aesthetic.
+A responsive dental and medical careers frontend for Iraq, built with React, Vite, Tailwind CSS, Lucide icons, and Supabase Auth. Its slate background, navy navigation, teal actions, left filtering sidebar, and square white cards follow a compact professional job-search layout.
 
 ## Develop
 
@@ -24,10 +24,16 @@ Without these variables, the frontend works in demo mode and the sign-in modal e
 
 ## Listings and interactions
 
-- Search by title, organization/name, or description; filter by healthcare role, Iraqi city, and schedule.
+- Search by title, organization/name, or description; filter by healthcare role, Iraqi city, schedule, and minimum monthly salary. Both listing tabs preserve the filters.
 - Switch between job openings and candidates, save listings, and revisit saved listings in either tab.
-- Create a listing with an international phone number to enable direct WhatsApp and phone actions.
+- Create a listing with an international phone number to enable direct WhatsApp and phone actions; add an optional Telegram username for Telegram contact.
 - Demo listings do not contain fabricated phone numbers and are explicitly identified as samples.
 - Created listings and saved IDs persist in localStorage on the current browser/device. Listings are **not publicly published**, synced to Supabase, or shared across devices. The post form explicitly explains this scope.
 
 The Supabase integration covers authentication. A public marketplace will additionally need a listings database, access policies, moderation, and backend persistence. No secrets or backend credentials are committed.
+
+## Deploy to Vercel
+
+Import `kararalaa25/projecta-jobs` in Vercel and select the `main` branch. The committed `vercel.json` selects Vite, runs `npm run build`, and publishes `dist/` with an SPA fallback.
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's environment settings before deploying if authentication is required. Without them, the marketplace runs in demo mode. After deployment, add the production origin to the Supabase site URL and redirect allowlist. Listings remain device-local until backend persistence is implemented.
