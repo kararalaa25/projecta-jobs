@@ -3,8 +3,15 @@ from unittest.mock import AsyncMock,MagicMock,patch
 from datetime import datetime,timezone,timedelta
 from types import SimpleNamespace
 import telegram_scraper as scraper
-from iraq_taxonomy import locations,classify_roles,GOVERNORATES,ROLE_IDS
+from iraq_taxonomy import locations,classify_roles,GOVERNORATES,ROLE_IDS,employment_type
 class NationwideTests(unittest.IsolatedAsyncioTestCase):
+ def test_raw_fallback_preserves_explicit_work_schedule_and_telegram_provenance(self):
+  for text,expected in [('مطلوب صيدلاني في الحلة بدوام جزئي هاتف 07701234567','Part-time'),('مطلوب طبيب اسنان في بغداد full-time','Full-time'),('مطلوب موظفة استقبال في كربلاء دوام كامل أو دوام جزئي',None),('مطلوب مساعد في النجف دوام مسائي',None)]:
+   self.assertEqual(employment_type(text),expected)
+   message=SimpleNamespace(id=42,raw_text=text,date=datetime.now(timezone.utc))
+   row=scraper.raw_record(message,123,'clinic','native')
+   self.assertEqual(row['source'],'telegram')
+   self.assertEqual(json.loads(row['contact_info'])['employment_type'],expected)
  def test_all_18_governorates_and_aliases(self):
   self.assertEqual(len(GOVERNORATES),18)
   for province in GOVERNORATES:

@@ -1,4 +1,6 @@
 import {classifyJob} from '../config/job-targeting.js'
+import {isPlatformOffer} from '../config/job-feeds.js'
+import {matchGovernorates,matchEmploymentType} from '../config/job-matching.js'
 import {jobTimestamp} from './dates.js'
 import { ar, canonicalRole, canonicalCity, roles as roleList, cities as cityList } from './i18n.js'
 import { extractContacts, normalizeIraqiPhone, telegramHandle, isRejectedPost, isRawJobAllowed } from './contacts.js'
@@ -32,18 +34,24 @@ export function toJob(row) {
   const username = telegramHandle(row.contact_telegram || meta.telegram) || extracted.telegram
   const sourceUrl = telegramUrl(meta.source_url)
   const company = typeof meta.company_name === 'string' && meta.company_name.trim() ? meta.company_name : row.source === 'telegram' ? 'Telegram community' : 'Healthcare employer'
-  const scheduleValue=Object.hasOwn(meta,'employment_type')?meta.employment_type:row.employment_type
+  const scheduleValue=Object.hasOwn(meta,'employment_type')?meta.employment_type:row.source==='telegram'?null:row.employment_type
   const mappedRoles=(Array.isArray(meta.role_categories)?meta.role_categories:[]).map(canonicalRole).filter(value=>roleList.includes(value))
   const mappedLocations=(Array.isArray(meta.governorates)?meta.governorates:[]).map(canonicalCity).filter(value=>cityList.includes(value))
   const inferred=classifyJob(title,text)
   if(raw&&inferred.primary)title='فرصة عمل — '+ar(inferred.primary)
-  const role=canonicalRole(meta.role_category||roleNames[row.role_category]||row.role_category||inferred.primary||'')
-  const province=canonicalCity(meta.governorate||row.location_city||'City not specified')
+  const candidateRole=canonicalRole(meta.role_category||roleNames[row.role_category]||row.role_category||inferred.primary||'')
+  const role=roleList.includes(candidateRole)?candidateRole:inferred.primary||'Unsorted'
+  const inferredLocations=row.source==='telegram'&&!mappedLocations.length?matchGovernorates(text):[]
+  const candidateCity=canonicalCity(meta.governorate||row.location_city||'')
+  const province=cityList.includes(candidateCity)?candidateCity:inferredLocations[0]||'City not specified'
+  const schedule=({full_time:'Full-time',part_time:'Part-time',contract:'Contract',internship:'Internship','Full-time':'Full-time','Part-time':'Part-time',Contract:'Contract'}[scheduleValue])
+  // Imported full_time defaults are not evidence when parsing explicitly left the schedule unknown.
+  const inferredSchedule=row.source==='telegram'?matchEmploymentType(text):null
   return {
-    id: row.id, type: 'jobs', title: title.slice(0, 140), company,
-    city:province, governorates:mappedLocations.length?mappedLocations:[province], role, roles:mappedRoles.length?mappedRoles:role?[role]:inferred.roles,
+    id: row.id, type: 'jobs', source:row.source, official:isPlatformOffer(row), title: title.slice(0, 140), company,
+    city:province, governorates:mappedLocations.length?mappedLocations:inferredLocations.length?inferredLocations:[province], role, roles:mappedRoles.length?mappedRoles:inferred.roles.length?inferred.roles:[role],
     salary: row.salary_range || 'Salary not specified',
-    schedule: raw ? 'Schedule not specified' : ({ full_time: 'Full-time', part_time: 'Part-time', contract: 'Contract', internship: 'Internship', 'Full-time':'Full-time', 'Part-time':'Part-time', Contract:'Contract' }[scheduleValue] || 'Schedule not specified'),
+    schedule: inferredSchedule||(!raw?schedule:null)||'Schedule not specified',
     description: text, logo: row.source === 'telegram' ? '↗' : company.slice(0, 2).toUpperCase(), color: 'mint',
     time: jobTimestamp(meta.source_posted_at || row.created_at),
     createdAt: meta.source_posted_at || row.created_at || '', sourceUrl, phone, whatsapp,
@@ -52,8 +60,8 @@ export function toJob(row) {
     live: true, raw, featured:meta.featured===true,
   }
 }
-export async function fetchJobsPage(signal, offset=0) {
-  const response = await fetch(`/api/jobs?offset=${offset}`, { signal, headers: { Accept: 'application/json' } })
+export async function fetchJobsPage(signal, offset=0, feed='all') {
+  const response = await fetch(`/api/jobs?offset=${offset}&feed=${encodeURIComponent(feed)}`, { signal, headers: { Accept: 'application/json' } })
   if (!response.ok) throw new Error('تعذر تحميل فرص العمل. يرجى إعادة المحاولة.')
   const payload = await response.json()
   if (!Array.isArray(payload.jobs)) throw new Error('تعذر قراءة بيانات الإعلانات.')
@@ -63,8 +71,8 @@ export async function fetchJobsPage(signal, offset=0) {
     return !isRejectedPost(text) && (contact(row.contact_info).parsing_status !== 'unparsed' || isRawJobAllowed(text))
   }).map(toJob)}
 }
-export async function fetchJobs(signal){
+export async function fetchJobs(signal,feed='all'){
  const jobs=[]
- for(let page=0;page<100;page++){const result=await fetchJobsPage(signal,page*200);jobs.push(...result.jobs);if(!result.hasMore)return jobs}
+ for(let page=0;page<100;page++){const result=await fetchJobsPage(signal,page*200,feed);jobs.push(...result.jobs);if(!result.hasMore)return jobs}
  throw new Error("تجاوزت النتائج حد التحميل. يرجى تضييق نطاق البحث.")
 }

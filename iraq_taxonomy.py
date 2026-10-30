@@ -6,6 +6,11 @@ GOVERNORATES=CATALOG['governorates']
 ROLE_IDS=tuple(r['id'] for r in CATALOG['roles'])
 def normalize(value):
     return re.sub(r'\s+',' ',re.sub(r'[\u064b-\u065f\u0670\u0640]','',value).translate(str.maketrans({'أ':'ا','إ':'ا','آ':'ا','ة':'ه','ى':'ي','_':' '})).casefold())
+def employment_type(text):
+    value=normalize(text)
+    full=bool(re.search(r'دوام\s*كامل|full[\s-]*time',value))
+    part=bool(re.search(r'دوام\s*جزئي|part[\s-]*time',value))
+    return None if full==part else 'Part-time' if part else 'Full-time'
 def locations(text):
     value=normalize(text);found=[]
     for governorate in GOVERNORATES:

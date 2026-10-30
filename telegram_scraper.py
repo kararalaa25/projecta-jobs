@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
-from iraq_taxonomy import GOVERNORATES,ROLE_IDS,locations,classify_roles,CATALOG
+from iraq_taxonomy import GOVERNORATES,ROLE_IDS,locations,classify_roles,CATALOG,employment_type
 from weakref import WeakKeyDictionary
 
 from dotenv import load_dotenv
@@ -199,6 +199,7 @@ def build_record(job: ParsedJob, message, chat_id: int, channel: str) -> dict | 
     matched_roles=classify_roles(job.title or "") or classify_roles(message.raw_text)
     record["city"] = matched_locations[0] if matched_locations else job.city
     record["role_category"] = matched_roles[0] if matched_roles else job.role_category
+    record["employment_type"] = employment_type(message.raw_text) or job.employment_type
     record.update(extract_contacts(message.raw_text))
     record.update(
         telegram_message_id=message_key(chat_id, channel, message.id),
@@ -264,7 +265,7 @@ def raw_record(message, chat_id: int, channel: str, storage: str) -> dict:
             "contact_info": json.dumps({"parsing_status": "unparsed", "telegram_message_id": key,
                                         "source_url": source_url, "role_category": matched_roles[0] if matched_roles else None,
                                         "role_categories": matched_roles, "governorate": matched_locations[0] if matched_locations else None,
-                                        "governorates": matched_locations, "source_posted_at": message.date.isoformat(), "employment_type":None, "phone": contacts["contact_phone"],
+                                        "governorates": matched_locations, "source_posted_at": message.date.isoformat(), "employment_type":employment_type(message.raw_text), "phone": contacts["contact_phone"],
                                         "telegram": contacts["contact_telegram"], "whatsapp": contacts["contact_whatsapp"]}, ensure_ascii=False),
             **native_contact_fields(contacts, storage),
         }
@@ -350,6 +351,7 @@ def enrich_contacts(db, message, chat_id, channel, storage):
     meta.update(role_categories=matched_roles,governorates=matched_locations)
     if matched_roles:meta["role_category"]=matched_roles[0]
     if matched_locations:meta["governorate"]=matched_locations[0]
+    if employment_type(message.raw_text):meta["employment_type"]=employment_type(message.raw_text)
     meta.update(phone=contacts["contact_phone"], telegram=contacts["contact_telegram"], whatsapp=contacts["contact_whatsapp"])
     db.table("job_offers").update({"contact_info": json.dumps(meta, ensure_ascii=False),
                                   **native_contact_fields(contacts, storage),
@@ -361,7 +363,7 @@ def regex_job(text: str) -> ParsedJob | None:
     matched_roles=classify_roles(text);matched_locations=locations(text)
     if not matched_roles:return None
     label=next(r["ar"] for r in CATALOG["roles"] if r["id"]==matched_roles[0])
-    schedule="Full-time" if re.search(r"دوام\s*كامل|full.?time",normalized_text(text)) else "Part-time" if re.search(r"دوام\s*جزئي|part.?time",normalized_text(text)) else None
+    schedule=employment_type(text)
     salary=re.search(r"(?:الراتب|راتب|المرتب)\s*[:：]?\s*([^\n]{1,80})",text)
     contacts=extract_contacts(text)
     return ParsedJob(is_job_offer=True,title="فرصة عمل — "+label,company_name=None,

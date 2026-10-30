@@ -1,4 +1,5 @@
 import {serverClient,serverAuthClient} from '../server/supabase.js'
+import {isPlatformOffer} from '../config/job-feeds.js'
 import {isSuperAdmin,isOwner,isSuspended,hasConfirmedIdentity} from '../config/access.js'
 import {headers,json,sameOrigin,readBody,authenticate,bearerToken,HttpError,check,uuid,text,errorResponse,missingSchema} from '../server/http.js'
 import {readPlatform,adminMutation} from '../server/platform.js'
@@ -71,8 +72,8 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
   if(action==='job.save'){
    const platform=await readPlatform(db);const record=adminJobRecord(body.job,platform.catalog)
    // New manual records use the current table schema; existing source provenance is retained.
-   if(body.id){const id=uuid(body.id);const old=check(await db.from('job_offers').select('contact_info').eq('id',id).single());let meta={};try{meta=JSON.parse(old.contact_info)||{};if(typeof meta!=='object'||Array.isArray(meta))meta={}}catch{};record.contact_info=JSON.stringify({...meta,...JSON.parse(record.contact_info)});delete record.source;delete record.status;const r=await db.from('job_offers').update(record).eq('id',id).select('id').single();check(r)}
-   else {if(!record.role_category||!record.location_city)throw new HttpError(400,'اختر التخصص والمحافظة للإعلان الجديد.');const created=check(await db.from('job_offers').insert({...record,publisher_id:actor.id}).select('id').single());return saved(created.id)}
+   if(body.id){const id=uuid(body.id);const old=check(await db.from('job_offers').select('contact_info,source').eq('id',id).single());if(old.source==='manual'&&!isPlatformOffer(record))throw new HttpError(400,'إعلانات المنصة تتطلب عنواناً ووصفاً وراتباً ومحافظة ورقم هاتف عراقي.');let meta={};try{meta=JSON.parse(old.contact_info)||{};if(typeof meta!=='object'||Array.isArray(meta))meta={}}catch{};record.contact_info=JSON.stringify({...meta,...JSON.parse(record.contact_info)});delete record.source;delete record.status;const r=await db.from('job_offers').update(record).eq('id',id).select('id').single();check(r)}
+   else {if(!isPlatformOffer(record))throw new HttpError(400,'إعلانات المنصة تتطلب عنواناً ووصفاً وراتباً ومحافظة ورقم هاتف عراقي.');if(!record.role_category||!record.location_city)throw new HttpError(400,'اختر التخصص والمحافظة للإعلان الجديد.');const created=check(await db.from('job_offers').insert({...record,publisher_id:actor.id}).select('id').single());return saved(created.id)}
    return saved(body.id)
   }
   if(action==='job.status'){
