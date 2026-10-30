@@ -2,7 +2,7 @@
 export function backendReason(error,status){
  const code=String(error?.code||error?.cause?.code||'')
  const message=String(error?.message||'').toLowerCase()
- if(code==='SERVER_CONFIG'||code==='ERR_INVALID_URL'||/supabaseurl|supabasekey.*required|invalid url|failed to parse url|invalid.*header|invalid character|bytestring/.test(message))return 'configuration'
+ if(code==='PGRST125'||code==='SERVER_CONFIG'||code==='ERR_INVALID_URL'||/supabaseurl|supabasekey.*required|invalid url|failed to parse url|invalid.*header|invalid character|bytestring/.test(message))return 'configuration'
  if(code==='42501')return 'permissions'
  if(status===401||status===403||/jwt|api.?key|invalid signature/.test(message))return 'credentials'
  if(['42703','42P01','PGRST202','PGRST204','PGRST205'].includes(code))return 'schema'

@@ -1,3 +1,4 @@
+import {normalizeSupabaseUrl} from '../config/supabase-url.js'
 import {backendReason,safeBackendCode} from '../server/backend-errors.js'
 import { createClient } from '@supabase/supabase-js'
 import { EnvHttpProxyAgent, fetch as proxyFetch } from 'undici'
@@ -25,7 +26,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
     if(!Number.isInteger(offset)||offset<0||offset>20000){res.statusCode=400;return res.end(JSON.stringify({error:'طلب غير صالح.'}))}
     let upstreamStatus
     try {
-      const db = clientFactory(url, key, { auth: { persistSession: false, autoRefreshToken: false },
+      const db = clientFactory(normalizeSupabaseUrl(url), key, { auth: { persistSession: false, autoRefreshToken: false },
         ...(dispatcher ? { global: { fetch: (input, init) => proxyFetch(input, { ...init, dispatcher }) } } : {}),
       })
       // Active marketplace posts only. Never expose user/account IDs or other tables.
@@ -43,7 +44,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       return res.end(JSON.stringify({ jobs: data || [], hasMore:(data||[]).length===200 }))
     } catch (error) {
       console.error("Job feed unavailable:", error?.name || "Error", error?.code || error?.cause?.code || "unknown")
-      res.statusCode = 502
+      res.statusCode = error?.code==='SERVER_CONFIG'?503:502
       const reason = backendReason(error,upstreamStatus)
       return res.end(JSON.stringify({ error: 'تعذر تحميل الإعلانات حالياً. يرجى إعادة المحاولة.', reason, code:safeBackendCode(error) }))
     }
