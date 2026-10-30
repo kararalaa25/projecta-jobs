@@ -34,7 +34,7 @@ test('feed endpoint selects active public listing fields only',async()=>{
 })
 test('missing config and database failures return safe visible errors',async()=>{
   const missing=response();await createJobsHandler({})({method:'GET'},missing);assert.equal(missing.statusCode,503)
-  const failed=response();await createJobsHandler({SUPABASE_URL:'x',SUPABASE_SERVICE_ROLE_KEY:'secret'},()=>{throw Error('secret')})({method:'GET'},failed)
+  const failed=response();await createJobsHandler({SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'secret'},()=>{throw Error('secret')})({method:'GET'},failed)
   assert.equal(failed.statusCode,502);assert.ok(!JSON.stringify(failed).includes('secret'))
 })
 test('feed does not accept write requests',async()=>{
