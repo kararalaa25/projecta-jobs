@@ -52,8 +52,21 @@ feed and move focus to its results. Browser sizing checks cover 320, 390, 768 an
   asset-ID payloads passed. Application controls/modal remain locked during a
   deliberately delayed mocked submission. Test uploads do not contain real CVs.
 - Production schema and owner checks above are actual read-only remote checks.
-  Hosted API/admin/Storage smoke checks follow deployment using temporary test
-  identities/files, never candidate documents or owner impersonation.
+- Hosted release `6a7c686` passed exact-commit/browser verification: navy/teal hero,
+  both streams, standardized fields, candidate summaries, RTL at four widths,
+  centered mobile action and authentication/admin gates. No browser exception or
+  same-origin 5xx response was observed.
+- Real hosted admin reads passed for session, overview, users, jobs, catalog,
+  settings, applications, audit and the allowlisted data view. Removing the
+  synthetic account's temporary admin role immediately changed access to 403.
+- Real PDF/DOCX upload, server validation, matching-byte download and discard
+  passed. Download authorization used a 60-second lifetime. A second test user
+  received 404 for someone else's asset, and public Storage object access was
+  denied. Public job/platform APIs returned 200; anonymous protected endpoints
+  returned 401. No 502 occurred in these checks.
+- Both synthetic test accounts and all test objects were removed. No real CV,
+  candidate application, owner session or production job offer was used or created
+  for these hosted write tests.
 
 ## Operational limits and follow-up
 
