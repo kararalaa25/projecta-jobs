@@ -1,6 +1,6 @@
-import {serverClient} from '../server/supabase.js'
+import {serverClient,serverAuthClient} from '../server/supabase.js'
 import {isSuperAdmin,isOwner,isSuspended,hasConfirmedIdentity} from '../config/access.js'
-import {headers,json,sameOrigin,readBody,authenticate,HttpError,check,uuid,text,errorResponse,missingSchema} from '../server/http.js'
+import {headers,json,sameOrigin,readBody,authenticate,bearerToken,HttpError,check,uuid,text,errorResponse,missingSchema} from '../server/http.js'
 import {readPlatform,adminMutation} from '../server/platform.js'
 import {normalizeIraqiPhone,telegramHandle} from '../src/contacts.js'
 const memberRoles=['member','moderator','admin','super_admin']
@@ -17,14 +17,16 @@ export function adminJobRecord(job,catalog){
  if(!schedule)throw new HttpError(400,'نوع الدوام غير صالح.')
  return {title:text(job.title,100),description:text(job.description,12000),role_category:role,location_city:city,salary_range:text(job.salary||'',100,false)||null,employment_type:schedule,source:'manual',status:'active',contact_phone:phone?.local||null,contact_whatsapp:phone?.whatsapp||null,contact_telegram:telegram,contact_info:JSON.stringify({company_name:text(job.company,100),phone:phone?.local||null,whatsapp:phone?.whatsapp||null,telegram,parsing_status:'admin_reviewed',role_category:role,role_categories:role?[role]:[],governorate:city,governorates:city?[city]:[],employment_type:schedule})}
 }
-export function createAdminHandler(env=process.env,factory=serverClient){return async(req,res)=>{
+export function createAdminHandler(env=process.env,factory=serverClient,verifierFactory=factory===serverClient?serverAuthClient:factory){return async(req,res)=>{
  headers(res)
  if(!['GET','POST'].includes(req.method))return json(res,405,{error:'طريقة الطلب غير مسموحة.'})
  try{
   sameOrigin(req,env)
   // Verify identity remotely on EVERY request. Browser metadata never authorizes writes.
-  const db=factory(env),actor=await authenticate(db,req)
+  bearerToken(req)
+  const actor=await authenticate(verifierFactory(env),req)
   if(!isSuperAdmin(actor))throw new HttpError(403,'هذه الصفحة مخصصة للمشرف الأعلى فقط.')
+  const db=factory(env)
   const url=new URL(req.url||'/','http://localhost'),section=url.searchParams.get('section')||'overview',page=pageOf(url),start=(page-1)*30
   if(req.method==='GET'){
    if(section==='session')return json(res,200,{user:publicUser(actor)})

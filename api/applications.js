@@ -1,12 +1,12 @@
 import {serverClient} from '../server/supabase.js'
 import {hasConfirmedIdentity,isSuspended,isSuperAdmin} from '../config/access.js'
 import {readPlatform} from '../server/platform.js'
-import {headers,json,sameOrigin,readBody,authenticate,HttpError,check,uuid,text,errorResponse} from '../server/http.js'
+import {headers,json,sameOrigin,readBody,authenticate,bearerToken,HttpError,check,uuid,text,errorResponse} from '../server/http.js'
 export function createApplicationsHandler(env=process.env,factory=serverClient){return async(req,res)=>{
  headers(res)
  if(!['GET','POST'].includes(req.method))return json(res,405,{error:'طريقة الطلب غير مسموحة.'})
  try{
-  sameOrigin(req,env);const db=factory(env),user=await authenticate(db,req)
+  sameOrigin(req,env);bearerToken(req);const db=factory(env),user=await authenticate(db,req)
   if(isSuspended(user)||!hasConfirmedIdentity(user))throw new HttpError(403,'يجب تأكيد الحساب وألّا يكون معلّقاً.')
   if(req.method==='GET'){const r=await db.from('job_applications').select('id,job_id,status,created_at').eq('applicant_id',user.id).order('created_at',{ascending:false}).limit(100);return json(res,200,{rows:check(r)})}
   const platform=await readPlatform(db);if(platform.settings.maintenance&&!isSuperAdmin(user))throw new HttpError(503,'المنصة قيد الصيانة حالياً. حاول لاحقاً.')

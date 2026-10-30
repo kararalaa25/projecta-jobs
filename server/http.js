@@ -13,9 +13,13 @@ export async function readBody(req,max=32000){
  if(!body||typeof body!=='object'||Array.isArray(body)||Buffer.byteLength(JSON.stringify(body))>max)throw new HttpError(400,'بيانات الطلب غير صالحة.')
  return body
 }
-export async function authenticate(db,req){
+export function bearerToken(req){
  const token=/^Bearer ([A-Za-z0-9._-]+)$/.exec(req.headers?.authorization||'')?.[1]
  if(!token)throw new HttpError(401,'يرجى تسجيل الدخول أولاً.')
+ return token
+}
+export async function authenticate(db,req){
+ const token=bearerToken(req)
  const {data,error}=await db.auth.getUser(token)
  if(error||!data?.user)throw new HttpError(401,'انتهت الجلسة. سجّل الدخول مجدداً.')
  return data.user

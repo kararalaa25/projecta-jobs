@@ -84,3 +84,11 @@ test('professional license submission never self-approves a regular user',async(
 test('public platform endpoint returns only display settings and catalog',async()=>{
  const db=database(),res=response();await createPlatformHandler({},()=>db)({method:'GET'},res);assert.equal(res.statusCode,200);assert.deepEqual(Object.keys(res.body).sort(),['catalog','settings']);assert.equal(JSON.stringify(res.body).includes(owner.email),false)
 })
+test('anonymous admin and application requests reject before reading server credentials',async()=>{
+ const noConfig=()=>{throw Error('must not create a client')}
+ for(const factory of [createAdminHandler,createApplicationsHandler]){const out=response();await factory({},noConfig)({method:'GET',headers:{},url:'/'},out);assert.equal(out.statusCode,401)}
+})
+test('owner sees an actionable server configuration error rather than an anonymous privilege fallback',async()=>{
+ const noConfig=()=>{const e=Error('إعدادات Vercel غير مكتملة.');e.status=503;throw e}
+ const out=response();await createAdminHandler({},noConfig,()=>database())(request(),out);assert.equal(out.statusCode,503);assert.match(out.body.error,/Vercel/)
+})

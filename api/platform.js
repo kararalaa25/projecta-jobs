@@ -1,5 +1,5 @@
 import {serverClient} from '../server/supabase.js'
-import {readPlatform} from '../server/platform.js'
+import {readPlatform,defaultSettings,defaultCatalog} from '../server/platform.js'
 import {headers,json,errorResponse} from '../server/http.js'
-export function createPlatformHandler(env=process.env,factory=serverClient){return async(req,res)=>{headers(res);if(req.method!=='GET')return json(res,405,{error:'طريقة الطلب غير مسموحة.'});try{const {settings,catalog}=await readPlatform(factory(env));res.setHeader('Cache-Control','public, s-maxage=10, stale-while-revalidate=10');return json(res,200,{settings,catalog})}catch(error){return errorResponse(res,error)}}}
+export function createPlatformHandler(env=process.env,factory=serverClient){return async(req,res)=>{headers(res);if(req.method!=='GET')return json(res,405,{error:'طريقة الطلب غير مسموحة.'});try{if(factory===serverClient&&!env.SUPABASE_SERVICE_ROLE_KEY)return json(res,200,{settings:defaultSettings,catalog:defaultCatalog});const {settings,catalog}=await readPlatform(factory(env));res.setHeader('Cache-Control','public, s-maxage=10, stale-while-revalidate=10');return json(res,200,{settings,catalog})}catch(error){return errorResponse(res,error)}}}
 export default createPlatformHandler()
