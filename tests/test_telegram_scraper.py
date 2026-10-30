@@ -8,6 +8,9 @@ import telegram_scraper as scraper
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        self.discovery = patch.object(scraper, 'discover_models', AsyncMock(return_value=list(scraper.FALLBACK_MODELS)))
+        self.discovery.start()
+        self.addCleanup(self.discovery.stop)
         self.message = SimpleNamespace(id=17, raw_text='مطلوب طبيب اسنان في بغداد',
                                        date=datetime(2026, 10, 30, tzinfo=timezone.utc))
         self.job = scraper.ParsedJob(
@@ -81,19 +84,67 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             scraper.ParsedJob.model_validate({**self.job.model_dump(), 'role_category': 'Other'})
 
-    async def test_model_is_pinned_despite_environment_override(self):
+    async def test_discovery_prefers_supported_flash(self):
+        self.discovery.stop()
+        async def listed():
+            yield SimpleNamespace(name='models/gemini-embed', supported_actions=['embedContent'])
+            yield SimpleNamespace(name='models/gemini-pro', supported_actions=['generateContent'])
+            yield SimpleNamespace(name='models/gemini-flash-image', supported_actions=['generateContent'])
+            yield SimpleNamespace(name='models/gemini-active-flash', supported_actions=['generateContent'])
         client = MagicMock()
-        client.aio.models.generate_content = AsyncMock(return_value=SimpleNamespace(text=self.job.model_dump_json()))
-        with patch.dict('os.environ', {'GEMINI_MODEL': 'wrong-model'}):
-            await scraper.parse_job(client, self.message.raw_text)
-        self.assertEqual(client.aio.models.generate_content.call_args.kwargs['model'], 'gemini-2.5-flash')
+        client.aio.models.list = AsyncMock(return_value=listed())
+        models = await scraper.discover_models(client)
+        self.assertEqual(models[0], 'models/gemini-active-flash')
+        self.assertNotIn('models/gemini-flash-image', models)
+        self.assertTrue(all(m in models for m in scraper.FALLBACK_MODELS))
 
-    async def test_unavailable_model_is_reported_without_fallback(self):
+    async def test_discovery_failure_uses_requested_array(self):
+        self.discovery.stop()
         client = MagicMock()
-        client.aio.models.generate_content = AsyncMock(side_effect=scraper.errors.ClientError(404, {'error': {'message': 'unavailable'}}))
-        with self.assertRaises(scraper.errors.ClientError):
-            await scraper.parse_job(client, self.message.raw_text)
-        self.assertEqual(client.aio.models.generate_content.call_count, 1)
+        client.aio.models.list = AsyncMock(side_effect=RuntimeError('network'))
+        self.assertEqual(await scraper.discover_models(client), list(scraper.FALLBACK_MODELS))
+
+    async def test_model_404_falls_back_and_caches_success(self):
+        client = MagicMock()
+        client.aio.models.generate_content = AsyncMock(side_effect=[
+            scraper.errors.ClientError(404, {'error': {'message': 'unavailable'}}),
+            SimpleNamespace(text=self.job.model_dump_json()),
+            SimpleNamespace(text=self.job.model_dump_json())])
+        await scraper.parse_job(client, self.message.raw_text)
+        await scraper.parse_job(client, self.message.raw_text)
+        self.assertEqual([c.kwargs['model'] for c in client.aio.models.generate_content.call_args_list],
+                         [scraper.FALLBACK_MODELS[0], scraper.FALLBACK_MODELS[1], scraper.FALLBACK_MODELS[1]])
+
+    async def test_parse_failure_preserves_native_raw_post(self):
+        with patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(side_effect=ValueError('bad JSON'))):
+            outcome = await scraper.ingest_message(None, self.db, self.message, 123, 'test', storage='native')
+        self.assertEqual(outcome, 'upserted_raw')
+        row = self.db.table.return_value.upsert.call_args.args[0]
+        self.assertEqual(row['title'], self.message.raw_text)
+        self.assertEqual(row['description'], self.message.raw_text)
+        self.assertEqual(row['location_city'], '')
+        self.assertIn('unparsed', row['contact_info'])
+
+    async def test_dry_run_fallback_does_not_write(self):
+        with patch.object(scraper, 'parse_job', AsyncMock(side_effect=TimeoutError())):
+            result = await scraper.ingest_message(None, self.db, self.message, 123, 'test', dry_run=True, storage='native')
+        self.assertEqual(result, 'would_upsert_raw')
+        self.db.table.assert_not_called()
+
+    async def test_database_failure_queues_then_replays(self):
+        import tempfile, json
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as temp, patch.dict('os.environ', {'TELEGRAM_OUTBOX':temp}), patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(side_effect=TimeoutError())):
+            self.db.table.return_value.upsert.return_value.execute.side_effect = RuntimeError('database down')
+            with self.assertRaises(RuntimeError):
+                await scraper.ingest_message(None, self.db, self.message, 123, 'test', storage='native')
+            files = list(Path(temp).glob('*.json'))
+            self.assertEqual(len(files), 1)
+            self.assertEqual(json.loads(files[0].read_text())['record']['description'], self.message.raw_text)
+            self.assertEqual(files[0].stat().st_mode & 0o777, 0o600)
+            self.db.table.return_value.upsert.return_value.execute.side_effect = None
+            self.assertEqual(scraper.replay_outbox(self.db,'native'), (1,0))
+            self.assertFalse(files[0].exists())
 
     async def test_native_upsert_only_uses_live_columns(self):
         with patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(return_value=self.job)):
@@ -118,13 +169,13 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record['employment_type'], 'full_time')
         self.assertEqual(json.loads(record['contact_info'])['company_name'], 'Clinic')
 
-    async def test_invalid_request_does_not_switch_models(self):
+    async def test_invalid_request_exhausts_fallbacks(self):
         client = MagicMock()
         client.aio.models.generate_content = AsyncMock(side_effect=scraper.errors.ClientError(
             400, {'error': {'message': 'invalid request'}}))
-        with self.assertRaises(scraper.errors.ClientError):
+        with self.assertRaises(ValueError):
             await scraper.parse_job(client, self.message.raw_text)
-        self.assertEqual(client.aio.models.generate_content.call_count, 1)
+        self.assertEqual(client.aio.models.generate_content.call_count, len(scraper.FALLBACK_MODELS))
 
     async def test_https_preview_preserves_arabic_and_contacts(self):
         html = '<div class="tgme_widget_message" data-post="clinic/17"><div class="tgme_widget_message_text">مطلوب طبيب<br/>@contact</div><time datetime="2026-10-30T08:00:00Z"></time></div>'

@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
+from weakref import WeakKeyDictionary
 
 from dotenv import load_dotenv
 from google import genai
@@ -30,6 +31,9 @@ from telethon import TelegramClient, errors as telegram_errors
 
 LOG = logging.getLogger("telegram_scraper")
 MODEL = "gemini-2.5-flash"
+FALLBACK_MODELS = (MODEL, "models/" + MODEL, "gemini-1.5-flash", "models/gemini-1.5-flash")
+_MODEL_CACHE = WeakKeyDictionary()
+
 ROLES = Literal["Dentists", "Medical Reps", "Dental Assistants",
                 "Receptionists/Secretaries", "Lab Techs"]
 SYSTEM_PROMPT = """You extract Iraqi dental/medical JOB OFFERS from Arabic or English
@@ -72,29 +76,66 @@ def channels_from_env() -> list[str | int]:
     return [int(x) if x.lstrip("-").isdigit() else x for x in dict.fromkeys(channels)]
 
 
+async def discover_models(client) -> list[str]:
+    """Prefer listed text-generation Flash models; listing is not proof of access."""
+    try:
+        pager = await client.aio.models.list()
+        flash, other = [], []
+        count = 0
+        async for model in pager:
+            count += 1
+            name = model.name or ""
+            lower = name.lower()
+            actions = getattr(model, "supported_actions", None)
+            can_generate = not actions or any(a in {"generateContent", "generate_content"} for a in actions)
+            if (can_generate and "gemini" in lower
+                    and not any(x in lower for x in ("embedding", "tts", "image", "audio", "live"))):
+                (flash if "flash" in lower else other).append(name)
+            if count >= 200:
+                break
+        return list(dict.fromkeys(flash + other + list(FALLBACK_MODELS)))
+    except Exception as exc:
+        LOG.warning("Model discovery unavailable (%s); using fallback names", type(exc).__name__)
+        return list(FALLBACK_MODELS)
+
+
 async def parse_job(client, text: str) -> ParsedJob:
-    # Bound costs and avoid silently extracting incomplete contacts from truncation.
+    if client is None:
+        raise ValueError("Gemini client unavailable")
     if len(text) > 20000:
-        raise ValueError("Post exceeds the 20,000-character parsing limit")
-    # Schema is prompt data only. No response_schema/response_json_schema fields
-    # are sent; validate the resulting JSON locally with Pydantic.
+        raise ValueError("Post exceeds the parsing limit; preserve as raw")
     instruction = SYSTEM_PROMPT + "\nReturn every field in this JSON schema, using null for unknowns:\n" + json.dumps(ParsedJob.model_json_schema(), ensure_ascii=False)
-    for attempt in range(3):
-        try:
-            response = await client.aio.models.generate_content(
-                model=MODEL, contents=text,
-                config=types.GenerateContentConfig(
-                    system_instruction=instruction, temperature=0,
-                    response_mime_type="application/json",
-                ),
-            )
-            if not response.text:
-                raise ValueError("Gemini returned no JSON")
-            return ParsedJob.model_validate_json(response.text)
-        except errors.APIError as exc:
-            if attempt == 2 or not (exc.code == 429 or (exc.code or 0) >= 500):
-                raise
-            await asyncio.sleep(2 ** (attempt + 1))
+    # Bound discovery + generation across every candidate. Cancellation must propagate.
+    async with asyncio.timeout(45):
+        if client not in _MODEL_CACHE:
+            _MODEL_CACHE[client] = await discover_models(client)
+        candidates = _MODEL_CACHE[client]
+        for model in list(candidates):
+            for attempt in range(2):
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=model, contents=text,
+                        config=types.GenerateContentConfig(
+                            system_instruction=instruction, temperature=0,
+                            response_mime_type="application/json",
+                        ),
+                    )
+                    if not response.text:
+                        raise ValueError("Gemini returned no JSON")
+                    job = ParsedJob.model_validate_json(response.text)
+                    candidates.remove(model)
+                    candidates.insert(0, model)  # Reuse the working model next time.
+                    return job
+                except Exception as exc:
+                    code = getattr(exc, "code", None)
+                    if code == 404:
+                        candidates.remove(model)  # Do not repeat known unavailable models.
+                    if attempt == 0 and (code == 429 or (isinstance(code, int) and code >= 500)):
+                        await asyncio.sleep(2)
+                        continue
+                    LOG.warning("Gemini candidate failed (%s, code=%s)", type(exc).__name__, code or "unknown")
+                    break
+    raise ValueError("All Gemini models failed or returned invalid output")
 
 
 def text_hash(text: str) -> str:
@@ -149,6 +190,66 @@ def native_record(record: dict) -> dict | None:
     }
 
 
+def raw_record(message, chat_id: int, channel: str, storage: str) -> dict:
+    """Preserve content without inventing a city, profession, employer or contacts."""
+    key = message_key(chat_id, channel, message.id)
+    source_url = f"https://t.me/{channel}/{message.id}" if not channel.lstrip("-").isdigit() else None
+    if storage == "native":
+        return {
+            "id": native_id(chat_id, channel, message.id),
+            "title": message.raw_text, "description": message.raw_text,
+            # The live schema requires text, so empty strings mean unclassified/unknown.
+            "role_category": "", "location_city": "", "source": "telegram",
+            "contact_info": json.dumps({"parsing_status": "unparsed", "telegram_message_id": key,
+                                        "source_url": source_url}, ensure_ascii=False),
+        }
+    return {
+        "telegram_message_id": key, "title": message.raw_text, "raw_text": message.raw_text,
+        "role_category": "", "source_chat_id": chat_id, "source_message_id": message.id,
+        "source_channel": channel, "source_url": source_url,
+        "source_posted_at": message.date.isoformat(), "source_text_hash": text_hash(message.raw_text),
+        "ingested_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def queue_record(record: dict, storage: str) -> None:
+    """Durable private outbox for database failures; no raw content in logs."""
+    root = Path(os.getenv("TELEGRAM_OUTBOX", ".telegram_outbox"))
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    identity = record.get("id") or record["telegram_message_id"]
+    target = root / (hashlib.sha256(identity.encode()).hexdigest() + ".json")
+    # Same identity overwrites atomically, so re-runs cannot multiply queued records.
+    temp = target.with_suffix(".tmp")
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump({"storage": storage, "record": record}, stream, ensure_ascii=False)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temp.replace(target)
+
+
+def replay_outbox(db, storage: str) -> tuple[int, int]:
+    root = Path(os.getenv("TELEGRAM_OUTBOX", ".telegram_outbox"))
+    replayed = pending = 0
+    if not root.exists():
+        return replayed, pending
+    for file in root.glob("*.json"):
+        try:
+            item = json.loads(file.read_text())
+            if item["storage"] != storage:
+                pending += 1
+                continue
+            conflict = "id" if storage == "native" else "telegram_message_id"
+            db.table("job_offers").upsert(item["record"], on_conflict=conflict).execute()
+            file.unlink()
+            replayed += 1
+        except Exception as exc:
+            pending += 1
+            LOG.error("Outbox record remains pending (%s)", type(exc).__name__)
+    return replayed, pending
+
+
 def existing_hash(db, chat_id: int, message_id: int, channel: str, storage="ingestion") -> str | None:
     if storage == "native":
         result = (db.table("job_offers").select("description")
@@ -164,13 +265,26 @@ async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_ru
     if not message.raw_text or not message.raw_text.strip():
         return "empty"
     if not dry_run:
-        saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id, channel, storage)
+        try:
+            saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id, channel, storage)
+        except Exception:
+            await asyncio.to_thread(queue_record, raw_record(message, chat_id, channel, storage), storage)
+            raise
         if saved_hash == text_hash(message.raw_text):
             return "unchanged"
-    job = await parse_job(gemini, message.raw_text)
-    record = build_record(job, message, chat_id, channel)
-    if record is not None and storage == "native":
-        record = native_record(record)
+    raw_fallback = False
+    try:
+        job = await parse_job(gemini, message.raw_text)
+        record = build_record(job, message, chat_id, channel)
+        if record is not None and storage == "native":
+            record = native_record(record)
+        if job.is_job_offer and record is None:
+            record = raw_record(message, chat_id, channel, storage)
+            raw_fallback = True
+    except Exception as exc:
+        LOG.warning("Parsing failed (%s); preserving raw post", type(exc).__name__)
+        record = raw_record(message, chat_id, channel, storage)
+        raw_fallback = True
     identity_column = "id" if storage == "native" else "telegram_message_id"
     identity_value = native_id(chat_id, channel, message.id) if storage == "native" else message_key(chat_id, channel, message.id)
     if record is None:
@@ -180,11 +294,16 @@ async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_ru
                                     .eq(identity_column, identity_value).execute())
         return "not_job"
     if dry_run:
-        return "would_upsert"
+        return "would_upsert_raw" if raw_fallback else "would_upsert"
     # Channel-qualified conflict key makes re-runs and edited posts idempotent.
-    await asyncio.to_thread(lambda: db.table("job_offers").upsert(
-        record, on_conflict=identity_column).execute())
-    return "upserted"
+    try:
+        await asyncio.to_thread(lambda: db.table("job_offers").upsert(
+            record, on_conflict=identity_column).execute())
+    except Exception:
+        await asyncio.to_thread(queue_record, record, storage)
+        # Database failures are real failures, even though a recoverable copy is saved.
+        raise
+    return "upserted_raw" if raw_fallback else "upserted"
 
 
 async def fetch_public_posts(channel: str | int, limit: int) -> tuple[int, str, list]:
@@ -290,7 +409,10 @@ async def run(args) -> int:
         limit = args.limit if args.limit is not None else int(os.getenv("TELEGRAM_FETCH_LIMIT", "100"))
         if not 1 <= limit <= 10000:
             raise ValueError("Fetch limit must be between 1 and 10000")
-        gemini = genai.Client(api_key=required("GEMINI_API_KEY"), http_options=types.HttpOptions(timeout=30000))
+        try:
+            gemini = genai.Client(api_key=required("GEMINI_API_KEY"), http_options=types.HttpOptions(timeout=30000))
+        except Exception as exc:
+            LOG.warning("Gemini client unavailable (%s); posts will be preserved raw", type(exc).__name__)
         db = None if args.dry_run else create_client(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"))
         storage = "ingestion"
         if db is not None:
@@ -302,6 +424,11 @@ async def run(args) -> int:
                           "supabase/migrations/202610300002_reconcile_job_offers.sql before ingestion.",
                           type(exc).__name__, getattr(exc, "code", "unknown"))
                 return 1
+        if db is not None:
+            replayed, pending = await asyncio.to_thread(replay_outbox, db, storage)
+            failures += pending
+            if replayed or pending:
+                LOG.info("Outbox replayed=%d pending=%d", replayed, pending)
         if transport != "https":
             try:
                 client = session_client()
