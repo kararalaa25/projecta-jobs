@@ -6,7 +6,7 @@
 @font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/ui-arabic-500.woff') format('woff')}
 @font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/ui-arabic-700.woff') format('woff')}
 @font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/ui-arabic-800.woff') format('woff')}
-/* Projecta typography and accessible deep-navy / medical-teal design tokens. */
+/* Original f106622 Projecta colors; current layout typography is retained. */
 @font-face{font-family:"Projecta Sora";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/sora-latin-800-normal.woff2') format('woff2')}
 @font-face{font-family:"Projecta Sora";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/sora-latin-ext-800-normal.woff2') format('woff2');unicode-range:U+0100-02BA}
 @font-face{font-family:"Projecta Arabic";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/cairo-arabic-400-normal.woff2') format('woff2')}
@@ -15,12 +15,14 @@
 @font-face{font-family:"Projecta Arabic";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/cairo-arabic-800-normal.woff2') format('woff2')}
 @font-face{font-family:"Projecta Arabic";font-style:normal;font-weight:900;font-display:swap;src:url('/fonts/cairo-arabic-900-normal.woff2') format('woff2')}
 :root{
- --pc-ink:hsl(220 20% 15%);--pc-muted:hsl(220 10% 45%);--pc-blue:hsl(176 72% 52%);--pc-cyan:hsl(176 72% 52%);
- --pc-page:#ffffff;--pc-surface:#fff;--pc-border:hsl(220 15% 90%);--pc-soft:hsl(210 20% 96%);
- --pc-gradient:linear-gradient(110deg,hsl(176 72% 52%),hsl(176 72% 52%));
- --pc-shadow:0 8px 30px #153c3310;--pc-card-radius:24px;--pc-control-radius:13px;
- --pc-focus:#0f766e;--pc-success:#087f62;--pc-success-soft:#e9f8f1;
+ --pc-ink:#0b1525;--pc-muted:#7183a0;--pc-blue:#1c4ee2;--pc-cyan:#0299b5;
+ --pc-page:#f7f9fc;--pc-surface:#fff;--pc-border:#e2edf7;--pc-soft:#f2f8fd;
+ --pc-gradient:linear-gradient(110deg,#0097b5,#1b4be3);
+ --pc-shadow:0 8px 30px #2780a911;--pc-card-radius:24px;--pc-control-radius:13px;
+ --pc-focus:#1698cb;--pc-success:#087f62;--pc-success-soft:#e9f8f1;
  --pc-font:"Projecta UI Inter","Projecta UI Arabic",sans-serif;
+ --pc-link:#087da4;--pc-brand-soft:#edf7fb;--pc-brand-border:#dceff6;
+ --pc-section-gradient:linear-gradient(120deg,#0b1525,#16334e 55%,#087da4);
 }
 .projecta-logo{color:#0b1220;text-align:left;background:#fff;border-radius:8px;flex-shrink:0;align-items:center;gap:8px;display:inline-flex;padding-inline:3px}
 .projecta-wordmark{font-family:"Projecta Sora",Sora,system-ui,sans-serif;font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-.065em}
