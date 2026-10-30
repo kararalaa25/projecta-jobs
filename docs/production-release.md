@@ -4,7 +4,7 @@ The owner approved committing, pushing to main and deploying the prepared resume
 job preview and categorization release. No additional deployment approval is
 needed once its database prerequisites are satisfied.
 
-## Preflight result
+## Initial preflight result (before the owner applied 008/009)
 
 - JavaScript: 58 tests passed; Vite production build passed.
 - Python: 40 tests passed. These were mocked unit tests, not a production scraper run.
@@ -41,7 +41,25 @@ is enabled by this release. Keep the previous Vercel deployment available for
 rollback; migration 008 is additive and should remain in place during code
 rollback.
 
-The release commit is prepared locally. Main push and production deployment are
-held solely for the missing database prerequisites, not for another permission
-request. Until those prerequisites are applied, the existing production release
-remains unchanged.
+## Completed production release
+
+The owner subsequently applied 008 and 009 successfully. Remote checks confirmed
+the resume table, application attachment column, private 5 MiB bucket, discard
+RPC and active General Physicians category. Release commit `517b1c2` was pushed
+to GitHub main and the connected Vercel deployment became live. Its production
+bundle includes the new upload UI, attachment field and resume endpoint. Bundle
+hashes differ from the local build because build-time environment values differ.
+
+Hosted acceptance used a temporary confirmed synthetic account, not an owner
+session. Its temporary trusted admin role exercised session, overview, users,
+jobs, catalog, settings, applications, audit and allowlisted data reads; every
+request returned 200. Removing the role immediately produced 403 on admin access.
+As an ordinary member, it successfully reserved, uploaded, finalized, downloaded
+and discarded synthetic PDF and DOCX files. Downloaded bytes matched, and download
+authorization used the configured 60-second lifetime. The account and all test
+Storage objects were removed afterward.
+
+Public jobs/platform requests returned 200; anonymous admin, application and
+resume requests returned 401. No 502 occurred in these checks. This is observed
+release evidence, not a guarantee against future dependency or network failures.
+Migration 010, historical backfill and automatic retention cleanup were not run.
