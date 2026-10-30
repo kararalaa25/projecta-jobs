@@ -1,0 +1,30 @@
+{
+  "governorates": [
+    {"id":"Baghdad","ar":"بغداد","aliases":["بغداد","baghdad"]},
+    {"id":"Babylon","ar":"بابل","aliases":["بابل","الحلة","الحله","babylon","babil","hillah","hilla"]},
+    {"id":"Karbala","ar":"كربلاء","aliases":["كربلاء","كربلا","karbala","kerbala"]},
+    {"id":"Najaf","ar":"النجف","aliases":["النجف","نجف","الكوفة","الكوفه","najaf","kufa"]},
+    {"id":"Basra","ar":"البصرة","aliases":["البصرة","البصره","basra","basrah"]},
+    {"id":"Erbil","ar":"أربيل","aliases":["اربيل","أربيل","هەولێر","hawler","erbil","arbil"]},
+    {"id":"Sulaymaniyah","ar":"السليمانية","aliases":["السليمانية","السليمانيه","سليمانية","slemani","sulaymaniyah","sulaimaniyah"]},
+    {"id":"Duhok","ar":"دهوك","aliases":["دهوك","duhok","dohuk"]},
+    {"id":"Nineveh","ar":"نينوى","aliases":["نينوى","نينوا","الموصل","موصل","nineveh","ninawa","mosul"]},
+    {"id":"Kirkuk","ar":"كركوك","aliases":["كركوك","kirkuk"]},
+    {"id":"Diyala","ar":"ديالى","aliases":["ديالى","ديالا","بعقوبة","بعقوبه","diyala","baqubah"]},
+    {"id":"Anbar","ar":"الأنبار","aliases":["الانبار","الأنبار","انبار","الرمادي","رمادي","الفلوجة","الفلوجه","anbar","ramadi","fallujah"]},
+    {"id":"Salah al-Din","ar":"صلاح الدين","aliases":["صلاح الدين","تكريت","سامراء","salah al-din","salah ad din","salahuddin","tikrit","samarra"]},
+    {"id":"Wasit","ar":"واسط","aliases":["واسط","الكوت","كوت","wasit","kut"]},
+    {"id":"Maysan","ar":"ميسان","aliases":["ميسان","العمارة","العماره","maysan","misan","amarah"]},
+    {"id":"Dhi Qar","ar":"ذي قار","aliases":["ذي قار","ذيقار","الناصرية","الناصريه","dhi qar","thi qar","nasiriyah"]},
+    {"id":"Al-Qadisiyyah","ar":"القادسية","aliases":["القادسية","القادسيه","الديوانية","الديوانيه","al-qadisiyyah","qadisiyah","diwaniyah"]},
+    {"id":"Al-Muthanna","ar":"المثنى","aliases":["المثنى","مثنى","السماوة","السماوه","al-muthanna","muthanna","samawah"]}
+  ],
+  "roles": [
+    {"id":"Dentists","ar":"أطباء الأسنان"},
+    {"id":"Pharmacists","ar":"الصيادلة"},
+    {"id":"Assistants & Techs","ar":"المساعدون والفنيون والتمريض"},
+    {"id":"Medical Reps","ar":"المندوبون العلميون والطبيون"},
+    {"id":"Receptionists / Admin","ar":"الإدارة والاستقبال والسكرتارية"}
+  ],
+  "legacyRoles":{"Dental Assistants":"Assistants & Techs","Lab Techs":"Assistants & Techs","Receptionists/Secretaries":"Receptionists / Admin"}
+}

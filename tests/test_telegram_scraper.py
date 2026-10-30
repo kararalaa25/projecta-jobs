@@ -122,7 +122,7 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         row = self.db.table.return_value.upsert.call_args.args[0]
         self.assertEqual(row['title'], self.message.raw_text)
         self.assertEqual(row['description'], self.message.raw_text)
-        self.assertEqual(row['location_city'], '')
+        self.assertEqual(row['location_city'], 'Baghdad')
         self.assertIn('unparsed', row['contact_info'])
 
     async def test_dry_run_fallback_does_not_write(self):
@@ -153,12 +153,13 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         call = self.db.table.return_value.upsert.call_args
         self.assertEqual(call.kwargs['on_conflict'], 'id')
         row = call.args[0]
-        self.assertEqual(set(row), {'id','title','role_category','location_city','salary_range','description','source','contact_info'})
+        self.assertEqual(set(row), {'id','title','role_category','location_city','salary_range','description','source','contact_info','created_at','employment_type'})
         self.assertEqual(row['location_city'], 'Baghdad')
         self.assertEqual(row['description'], self.message.raw_text)
         self.assertEqual(row['id'], scraper.native_id(-123, 'test', 17))
 
     def test_native_mapping_skips_unknown_city(self):
+        self.message.raw_text='مطلوب طبيب اسنان للعمل في عيادة خاصة'
         record = scraper.build_record(self.job.model_copy(update={'city':None}), self.message, 123, 'test')
         self.assertIsNone(scraper.native_record(record))
 

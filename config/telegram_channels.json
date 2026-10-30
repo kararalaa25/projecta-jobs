@@ -1,0 +1,12 @@
+{
+  "note":"Existing user-provided public sources only. Empty governorates means regional coverage is unverified, not nationwide coverage.",
+  "channels":[
+    {"username":"medical_field_news","governorates":[]},
+    {"username":"medicalreprsentativ","governorates":[]},
+    {"username":"uurruu2","governorates":[]},
+    {"username":"medicalfieldi","governorates":[]},
+    {"username":"DNAIRAQ","governorates":[]},
+    {"username":"MC_Pharmacist","governorates":[]},
+    {"username":"Medical_Field","governorates":[]}
+  ]
+}

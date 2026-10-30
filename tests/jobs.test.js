@@ -27,7 +27,7 @@ test('malformed contacts and unsafe source URLs do not become links',()=>{
 })
 test('feed endpoint selects active public listing fields only',async()=>{
   let selected, filter
-  const query={select(fields){selected=fields;return this},eq(...args){filter=args;return this},order(){return this},limit(){return this},abortSignal(){return Promise.resolve({data:[{id:'real'}],error:null})}}
+  const query={select(fields){selected=fields;return this},eq(...args){filter=args;return this},order(){return this},limit(){return this},range(){return this},abortSignal(){return Promise.resolve({data:[{id:'real'}],error:null})}}
   const res=response()
   await createJobsHandler({SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'private-test-key'},()=>({from(table){assert.equal(table,'job_offers');return query}}))({method:'GET'},res)
   assert.equal(res.statusCode,200);assert.deepEqual(res.body.jobs,[{id:'real'}]);assert.deepEqual(filter,['status','active']);assert.ok(!selected.includes('publisher_id'));assert.ok(!JSON.stringify(res).includes('private-test-key'))

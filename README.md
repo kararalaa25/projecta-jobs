@@ -140,3 +140,41 @@ The scraper automatically detects those columns and writes them after migration.
 `src/components/JobContactActions.jsx` renders Call only for a valid Iraqi number (`tel:07…`), WhatsApp for an explicit WhatsApp number or phone fallback (`https://wa.me/964…`), and Telegram only for an extracted contact username. A separate View source link opens the original post. Contacts are not invented from the source channel. Frontend filtering also hides old raw non-job/promotional rows without deleting additional database records.
 
 The requested title cleanup (`title LIKE '%بداية%' OR title LIKE '%كورس%'`) was applied with a private backup outside the repository. Other database rows were retained. Re-running ingestion does not restore filtered posts.
+
+## Arabic interface and verified professional publishing
+
+The document uses `lang="ar" dir="rtl"`. Navigation, filters, forms, modals, candidate examples, contact actions and status/error messages are Arabic; original user-generated post text is preserved. Latin email addresses, phone numbers and OTPs use LTR fields. Arabic/Persian OTP digits are accepted. The login dialog offers Google OAuth with PKCE, email OTP signup/login, and Iraqi phone SMS OTP signup/login, with resend cooldowns and server-side Supabase rate limits.
+
+Required **Supabase dashboard** configuration (not activated merely by committing code):
+
+1. Authentication → Providers → Google: enable Google and supply its OAuth client ID/secret. Set the callback URL shown by Supabase in Google Cloud. The app adds no OTP step to Google login; Google's own account protections still apply.
+2. Authentication → URL Configuration: set the production site URL and allow the local/production redirect origins. Local development uses `http://localhost:5176` in the validation commands; allow your actual dev port.
+3. Authentication → Providers → Email: allow signup, require email confirmation, and use `supabase/templates/email-otp.html` for both the signup confirmation and Magic Link email templates. It contains `{{ .Token }}` so users receive the code expected by the app, instead of only a link. Configure production SMTP, OTP expiry and rate limits in Supabase.
+4. Authentication → Providers → Phone: enable phone signup/login and configure a supported SMS provider with delivery to Iraq. Keep phone verification required. Provider credentials belong in Supabase, never browser code.
+
+Publishing uses `POST /api/publish-job`. The server calls `auth.getUser(access_token)` and requires confirmed email or phone **and** `app_metadata.medical_professional_verified === true`, assigned by a trusted administrator after real professional verification. A user-supplied `user_metadata` claim does not qualify. Administrators must preserve other app metadata when assigning/revoking this claim with the Supabase Admin API. This app does not claim to verify medical qualifications automatically.
+
+The server validates all fields, selects accepted columns, assigns ownership from the authenticated user, rejects foreign origins, and ignores user-provided owner/source/status values. Anonymous or invalid-token requests fail with 401; unapproved/unconfirmed professionals fail with 403. `/post-job` opens the same guarded form. Browser-created candidate profiles remain private device-local data, clearly labeled; public job ads are saved server-side.
+
+Apply `supabase/migrations/202610300005_secure_job_publishing.sql` to also revoke direct table mutations from `anon` and `authenticated`, preventing REST clients from bypassing the publishing endpoint while preserving SELECT policies. The service-role key stays server-only. This migration cannot be applied using a service-role REST key alone; use the SQL editor or a configured PostgreSQL connection. The API guard works independently, but direct-table write restrictions are not claimed until this SQL is applied.
+
+At implementation-time the public auth settings showed email signup/confirmation enabled, Google/phone disabled. No management API credential was available, so provider activation, SMTP/SMS configuration, email template changes and SQL application require a project administrator. Browser auth-flow tests mock message delivery and never send real email/SMS.
+
+## Nationwide governorates, professional roles, and two-week history
+
+`config/iraq.json` is the shared catalog of the requested 18-governorate baseline and five roles. Capital/city aliases are grouped under their governorate: Hillah → Babylon, Mosul → Nineveh, Kut → Wasit, Nasiriyah → Dhi Qar, Amarah → Maysan, Diwaniyah → Al-Qadisiyyah, Samawah → Al-Muthanna. Unknown locations stay unknown. Explicit location labels take priority; multi-location and multi-role posts retain arrays in `contact_info`. The UI can match every associated role/governorate, not just the primary one. Assistant phrases are consumed before dentist matching, and pharmacy receptionists/scientific-rep qualifications are distinguished from pharmacist vacancies.
+
+Canonical roles: `Dentists`, `Pharmacists`, `Assistants & Techs`, `Medical Reps`, `Receptionists / Admin`. Older assistant/lab/receptionist values map to these groups. The five roles are also used by Gemini's schema/prompt and the publishing form/server. Apply migration 006 to allow all canonical values in an older database CHECK constraint. Until then, a CHECK-specific compatibility retry keeps the exact inferred role in contact JSON and writes an empty physical role value rather than a false medical category. The frontend reads that canonical metadata. The live table's governorate is stored in `location_city`; the ingestion-specific table uses `city`.
+
+The current seven user-provided sources are documented in `config/telegram_channels.json`. Empty per-channel governorate lists explicitly mean unverified regional coverage. Runtime `TELEGRAM_CHANNELS` remains authoritative. Per user instruction these current channels are used temporarily; no invented regional usernames are added and nationwide channel coverage is not asserted solely because all 18 filters exist.
+
+```sh
+# Complete accessible public text history in the last 14 days, without a count cap:
+.venv/bin/python telegram_scraper.py --days 14 --parser regex
+```
+
+History mode follows Telegram's public HTTPS `before` cursor until the date cutoff, while authenticated Telethon can iterate to that same cutoff. It rejects simultaneous `--days`/`--limit` arguments. A stalled cursor or exhausted `--max-pages` budget is an explicit failure, not a successful partial archive. Public previews cannot expose private/deleted/protected posts or media text; they are not a substitute for an authenticated full Telegram archive.
+
+`--parser regex` avoids Gemini charges/timeouts for large backfills, writes batches of 100 using deterministic source IDs, and leaves uncertain details unclassified. `--parser hybrid` uses local classification when sufficient and Gemini for ambiguity; `--parser gemini` always attempts Gemini. Reports in ignored `.telegram_history/last-run.json` record the time window, per-channel outcomes, failures and observed governorate counts. Counts describe actual detected locations, not promised geographic coverage.
+
+Source post timestamps are retained for ordering. The public feed uses offset pagination in pages of 200, so older governorates/categories are not hidden behind the previous fixed 200-row feed limit. Empty combinations display an Arabic empty state rather than sample job offers.

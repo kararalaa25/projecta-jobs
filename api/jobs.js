@@ -19,6 +19,9 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       res.statusCode = 503
       return res.end(JSON.stringify({ error: 'The job feed is not configured on this server.' }))
     }
+    let offset
+    try {offset=Number(new URL(req.url||'/', 'http://localhost').searchParams.get('offset')||0)} catch {offset=NaN}
+    if(!Number.isInteger(offset)||offset<0||offset>20000){res.statusCode=400;return res.end(JSON.stringify({error:'طلب غير صالح.'}))}
     let upstreamStatus
     try {
       const db = clientFactory(url, key, { auth: { persistSession: false, autoRefreshToken: false },
@@ -27,7 +30,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       // Active marketplace posts only. Never expose user/account IDs or other tables.
       const fields = 'id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,created_at'
       const query = columns => db.from('job_offers').select(columns)
-        .eq('status', 'active').order('created_at', { ascending: false }).limit(200)
+        .eq('status', 'active').order('created_at', { ascending: false }).range(offset,offset+199)
         .abortSignal(AbortSignal.timeout(15000))
       let result = await query(fields + ',contact_phone,contact_telegram,contact_whatsapp')
       if (['42703','PGRST204'].includes(result.error?.code)) result = await query(fields)
@@ -36,7 +39,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       if (error) throw error
       res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
       res.statusCode = 200
-      return res.end(JSON.stringify({ jobs: data || [] }))
+      return res.end(JSON.stringify({ jobs: data || [], hasMore:(data||[]).length===200 }))
     } catch (error) {
       console.error("Job feed unavailable:", error?.name || "Error", error?.code || error?.cause?.code || "unknown")
       res.statusCode = 502
