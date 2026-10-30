@@ -15,9 +15,9 @@
 @font-face{font-family:"Projecta Arabic";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/cairo-arabic-800-normal.woff2') format('woff2')}
 @font-face{font-family:"Projecta Arabic";font-style:normal;font-weight:900;font-display:swap;src:url('/fonts/cairo-arabic-900-normal.woff2') format('woff2')}
 :root{
- --pc-ink:#10263a;--pc-muted:#586c7e;--pc-blue:#0f766e;--pc-cyan:#0f766e;
- --pc-page:#ffffff;--pc-surface:#fff;--pc-border:#dce6e5;--pc-soft:#edf6f3;
- --pc-gradient:linear-gradient(110deg,#0f766e,#115e59);
+ --pc-ink:hsl(220 20% 15%);--pc-muted:hsl(220 10% 45%);--pc-blue:hsl(176 72% 52%);--pc-cyan:hsl(176 72% 52%);
+ --pc-page:#ffffff;--pc-surface:#fff;--pc-border:hsl(220 15% 90%);--pc-soft:hsl(210 20% 96%);
+ --pc-gradient:linear-gradient(110deg,hsl(176 72% 52%),hsl(176 72% 52%));
  --pc-shadow:0 8px 30px #153c3310;--pc-card-radius:24px;--pc-control-radius:13px;
  --pc-focus:#0f766e;--pc-success:#087f62;--pc-success-soft:#e9f8f1;
  --pc-font:"Projecta UI Inter","Projecta UI Arabic",sans-serif;
