@@ -1,3 +1,4 @@
+import {jobTimestamp,exactDate,validDate} from '../dates.js'
 import {Bookmark,MapPin,BriefcaseMedical,Pill,Users,Building2} from 'lucide-react'
 import {ar,number} from '../i18n'
 import JobContactActions from './JobContactActions'
@@ -10,7 +11,7 @@ export default function JobCard({job,saved,onSave,onRead}){
   <div className="company-name">{ar(job.company)}</div><h3 dir="auto">{ar(job.title)}</h3>
   <div className="role-badges">{categories.length?categories.slice(0,2).map(role=><span className="role-badge" key={role}>{ar(role)}</span>):<span className="role-badge neutral">التخصص غير محدد</span>}{categories.length>2&&<span className="role-badge neutral" title={categories.map(ar).join('، ')}>+{number(categories.length-2)}</span>}</div>
   <div className="job-meta"><span><MapPin size={14}/>{ar(job.city)}</span>{provinces.length>1&&<span className="province-extra" title={provinces.map(ar).join('، ')}>+{number(provinces.length-1)} محافظات</span>}<span className="meta-divider"/><span>{ar(job.schedule)}</span></div>
-  <p className="description" dir="auto">{job.description}</p><div className="card-bottom"><span className="salary">{ar(job.salary)}</span><span className="listing-time">{ar(job.time)}</span></div>
+  <p className="description" dir="auto">{job.description}</p><div className="card-bottom"><span className="salary">{ar(job.salary)}</span><time className="listing-time" dateTime={validDate(job.createdAt)?.toISOString()} title={job.createdAt?exactDate(job.createdAt):undefined}>{job.createdAt?jobTimestamp(job.createdAt):job.sample?ar(job.time):'تاريخ النشر غير متاح'}</time></div>
   <div className="card-footer"><span className="listing-kind">{job.sample?'ملف توضيحي':job.live?'من المجتمع الطبي':'محفوظ على جهازك'}</span><JobContactActions job={job} onRead={onRead}/></div>
  </article>
 }

@@ -1,3 +1,4 @@
+import {jobTimestamp} from './dates.js'
 import { canonicalRole, canonicalCity, roles as roleList, cities as cityList } from './i18n.js'
 import { extractContacts, normalizeIraqiPhone, telegramHandle, isRejectedPost, isRawJobAllowed } from './contacts.js'
 const roleNames = {
@@ -41,7 +42,7 @@ export function toJob(row) {
     salary: row.salary_range || 'Salary not specified',
     schedule: raw ? 'Schedule not specified' : ({ full_time: 'Full-time', part_time: 'Part-time', contract: 'Contract', internship: 'Internship', 'Full-time':'Full-time', 'Part-time':'Part-time', Contract:'Contract' }[scheduleValue] || 'Schedule not specified'),
     description: text, logo: row.source === 'telegram' ? '↗' : company.slice(0, 2).toUpperCase(), color: 'mint',
-    time: row.created_at && Number.isFinite(Date.parse(row.created_at)) ? new Intl.DateTimeFormat('ar-IQ', { month: 'short', day: 'numeric' }).format(new Date(row.created_at)) : '',
+    time: jobTimestamp(meta.source_posted_at || row.created_at),
     createdAt: meta.source_posted_at || row.created_at || '', sourceUrl, phone, whatsapp,
     telegram: username,
     live: true, raw,

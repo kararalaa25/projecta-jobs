@@ -18,9 +18,9 @@ npm run dev
 
 Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env.local` using your Supabase project URL and public anonymous key. Never use a service role key in the browser. Restart Vite after changing these values.
 
-In the Supabase dashboard, enable Google under Authentication → Providers and configure its OAuth credentials. Add your app origin to Authentication → URL Configuration → Site URL and the redirect allowlist (for local development, `http://localhost:5173`). Configure the provider's authorized callback URL as instructed by Supabase. Create an email/password user in Supabase to use the email sign-in form; this application does not include a registration flow.
+In the Supabase dashboard, enable Google under Authentication → Providers and configure its OAuth credentials. Add your app origin to Authentication → URL Configuration → Site URL and the redirect allowlist (for local development, `http://localhost:5173`). Configure the provider's authorized callback URL as instructed by Supabase. The modal supports email OTP registration and login; configure the email templates described below.
 
-Without these variables, the frontend works in demo mode and the sign-in modal explains the missing configuration. Real authentication requires your Supabase project and provider setup.
+Without these variables, the sign-in modal explains that authentication is unavailable. Real authentication requires your Supabase project and provider setup.
 
 ## Listings and interactions
 
@@ -30,13 +30,13 @@ Without these variables, the frontend works in demo mode and the sign-in modal e
 - Demo listings do not contain fabricated phone numbers and are explicitly identified as samples.
 - Newly submitted browser listings and saved IDs persist on the current device only; the form explains this scope. The Job Offers feed separately loads active Supabase `job_offers` through `/api/jobs`. Sample job cards are no longer mixed into that feed; candidates remain clearly labeled samples until a candidate backend is connected.
 
-The Supabase integration covers authentication and server-side reads of active marketplace job posts. Browser-created listings still need backend publishing and moderation. No secrets or backend credentials are committed.
+The Supabase integration covers authentication and server-side reads of active marketplace job posts. Approved medical professionals publish jobs through the protected server endpoint; candidate profiles remain device-local. No secrets or backend credentials are committed.
 
 ## Deploy to Vercel
 
 Import `kararalaa25/projecta-jobs` in Vercel and select the `main` branch. The committed `vercel.json` selects Vite, runs `npm run build`, and publishes `dist/` with an SPA fallback.
 
-Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's environment settings before deploying if authentication is required. Without them, the marketplace runs in demo mode. After deployment, add the production origin to the Supabase site URL and redirect allowlist. Listings remain device-local until backend persistence is implemented.
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project's environment settings before deploying if authentication is required. Without them, authentication is unavailable. After deployment, add the production origin to the Supabase site URL and redirect allowlist. Jobs publish through the protected backend; candidate profiles remain device-local.
 
 ## Telegram → Gemini → Supabase ingestion
 
@@ -178,3 +178,9 @@ History mode follows Telegram's public HTTPS `before` cursor until the date cuto
 `--parser regex` avoids Gemini charges/timeouts for large backfills, writes batches of 100 using deterministic source IDs, and leaves uncertain details unclassified. `--parser hybrid` uses local classification when sufficient and Gemini for ambiguity; `--parser gemini` always attempts Gemini. Reports in ignored `.telegram_history/last-run.json` record the time window, per-channel outcomes, failures and observed governorate counts. Counts describe actual detected locations, not promised geographic coverage.
 
 Source post timestamps are retained for ordering. The public feed uses offset pagination in pages of 200, so older governorates/categories are not hidden behind the previous fixed 200-row feed limit. Empty combinations display an Arabic empty state rather than sample job offers.
+
+### Auth availability and navigation polish
+
+The dialog reads public `/auth/v1/settings` on opening. Explicitly disabled Google/phone/email providers show Arabic guidance instead of an unusable form; an unavailable settings endpoint permits attempting login with a clear warning. Gateway credentials are never read by the browser. Provider flags cannot confirm successful SMS/email delivery, so request failures also show localized guidance. Google cancellation callbacks are localized and error parameters are removed from the URL. Google still requires activation under Supabase Authentication → Providers; phone requires a configured SMS gateway.
+
+Brand links and «المنصة الرئيسية» stay on `/`. The designated clinic-management footer link opens the original hub using `target="_blank" rel="noopener noreferrer"`. Cards show Arabic relative source dates, a full-date tooltip in Asia/Baghdad, and explicit unknown dates.
