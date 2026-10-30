@@ -16,9 +16,10 @@ export function authError(error,method){
 }
 export async function requestCode(client,method,target,signup){
  if(!client)throw Error('Auth not configured')
- return client.auth.signInWithOtp(method==='email'?{email:target.trim().toLowerCase(),options:{shouldCreateUser:signup}}:{phone:target,options:{shouldCreateUser:signup}})
+ return client.auth.signInWithOtp(method==='email'?{email:target.trim().toLowerCase()}:{phone:target,options:{shouldCreateUser:signup}})
 }
 export async function verifyCode(client,method,target,token){
+ if(method==='email'&&!/^[0-9]{6}$/.test(token))throw Error('Invalid six-digit email OTP')
  return client.auth.verifyOtp(method==='email'?{email:target.trim().toLowerCase(),token,type:'email'}:{phone:target,token,type:'sms'})
 }
 
@@ -40,3 +41,7 @@ export const providerHelper = method => ({
  phone: 'الدخول برسائل SMS غير متاح حالياً. يتطلب تفعيل مزوّد الهاتف وإعداد بوابة الرسائل من إدارة المنصة. يمكنك استخدام البريد الإلكتروني.',
  email: 'الدخول بالبريد الإلكتروني غير متاح حالياً. يرجى مراجعة إدارة المنصة.',
 }[method])
+
+export function signInWithGoogle(client){
+ return client.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://projecta-jobs.vercel.app'}})
+}
