@@ -12,5 +12,5 @@ export default defineConfig(({ mode }) => {
     configureServer(server) { server.middlewares.use('/api/jobs', createJobsHandler(env)); server.middlewares.use('/api/publish-job', createPublishHandler(env)) },
     configurePreviewServer(server) { server.middlewares.use('/api/jobs', createJobsHandler(env)); server.middlewares.use('/api/publish-job', createPublishHandler(env)) },
   }
-  return { define: { 'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.SUPABASE_URL || '') }, plugins: [react(), tailwindcss(), localJobs] }
+  return { build: { rollupOptions: { output: { manualChunks: { react: ['react','react-dom/client'], supabase: ['@supabase/supabase-js'] } } } }, define: { 'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.SUPABASE_URL || '') }, plugins: [react(), tailwindcss(), localJobs] }
 })
