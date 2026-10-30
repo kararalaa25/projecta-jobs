@@ -30,6 +30,7 @@ test('Telegram raw posts receive usable specialty, province and schedule filters
  assert.equal(mapped.role,'Pharmacists');assert.equal(mapped.city,'Babylon');assert.equal(mapped.schedule,'Part-time')
  const unknown=toJob({source:'telegram',description:'مطلوب موظف للعمل في مؤسسة صحية حسب الاتفاق',employment_type:'full_time'})
  assert.equal(unknown.role,'Unsorted');assert.equal(unknown.city,'City not specified');assert.equal(unknown.schedule,'Schedule not specified')
+ const metadataOnly=toJob({source:'telegram',description:'مطلوب للعمل في مؤسسة صحية حسب الاتفاق',contact_info:JSON.stringify({role_categories:['Dentists']})});assert.equal(metadataOnly.role,'Dentists')
  for(const [text,expected] of [['دوام كامل','Full-time'],['part-time','Part-time'],['دوام كامل أو دوام جزئي',null],['دوام مسائي',null]])assert.equal(matchEmploymentType(text),expected)
 })
 test('API feed filters are applied before pagination and reject invalid feed parameters',async()=>{

@@ -39,7 +39,7 @@ export function toJob(row) {
   const mappedLocations=(Array.isArray(meta.governorates)?meta.governorates:[]).map(canonicalCity).filter(value=>cityList.includes(value))
   const inferred=classifyJob(title,text)
   if(raw&&inferred.primary)title='فرصة عمل — '+ar(inferred.primary)
-  const candidateRole=canonicalRole(meta.role_category||roleNames[row.role_category]||row.role_category||inferred.primary||'')
+  const candidateRole=canonicalRole(meta.role_category||roleNames[row.role_category]||row.role_category||mappedRoles[0]||inferred.primary||'')
   const role=roleList.includes(candidateRole)?candidateRole:inferred.primary||'Unsorted'
   const inferredLocations=row.source==='telegram'&&!mappedLocations.length?matchGovernorates(text):[]
   const candidateCity=canonicalCity(meta.governorate||row.location_city||'')
