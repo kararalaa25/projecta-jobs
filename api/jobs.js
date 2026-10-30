@@ -19,15 +19,17 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       res.statusCode = 503
       return res.end(JSON.stringify({ error: 'The job feed is not configured on this server.' }))
     }
+    let upstreamStatus
     try {
       const db = clientFactory(url, key, { auth: { persistSession: false, autoRefreshToken: false },
         ...(dispatcher ? { global: { fetch: (input, init) => proxyFetch(input, { ...init, dispatcher }) } } : {}),
       })
       // Active marketplace posts only. Never expose user/account IDs or other tables.
-      const { data, error } = await db.from('job_offers')
+      const { data, error, status } = await db.from('job_offers')
         .select('id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,created_at')
         .eq('status', 'active').order('created_at', { ascending: false }).limit(200)
         .abortSignal(AbortSignal.timeout(15000))
+      upstreamStatus = status
       if (error) throw error
       res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
       res.statusCode = 200
@@ -35,7 +37,11 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
     } catch (error) {
       console.error("Job feed unavailable:", error?.name || "Error", error?.code || error?.cause?.code || "unknown")
       res.statusCode = 502
-      return res.end(JSON.stringify({ error: 'Live jobs are temporarily unavailable. Please try again.' }))
+      const detail = String(error?.message || '').toLowerCase()
+      const reason = upstreamStatus === 401 || upstreamStatus === 403 || /jwt|api key/.test(detail)
+        ? 'credentials' : /fetch failed|timeout|abort/.test(detail) ? 'connection'
+        : ['42703', '42P01', 'PGRST204', 'PGRST205'].includes(error?.code) ? 'schema' : 'unavailable'
+      return res.end(JSON.stringify({ error: 'Live jobs are temporarily unavailable. Please try again.', reason }))
     }
   }
 }
