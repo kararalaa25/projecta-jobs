@@ -4,7 +4,7 @@ A responsive dental and medical careers frontend for Iraq, built with React, Vit
 
 ## Develop
 
-Requires Node.js 20.19+ or 22.12+ (validated with Node 24).
+Requires Node.js 22.19+ (validated with Node 24).
 
 ```sh
 npm ci
@@ -28,9 +28,9 @@ Without these variables, the frontend works in demo mode and the sign-in modal e
 - Switch between job openings and candidates, save listings, and revisit saved listings in either tab.
 - Create a listing with an international phone number to enable direct WhatsApp and phone actions; add an optional Telegram username for Telegram contact.
 - Demo listings do not contain fabricated phone numbers and are explicitly identified as samples.
-- Created listings and saved IDs persist in localStorage on the current browser/device. Listings are **not publicly published**, synced to Supabase, or shared across devices. The post form explicitly explains this scope.
+- Newly submitted browser listings and saved IDs persist on the current device only; the form explains this scope. The Job Offers feed separately loads active Supabase `job_offers` through `/api/jobs`. Sample job cards are no longer mixed into that feed; candidates remain clearly labeled samples until a candidate backend is connected.
 
-The Supabase integration covers authentication. A public marketplace will additionally need a listings database, access policies, moderation, and backend persistence. No secrets or backend credentials are committed.
+The Supabase integration covers authentication and server-side reads of active marketplace job posts. Browser-created listings still need backend publishing and moderation. No secrets or backend credentials are committed.
 
 ## Deploy to Vercel
 
@@ -95,7 +95,7 @@ The worker discovers available text-generation models using `client.aio.models.l
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Tests mock external services. Live readiness additionally requires accessible channels, an available Gemini model, and the applied database migration. Frontend listing reads are still demo/device-local; public display of ingested rows requires a separately designed read policy and frontend integration.
+Tests mock external services. Live readiness additionally requires accessible channels, an available Gemini model, and the applied database migration. Frontend job reads use the server-side `/api/jobs` endpoint described below. Candidate samples and browser-created device-local listings are separate from the ingested job feed.
 
 ### Published marketplace schema mapping
 
@@ -112,3 +112,13 @@ The optional ingestion-specific schema instead receives the original `raw_text` 
 Raw fallback records are deduplicated using the same source identity and text hash as parsed records. Unchanged raw records are skipped on subsequent runs; reprocessing them after model access recovers requires a deliberate backfill/reparse workflow.
 
 The live marketplace currently also enforces `job_offers_role_category_check`, which rejects an empty role even for unparsed posts. Apply `supabase/migrations/202610300003_allow_unparsed_telegram.sql` through an authorized database connection or the Supabase SQL editor to permit explicitly unknown roles for Telegram rows. It preserves the original allowed categories and existing data. A service-role REST key alone cannot apply this DDL. Until applied, raw rows rejected by this check remain in the private outbox and the run reports failure; they are not falsely categorized to bypass the constraint.
+
+## Live job feed on the website
+
+`api/jobs.js` is a Vercel Node function exposing the newest 200 active `job_offers` rows. It selects marketplace fields only, filters `status=active`, and never sends the service-role key or account IDs to the browser. It honors the host's configured HTTPS proxy with TLS verification intact. Vite dev and preview register the same endpoint for local validation.
+
+Set **runtime** `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the **Vercel project** environment settings, then redeploy the latest `main`. Cloud worker environment variables are not automatically copied to Vercel. A configured browser-safe anon key is supported instead if your database grants public reads of active rows. Never prefix the service-role key with `VITE_`. Authentication still uses the separate `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` build variables.
+
+The frontend fetches `/api/jobs` on startup and on Refresh. It shows loading, unavailable, empty and retry states rather than silently replacing failed reads with sample jobs. Raw Telegram records are labeled **Unverified post**, with unspecified role/city/salary left unknown. Full Arabic text is available in a reading modal, with a validated link to the original Telegram post. No contact is invented when Gemini has not extracted one. Only records actually returned by the active-post feed appear.
+
+Verification commands: `npm test` for feed mapping/API tests, `npm run build` for production output. The server function must be deployed alongside `dist/`; uploading only static build files will not provide `/api/jobs`.
