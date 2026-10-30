@@ -214,6 +214,50 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
     def test_message_ids_are_channel_scoped(self):
         self.assertNotEqual(scraper.message_key(1, 'clinic', 17), scraper.message_key(2, 'other', 17))
 
+    async def test_promotions_and_short_posts_never_reach_parser(self):
+        for text in ['مطلوب مساعد لمدة دورة تدريبية في مركز طبي', 'ورشة عمل متخصصة في عيادة الاسنان', 'كورس طبي مطلوب التسجيل به في مركز', '#بداية_النشر مطلوب طبيب اسنان في بغداد', 'مطلوب طبيب']:
+            self.message.raw_text = text
+            with patch.object(scraper, 'parse_job', AsyncMock()) as parse:
+                self.assertEqual(await scraper.ingest_message(None,self.db,self.message,123,'test'), 'filtered')
+                parse.assert_not_called()
+        self.db.table.assert_not_called()
+
+    async def test_raw_fallback_requires_job_keywords(self):
+        self.message.raw_text = 'هذه رسالة اخبارية عامة لا تحتوي اي عرض للعمل'
+        with patch.object(scraper,'existing_hash',return_value=None), patch.object(scraper,'parse_job',AsyncMock(side_effect=TimeoutError())):
+            self.assertEqual(await scraper.ingest_message(None,self.db,self.message,123,'test'), 'filtered')
+        self.db.table.return_value.upsert.assert_not_called()
+
+    def test_iraqi_contacts_and_nearest_whatsapp_number(self):
+        contacts = scraper.extract_contacts('مطلوب طبيب هاتف 07701234567، او واتساب +964 780 123 4567 @clinic_jobs')
+        self.assertEqual(contacts, {'contact_phone':'07701234567','contact_telegram':'clinic_jobs','contact_whatsapp':'9647801234567'})
+        arabic = scraper.extract_contacts('مطلوب مساعد واتساب ٠٧٧٠١٢٣٤٥٦٧ https://t.me/clinic_jobs')
+        self.assertEqual(arabic['contact_phone'],'07701234567')
+        self.assertEqual(arabic['contact_whatsapp'],'9647701234567')
+        self.assertEqual(arabic['contact_telegram'],'clinic_jobs')
+
+    def test_contacts_do_not_invent_whatsapp_or_extract_email(self):
+        contacts=scraper.extract_contacts('مطلوب طبيب 07701234567 بريد doctor@example.com')
+        self.assertIsNone(contacts['contact_whatsapp'])
+        self.assertIsNone(contacts['contact_telegram'])
+
+    def test_optional_structured_contact_columns(self):
+        self.message.raw_text='مطلوب طبيب للتواصل واتساب 07701234567 @clinic_jobs'
+        row=scraper.native_record(scraper.build_record(self.job,self.message,123,'test'),include_contacts=True)
+        self.assertEqual(row['contact_phone'],'07701234567')
+        self.assertEqual(row['contact_whatsapp'],'9647701234567')
+        self.assertEqual(row['contact_telegram'],'clinic_jobs')
+
+    def test_course_in_outbox_is_discarded(self):
+        import tempfile,json
+        from pathlib import Path
+        self.message.raw_text='كورس تدريب في عيادة الاسنان مطلوب تسجيل'
+        with tempfile.TemporaryDirectory() as temp, patch.dict('os.environ',{'TELEGRAM_OUTBOX':temp}):
+            scraper.queue_record(scraper.raw_record(self.message,123,'test','native'),'native')
+            self.assertEqual(scraper.replay_outbox(self.db,'native'),(0,0))
+            self.assertEqual(list(Path(temp).glob('*.json')),[])
+        self.db.table.return_value.upsert.assert_not_called()
+
     def test_channel_configuration(self):
         with patch.dict('os.environ', {'TELEGRAM_CHANNELS': '@clinic, -100123, @clinic'}):
             self.assertEqual(scraper.channels_from_env(), ['@clinic', -100123])

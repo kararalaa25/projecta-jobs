@@ -40,3 +40,20 @@ test('missing config and database failures return safe visible errors',async()=>
 test('feed does not accept write requests',async()=>{
   const res=response();await createJobsHandler({})({method:'POST'},res);assert.equal(res.statusCode,405)
 })
+
+
+test('Iraqi contact normalization and promo filtering',async()=>{
+  const {extractContacts,normalizeIraqiPhone,isRejectedPost}=await import('../src/contacts.js')
+  assert.deepEqual(normalizeIraqiPhone('+964 770 123 4567'),{local:'07701234567',whatsapp:'9647701234567'})
+  assert.deepEqual(extractContacts('مطلوب مساعد واتساب ٠٧٧٠١٢٣٤٥٦٧ https://t.me/clinic_jobs'),{phone:'07701234567',whatsapp:'9647701234567',telegram:'clinic_jobs'})
+  assert.equal(isRejectedPost('مطلوب التسجيل في كورس الاسنان بالعيادة'),true)
+  assert.equal(isRejectedPost('مطلوب طبيب اسنان للتوظيف في عيادة بغداد'),false)
+})
+test('raw cards extract actionable contacts without Gemini',()=>{
+  const job=toJob({id:'raw',description:'مطلوب طبيب اسنان واتساب 07701234567 @clinic_jobs',source:'telegram',contact_info:'{}'})
+  assert.equal(job.phone,'07701234567');assert.equal(job.whatsapp,'9647701234567');assert.equal(job.telegram,'clinic_jobs')
+})
+test('new database contact columns are read directly',()=>{
+  const job=toJob({id:'row',contact_phone:'+9647701234567',contact_telegram:'https://t.me/clinic_jobs',contact_whatsapp:'9647801234567'})
+  assert.equal(job.phone,'07701234567');assert.equal(job.telegram,'clinic_jobs');assert.equal(job.whatsapp,'9647801234567')
+})

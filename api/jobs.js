@@ -25,10 +25,13 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
         ...(dispatcher ? { global: { fetch: (input, init) => proxyFetch(input, { ...init, dispatcher }) } } : {}),
       })
       // Active marketplace posts only. Never expose user/account IDs or other tables.
-      const { data, error, status } = await db.from('job_offers')
-        .select('id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,created_at')
+      const fields = 'id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,created_at'
+      const query = columns => db.from('job_offers').select(columns)
         .eq('status', 'active').order('created_at', { ascending: false }).limit(200)
         .abortSignal(AbortSignal.timeout(15000))
+      let result = await query(fields + ',contact_phone,contact_telegram,contact_whatsapp')
+      if (['42703','PGRST204'].includes(result.error?.code)) result = await query(fields)
+      const { data, error, status } = result
       upstreamStatus = status
       if (error) throw error
       res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')

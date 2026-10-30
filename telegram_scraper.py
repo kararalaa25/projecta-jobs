@@ -76,6 +76,54 @@ def channels_from_env() -> list[str | int]:
     return [int(x) if x.lstrip("-").isdigit() else x for x in dict.fromkeys(channels)]
 
 
+ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+PROMO_WORDS = ("كورس", "دورة", "دوره", "ورشة", "ورشه", "#بداية_النشر")
+JOB_WORDS = ("مطلوب", "وظيفة", "وظيفه", "تجميع", "صيدلية", "صيدليه", "عيادة", "عياده", "مركز")
+PHONE_PATTERN = re.compile(r"(?<!\d)(?:\+?964[\s().-]*0?7(?:[\s().-]*\d){9}|07(?:[\s().-]*\d){9})(?!\d)")
+TELEGRAM_PATTERN = re.compile(r"(?<![\w@])@([A-Za-z][A-Za-z0-9_]{4,31})(?![\w])|(?:https?://)?(?:t\.me|telegram\.me)/([A-Za-z][A-Za-z0-9_]{4,31})(?![\w])", re.I)
+
+
+def normalized_text(text: str) -> str:
+    return re.sub(r"[\u064b-\u065f\u0670\u0640]", "", text).casefold()
+
+
+def rejected_post(text: str) -> bool:
+    value = normalized_text(text)
+    return len(text.strip()) < 20 or any(word in value for word in PROMO_WORDS)
+
+
+def raw_job_allowed(text: str) -> bool:
+    return not rejected_post(text) and any(word in normalized_text(text) for word in JOB_WORDS)
+
+
+def extract_contacts(text: str) -> dict:
+    value = text.translate(ARABIC_DIGITS)
+    matches = list(PHONE_PATTERN.finditer(value))
+    def phone_parts(match):
+        digits = re.sub(r"\D", "", match.group())
+        national = digits[3:].lstrip("0") if digits.startswith("964") else digits.lstrip("0")
+        return "0" + national, "964" + national
+    whatsapp = None
+    for marker in re.finditer(r"واتس\s*(?:اب|آب)|whats\s*app", value, re.I):
+        nearest = min(matches, key=lambda m: max(0, m.start()-marker.end(), marker.start()-m.end()), default=None)
+        if nearest and max(0, nearest.start()-marker.end(), marker.start()-nearest.end()) <= 40:
+            whatsapp = phone_parts(nearest)[1]
+            break
+    phones = [phone_parts(m)[0] for m in matches]
+    telegram = TELEGRAM_PATTERN.search(value)
+    return {"contact_phone": phones[0] if phones else None,
+            "contact_telegram": (telegram.group(1) or telegram.group(2)) if telegram else None,
+            "contact_whatsapp": whatsapp}
+
+
+def is_native(storage: str) -> bool:
+    return storage in {"native", "native_contacts"}
+
+
+def native_contact_fields(contacts: dict, storage: str) -> dict:
+    return contacts if storage == "native_contacts" else {}
+
+
 async def discover_models(client) -> list[str]:
     """Prefer listed text-generation Flash models; listing is not proof of access."""
     try:
@@ -147,6 +195,7 @@ def build_record(job: ParsedJob, message, chat_id: int, channel: str) -> dict | 
         return None
     record = job.model_dump(exclude={"is_job_offer"})
     record["title"] = job.title.strip()
+    record.update(extract_contacts(message.raw_text))
     record.update(
         telegram_message_id=message_key(chat_id, channel, message.id),
         source_chat_id=chat_id, source_message_id=message.id,
@@ -170,7 +219,7 @@ def native_id(chat_id: int, channel: str, message_id: int) -> str:
     return str(uuid5(NAMESPACE_URL, "projecta-jobs:telegram:" + message_key(chat_id, channel, message_id)))
 
 
-def native_record(record: dict) -> dict | None:
+def native_record(record: dict, include_contacts=False) -> dict | None:
     # The live table requires a known city. Do not fabricate missing locations.
     if not record["city"]:
         return None
@@ -181,9 +230,11 @@ def native_record(record: dict) -> dict | None:
         "description": record["raw_text"], "source": "telegram",
         "contact_info": json.dumps({
             "phone": record["contact_phone"], "telegram": record["contact_telegram"],
+            "whatsapp": record.get("contact_whatsapp"),
             "company_name": record["company_name"], "source_url": record["source_url"],
             "telegram_message_id": record["telegram_message_id"],
         }, ensure_ascii=False),
+        **({k: record.get(k) for k in ("contact_phone", "contact_telegram", "contact_whatsapp")} if include_contacts else {}),
         # Omit employment_type if unknown, preserving the table's default.
         **({"employment_type": record["employment_type"].lower().replace("-", "_")}
            if record["employment_type"] else {}),
@@ -192,19 +243,23 @@ def native_record(record: dict) -> dict | None:
 
 def raw_record(message, chat_id: int, channel: str, storage: str) -> dict:
     """Preserve content without inventing a city, profession, employer or contacts."""
+    contacts = extract_contacts(message.raw_text)
     key = message_key(chat_id, channel, message.id)
     source_url = f"https://t.me/{channel}/{message.id}" if not channel.lstrip("-").isdigit() else None
-    if storage == "native":
+    if is_native(storage):
         return {
             "id": native_id(chat_id, channel, message.id),
             "title": message.raw_text, "description": message.raw_text,
             # The live schema requires text, so empty strings mean unclassified/unknown.
             "role_category": "", "location_city": "", "source": "telegram",
             "contact_info": json.dumps({"parsing_status": "unparsed", "telegram_message_id": key,
-                                        "source_url": source_url}, ensure_ascii=False),
+                                        "source_url": source_url, "phone": contacts["contact_phone"],
+                                        "telegram": contacts["contact_telegram"], "whatsapp": contacts["contact_whatsapp"]}, ensure_ascii=False),
+            **native_contact_fields(contacts, storage),
         }
     return {
         "telegram_message_id": key, "title": message.raw_text, "raw_text": message.raw_text,
+        **{k:v for k,v in contacts.items() if k != "contact_whatsapp"},
         "role_category": "", "source_chat_id": chat_id, "source_message_id": message.id,
         "source_channel": channel, "source_url": source_url,
         "source_posted_at": message.date.isoformat(), "source_text_hash": text_hash(message.raw_text),
@@ -237,10 +292,15 @@ def replay_outbox(db, storage: str) -> tuple[int, int]:
     for file in root.glob("*.json"):
         try:
             item = json.loads(file.read_text())
-            if item["storage"] != storage:
+            text = item["record"].get("description") or item["record"].get("raw_text", "")
+            if rejected_post(text) or (item["record"].get("title") == text and not raw_job_allowed(text)):
+                file.unlink()
+                LOG.info("Discarded filtered outbox post")
+                continue
+            if item["storage"] != storage and not (is_native(item["storage"]) and is_native(storage)):
                 pending += 1
                 continue
-            conflict = "id" if storage == "native" else "telegram_message_id"
+            conflict = "id" if is_native(storage) else "telegram_message_id"
             db.table("job_offers").upsert(item["record"], on_conflict=conflict).execute()
             file.unlink()
             replayed += 1
@@ -251,7 +311,7 @@ def replay_outbox(db, storage: str) -> tuple[int, int]:
 
 
 def existing_hash(db, chat_id: int, message_id: int, channel: str, storage="ingestion") -> str | None:
-    if storage == "native":
+    if is_native(storage):
         result = (db.table("job_offers").select("description")
                   .eq("id", native_id(chat_id, channel, message_id)).limit(1).execute())
         return text_hash(result.data[0]["description"]) if result.data else None
@@ -261,38 +321,67 @@ def existing_hash(db, chat_id: int, message_id: int, channel: str, storage="inge
     return result.data[0]["source_text_hash"] if result.data else None
 
 
+def enrich_contacts(db, message, chat_id, channel, storage):
+    identity = native_id(chat_id, channel, message.id)
+    result = db.table("job_offers").select("contact_info").eq("id", identity).limit(1).execute()
+    if not result.data:
+        return
+    existing = result.data[0].get("contact_info")
+    try:
+        meta = json.loads(existing) if existing else {}
+        if not isinstance(meta, dict):
+            meta = {"original_contact_info": existing}
+    except (TypeError, ValueError):
+        meta = {"original_contact_info": existing}
+    contacts = extract_contacts(message.raw_text)
+    meta.update(phone=contacts["contact_phone"], telegram=contacts["contact_telegram"], whatsapp=contacts["contact_whatsapp"])
+    db.table("job_offers").update({"contact_info": json.dumps(meta, ensure_ascii=False),
+                                  **native_contact_fields(contacts, storage)}).eq("id", identity).execute()
+
+
 async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_run=False, storage="ingestion") -> str:
     if not message.raw_text or not message.raw_text.strip():
         return "empty"
+    if rejected_post(message.raw_text):
+        return "filtered"
     if not dry_run:
         try:
             saved_hash = await asyncio.to_thread(existing_hash, db, chat_id, message.id, channel, storage)
         except Exception:
-            await asyncio.to_thread(queue_record, raw_record(message, chat_id, channel, storage), storage)
+            if raw_job_allowed(message.raw_text):
+                await asyncio.to_thread(queue_record, raw_record(message, chat_id, channel, storage), storage)
             raise
         if saved_hash == text_hash(message.raw_text):
+            if is_native(storage):
+                await asyncio.to_thread(enrich_contacts, db, message, chat_id, channel, storage)
             return "unchanged"
     raw_fallback = False
     try:
         job = await parse_job(gemini, message.raw_text)
         record = build_record(job, message, chat_id, channel)
-        if record is not None and storage == "native":
-            record = native_record(record)
+        if record is not None and is_native(storage):
+            record = native_record(record, include_contacts=storage == "native_contacts")
         if job.is_job_offer and record is None:
+            if not raw_job_allowed(message.raw_text):
+                return "filtered"
             record = raw_record(message, chat_id, channel, storage)
             raw_fallback = True
     except Exception as exc:
-        LOG.warning("Parsing failed (%s); preserving raw post", type(exc).__name__)
+        if not raw_job_allowed(message.raw_text):
+            return "filtered"
+        LOG.warning("Parsing failed (%s); preserving raw job post", type(exc).__name__)
         record = raw_record(message, chat_id, channel, storage)
         raw_fallback = True
-    identity_column = "id" if storage == "native" else "telegram_message_id"
-    identity_value = native_id(chat_id, channel, message.id) if storage == "native" else message_key(chat_id, channel, message.id)
+    identity_column = "id" if is_native(storage) else "telegram_message_id"
+    identity_value = native_id(chat_id, channel, message.id) if is_native(storage) else message_key(chat_id, channel, message.id)
     if record is None:
         # If an existing offer was edited into a non-job, remove the stale offer.
         if not dry_run and saved_hash:
             await asyncio.to_thread(lambda: db.table("job_offers").delete()
                                     .eq(identity_column, identity_value).execute())
         return "not_job"
+    if record is not None and storage == "ingestion":
+        record.pop("contact_whatsapp", None)  # Original ingestion schema has no WhatsApp column.
     if dry_run:
         return "would_upsert_raw" if raw_fallback else "would_upsert"
     # Channel-qualified conflict key makes re-runs and edited posts idempotent.
@@ -378,7 +467,13 @@ def check_database_schema(db) -> str:
                       "description,contact_info,source,created_at")
     try:
         db.table("job_offers").select(native_columns).limit(0).execute()
-        return "native"
+        try:
+            db.table("job_offers").select("contact_phone,contact_telegram,contact_whatsapp").limit(0).execute()
+            return "native_contacts"
+        except Exception as exc:
+            if getattr(exc, "code", None) not in {"42703", "PGRST204"}:
+                raise
+            return "native"
     except Exception as exc:
         if getattr(exc, "code", None) not in {"42703", "PGRST204"}:
             raise

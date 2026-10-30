@@ -78,7 +78,7 @@ HTTPS fallback uses only Telegram's public website and does not join channels or
 
 ### Gemini parsing and running
 
-The worker discovers available text-generation models using `client.aio.models.list()`, preferring Flash models over other Gemini models. Discovery excludes audio/image/embedding models. Listing does not guarantee model access: 404s advance to the next model, and a working model is reused. If listing fails or candidates fail, the requested fallback names are tried in order: `gemini-2.5-flash`, `models/gemini-2.5-flash`, `gemini-1.5-flash`, `models/gemini-1.5-flash`. Those prefixed names are retained as explicit compatibility attempts even though the service may treat them as aliases. Overall discovery/parsing is bounded to 45 seconds per post. Gemini receives standard `response_mime_type="application/json"` only—neither request schema parameter is sent. The expected shape is included in the system prompt and output is validated locally with Pydantic. Missing facts stay null. Successfully classified non-offers and candidates seeking work are skipped. Parsing exceptions, timeouts, invalid JSON, and incomplete job offers produce raw fallback records instead of terminating ingestion. Short transient rate limits/server errors get bounded retries.
+The worker discovers available text-generation models using `client.aio.models.list()`, preferring Flash models over other Gemini models. Discovery excludes audio/image/embedding models. Listing does not guarantee model access: 404s advance to the next model, and a working model is reused. If listing fails or candidates fail, the requested fallback names are tried in order: `gemini-2.5-flash`, `models/gemini-2.5-flash`, `gemini-1.5-flash`, `models/gemini-1.5-flash`. Those prefixed names are retained as explicit compatibility attempts even though the service may treat them as aliases. Overall discovery/parsing is bounded to 45 seconds per post. Gemini receives standard `response_mime_type="application/json"` only—neither request schema parameter is sent. The expected shape is included in the system prompt and output is validated locally with Pydantic. Missing facts stay null. Successfully classified non-offers and candidates seeking work are skipped. Parsing exceptions, timeouts, invalid JSON, and incomplete offers produce raw fallback records only if they pass the strict job-keyword filter described below. Short transient rate limits/server errors get bounded retries.
 
 ```sh
 # Reads Telegram and calls Gemini (may incur API charges), never accesses Supabase:
@@ -122,3 +122,21 @@ Set **runtime** `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the **Vercel p
 The frontend fetches `/api/jobs` on startup and on Refresh. It shows loading, unavailable, empty and retry states rather than silently replacing failed reads with sample jobs. Raw Telegram records are labeled **Unverified post**, with unspecified role/city/salary left unknown. Full Arabic text is available in a reading modal, with a validated link to the original Telegram post. No contact is invented when Gemini has not extracted one. Only records actually returned by the active-post feed appear.
 
 Verification commands: `npm test` for feed mapping/API tests, `npm run build` for production output. The server function must be deployed alongside `dist/`; uploading only static build files will not provide `/api/jobs`.
+
+## Job-only filtering and extracted contacts
+
+Before parsing, Telegram posts shorter than 20 trimmed characters, or containing `كورس`, `دورة`, `ورشة`, `#بداية_النشر` (including normalized spelling variants), are rejected. If Gemini fails or returns an incomplete offer, raw fallback is allowed only when the text contains one of `مطلوب`, `وظيفة`, `تجميع`, `صيدلية`, `عيادة`, `مركز`. Successfully parsed non-offers are still skipped. Outbox replay applies these rules too. These substring rules deliberately favor the requested strict filtering and may also reject job posts mentioning training.
+
+Regex extraction works independently of Gemini, including Arabic/Persian digits and separated Iraqi `07…` / `+964…` numbers. `contact_phone` is normalized to local `07…`; `contact_telegram` is a username; `contact_whatsapp` is the nearest number to `واتساب` or `whatsapp`, normalized as `964…`. Multiple phone numbers are handled by assigning WhatsApp to the nearest labeled number. Existing unchanged job posts are contact-enriched without repeated Gemini calls.
+
+The live table currently supports structured contact data through JSON in `contact_info` (`phone`, `telegram`, `whatsapp`). For dedicated columns, apply `supabase/migrations/202610300004_contact_columns.sql` in the Supabase SQL editor, or configure `SUPABASE_DB_URL` securely and run:
+
+```sh
+.venv/bin/python scripts/apply_ingestion_migration.py --migration 202610300004_contact_columns.sql
+```
+
+The scraper automatically detects those columns and writes them after migration. The API supports both schemas, and the frontend reads direct columns, JSON metadata, or regex-extracted post contacts. Until the migration is applied, native-schema contacts remain in JSON rather than nonexistent columns. The older ingestion-specific schema retains its existing phone/Telegram fields.
+
+`src/components/JobContactActions.jsx` renders Call only for a valid Iraqi number (`tel:07…`), WhatsApp for an explicit WhatsApp number or phone fallback (`https://wa.me/964…`), and Telegram only for an extracted contact username. A separate View source link opens the original post. Contacts are not invented from the source channel. Frontend filtering also hides old raw non-job/promotional rows without deleting additional database records.
+
+The requested title cleanup (`title LIKE '%بداية%' OR title LIKE '%كورس%'`) was applied with a private backup outside the repository. Other database rows were retained. Re-running ingestion does not restore filtered posts.
