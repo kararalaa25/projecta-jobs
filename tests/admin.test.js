@@ -1,3 +1,4 @@
+import {HttpError} from '../server/http.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {isOwner,isSuperAdmin,canPublish,isSuspended} from '../config/access.js'
@@ -89,6 +90,6 @@ test('anonymous admin and application requests reject before reading server cred
  for(const factory of [createAdminHandler,createApplicationsHandler]){const out=response();await factory({},noConfig)({method:'GET',headers:{},url:'/'},out);assert.equal(out.statusCode,401)}
 })
 test('owner sees an actionable server configuration error rather than an anonymous privilege fallback',async()=>{
- const noConfig=()=>{const e=Error('إعدادات Vercel غير مكتملة.');e.status=503;throw e}
+ const noConfig=()=>{throw new HttpError(503,'إعدادات Vercel غير مكتملة.')}
  const out=response();await createAdminHandler({},noConfig,()=>database())(request(),out);assert.equal(out.statusCode,503);assert.match(out.body.error,/Vercel/)
 })

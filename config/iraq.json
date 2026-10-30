@@ -24,7 +24,8 @@
     {"id":"Pharmacists","ar":"الصيادلة"},
     {"id":"Assistants & Techs","ar":"المساعدون والفنيون والتمريض"},
     {"id":"Medical Reps","ar":"المندوبون العلميون والطبيون"},
-    {"id":"Receptionists / Admin","ar":"الإدارة والاستقبال والسكرتارية"}
+    {"id":"Receptionists / Admin","ar":"الإدارة والاستقبال والسكرتارية"},
+    {"id":"General Physicians","ar":"الأطباء العامون"}
   ],
   "legacyRoles":{"Dental Assistants":"Assistants & Techs","Lab Techs":"Assistants & Techs","Receptionists/Secretaries":"Receptionists / Admin"}
 }

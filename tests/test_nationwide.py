@@ -17,7 +17,7 @@ class NationwideTests(unittest.IsolatedAsyncioTestCase):
   self.assertEqual(locations('شركة في بغداد، الموقع: الكوت')[0],'Wasit')
   self.assertEqual(set(locations('مطلوب مندوبين في بغداد والبصرة')),{'Baghdad','Basra'})
   self.assertEqual(set(locations('بغداد / البصرة')),{'Baghdad','Basra'})
- def test_five_professional_roles_and_qualification_exclusions(self):
+ def test_six_professional_roles_and_qualification_exclusions(self):
   cases={
    'مطلوب طبيب أسنان في بغداد':['Dentists'],
    'مطلوب صيدلاني للعمل في الحلة':['Pharmacists'],
@@ -30,7 +30,7 @@ class NationwideTests(unittest.IsolatedAsyncioTestCase):
   }
   for text,expected in cases.items():
    with self.subTest(text=text):self.assertEqual(classify_roles(text),expected)
-  self.assertEqual(len(ROLE_IDS),5)
+  self.assertEqual(len(ROLE_IDS),6)
  async def test_public_history_pages_to_date_cutoff(self):
   def html(mid,date):return f'<div class="tgme_widget_message" data-post="clinic/{mid}"><div class="tgme_widget_message_text">مطلوب صيدلاني في بغداد</div><time datetime="{date}"></time></div>'
   http=MagicMock();http.get=AsyncMock(side_effect=[SimpleNamespace(text=html(50,'2026-10-29T00:00:00Z'),raise_for_status=lambda:None),SimpleNamespace(text=html(30,'2026-10-01T00:00:00Z'),raise_for_status=lambda:None)])

@@ -57,3 +57,9 @@ test('new database contact columns are read directly',()=>{
   const job=toJob({id:'row',contact_phone:'+9647701234567',contact_telegram:'https://t.me/clinic_jobs',contact_whatsapp:'9647801234567'})
   assert.equal(job.phone,'07701234567');assert.equal(job.telegram,'clinic_jobs');assert.equal(job.whatsapp,'9647801234567')
 })
+
+test('public serialization excludes publisher identity and future internal contact metadata',async()=>{
+ const {publicJobOffer}=await import('../server/public-jobs.js')
+ const row=publicJobOffer({id:'job',publisher_id:'private-user',moderation_notes:'private-note',contact_info:JSON.stringify({phone:'07701234567',company_name:'عيادة',source_text_hash:'internal-hash',moderator_email:'private@example.test',role_categories:['Dentists']})})
+ assert.equal(row.publisher_id,undefined);assert.equal(row.moderation_notes,undefined);assert.deepEqual(JSON.parse(row.contact_info),{phone:'07701234567',company_name:'عيادة',role_categories:['Dentists']})
+})

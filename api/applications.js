@@ -1,3 +1,4 @@
+import {attachResume} from '../server/resumes.js'
 import {serverClient} from '../server/supabase.js'
 import {hasConfirmedIdentity,isSuspended,isSuperAdmin} from '../config/access.js'
 import {readPlatform} from '../server/platform.js'
@@ -18,9 +19,11 @@ export function createApplicationsHandler(env=process.env,factory=serverClient){
    return json(res,200,{ok:true})
   }
   const job=check(await db.from('job_offers').select('id,status').eq('id',uuid(body.job_id)).single());if(job.status!=='active')throw new HttpError(400,'الإعلان غير متاح للتقديم.')
-  const cv=text(body.cv_url||'',2000,false);if(cv){try{if(new URL(cv).protocol!=='https:')throw Error()}catch{throw new HttpError(400,'رابط السيرة الذاتية يجب أن يبدأ بـ https://.')}}
+  if(body.cv_url)throw new HttpError(400,'ارفع ملف السيرة الذاتية بدلاً من إدخال رابط خارجي.')
+  const resume=body.resume_asset_id?await attachResume(db,uuid(body.resume_asset_id),user.id):null
   const letter=text(body.cover_letter,4000);if(letter.length<10)throw new HttpError(400,'اكتب نبذة لا تقل عن 10 أحرف.')
-  const r=await db.from('job_applications').insert({job_id:job.id,applicant_id:user.id,cover_letter:letter,cv_url:cv||null}).select('id').single()
+  const r=await db.from('job_applications').insert({job_id:job.id,applicant_id:user.id,cover_letter:letter,cv_url:null,...(resume?{resume_asset_id:resume}:{})}).select('id').single()
+  if(r.error?.code==='23514'&&String(r.error.message).includes('resume_not_ready'))throw new HttpError(409,'تغيّرت حالة السيرة الذاتية. ارفع الملف مجدداً قبل إرسال الطلب.')
   if(r.error?.code==='23505')throw new HttpError(409,'سبق أن قدمت لهذا الإعلان.')
   return json(res,201,{id:check(r).id})
  }catch(error){return errorResponse(res,error)}

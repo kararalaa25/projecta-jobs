@@ -18,13 +18,7 @@ def locations(text):
                 positions.append((not explicit,match.start()))
         if positions:found.append((min(positions),governorate['id']))
     return [g for _,g in sorted(found)]
-PATTERNS={
- 'Dentists':r'(?:اطباء|طبيب(?:ه)?)\s*(?:ال)?اسنان|\bdentists?\b',
- 'Pharmacists':r'صيدلاني(?:ه)?|صيادله|صيدلي(?![ه\w])|\bpharmacists?\b',
- 'Assistants & Techs':r'مساعد(?:ه|ي|ين)?\s*(?:(?:طبيب|طبيبه|طب)\s*)?(?:ال)?اسنان|مساعد(?:ه)?\s*(?:طبيب|طبيبه)|مختبر(?:ات)?|مختبري|فني(?:ه)?|ممرض(?:ه|ين|ات)?|تمريض|\bnurs(?:e|es|ing)\b|dental assistant|lab tech',
- 'Medical Reps':r'مندوب(?:ه|ين|ات)?\s*(?:علمي(?:ه|ين)?|طبي(?:ه|ين)?)|مداوبين\s*علميين|تمثيل\s*طبي|medical\s+(?:rep|representative)|scientific\s+rep',
- 'Receptionists / Admin':r'استقبال|سكرت(?:ير|يره|اريه)|اداري(?:ه|ين)?|محاسب(?:ه)?|receptionist|secretar|administrator',
-}
+PATTERNS=json.loads((Path(__file__).parent/'config/job-role-rules.json').read_text())['patterns']
 def classify_roles(text):
     value=normalize(text)
     # Consume assistants first so “مساعدة طبيب أسنان” does not become a dentist.
@@ -33,9 +27,9 @@ def classify_roles(text):
     found=[]
     for role,pattern in PATTERNS.items():
         matches=list(re.finditer(pattern,value))
-        if role=='Dentists':matches=[m for m in matches if not any(start<=m.start()<end for start,end in spans)]
-        if role=='Dentists':matches=[m for m in matches if not re.search(r'(?:عياده|لعياده)\s*$',value[max(0,m.start()-12):m.start()])]
-        if role=='Pharmacists' and re.search(PATTERNS['Medical Reps'],value):
+        if role in ('Dentists','General Physicians'):matches=[m for m in matches if not any(start<=m.start()<end for start,end in spans)]
+        if role in ('Dentists','General Physicians','Pharmacists'):matches=[m for m in matches if not re.search(r'(?:عياده|لعياده|خريج|خريجه|خريجي|شهاده|بكالوريوس|لزياره|زياره|التواصل مع|التعامل مع|للتعامل مع|مراجعه|تستهدف)\s*$',value[max(0,m.start()-45):m.start()])]
+        if role in ('Dentists','General Physicians','Pharmacists') and re.search(PATTERNS['Medical Reps'],value):
             matches=[m for m in matches if not re.search(r'(?:خريج|خريجه|خريجي|شهاده|بكالوريوس)\s*$',value[max(0,m.start()-20):m.start()])]
             if re.search(r'للعمل\s*مندوب',value):matches=[]
         if role=='Assistants & Techs' and re.search(PATTERNS['Medical Reps'],value):

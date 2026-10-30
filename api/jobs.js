@@ -1,3 +1,4 @@
+import {publicJobOffer} from '../server/public-jobs.js'
 import {normalizeSupabaseUrl} from '../config/supabase-url.js'
 import {backendReason,safeBackendCode} from '../server/backend-errors.js'
 import { createClient } from '@supabase/supabase-js'
@@ -10,6 +11,8 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
     : undefined
   return async function jobs(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Cache-Control','no-store')
+    res.setHeader('X-Content-Type-Options','nosniff')
     if (req.method !== 'GET') {
       res.setHeader('Allow', 'GET')
       res.statusCode = 405
@@ -32,7 +35,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       // Active marketplace posts only. Never expose user/account IDs or other tables.
       const fields = 'id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,created_at'
       const query = columns => db.from('job_offers').select(columns)
-        .eq('status', 'active').order('created_at', { ascending: false }).range(offset,offset+199)
+        .eq('status', 'active').order('created_at', { ascending: false }).order('id',{ascending:false}).range(offset,offset+199)
         .abortSignal(AbortSignal.timeout(15000))
       let result = await query(fields + ',contact_phone,contact_telegram,contact_whatsapp')
       if (['42703','PGRST204'].includes(result.error?.code)) result = await query(fields)
@@ -41,7 +44,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       if (error) throw error
       res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
       res.statusCode = 200
-      return res.end(JSON.stringify({ jobs: data || [], hasMore:(data||[]).length===200 }))
+      return res.end(JSON.stringify({ jobs: (data||[]).map(publicJobOffer), hasMore:(data||[]).length===200 }))
     } catch (error) {
       console.error("Job feed unavailable:", error?.name || "Error", error?.code || error?.cause?.code || "unknown")
       res.statusCode = error?.code==='SERVER_CONFIG'?503:502

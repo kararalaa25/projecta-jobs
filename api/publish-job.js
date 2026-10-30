@@ -1,3 +1,4 @@
+import {classifyJob} from '../config/job-targeting.js'
 import {canPublish,isSuperAdmin} from '../config/access.js'
 import {readPlatform} from '../server/platform.js'
 import { serverClient } from '../server/supabase.js'
@@ -16,8 +17,10 @@ export function validateJob(body,custom) {
   if(!phone)throw Error('Invalid Iraqi phone')
   const telegram=body.telegram?telegramHandle(body.telegram):null
   if(body.telegram&&!telegram)throw Error('Invalid Telegram handle')
-  return {title,role_category:body.role,employment_type:schedules[body.schedule],location_city:body.city,salary_range:salary,description,
-    contact_info:JSON.stringify({phone:phone.local,whatsapp:phone.whatsapp,telegram,company_name:company}),source:'manual',status:'active'}
+  const categorization=classifyJob(title,description)
+  const primary=categorization.primary&&(custom?custom.roles.includes(categorization.primary):roles.has(categorization.primary))?categorization.primary:body.role
+  return {title,role_category:primary,employment_type:schedules[body.schedule],location_city:body.city,salary_range:salary,description,
+    contact_info:JSON.stringify({phone:phone.local,whatsapp:phone.whatsapp,telegram,company_name:company,role_category:primary,role_categories:categorization.roles.length?categorization.roles:[primary],target_audience:categorization.targetAudience,categorization}),source:'manual',status:'active'}
 }
 export function createPublishHandler(env=process.env, clientFactory=serverClient) {
   return async(req,res)=>{

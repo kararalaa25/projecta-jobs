@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "patterns": {
+    "Dentists": "(?:اطباء|طبيب(?:ه)?)\\s*(?:ال)?اسنان|\\bdentists?\\b",
+    "Pharmacists": "صيدلاني(?:ه)?|صيادله|صيدلي(?![ه\\w])|\\bpharmacists?\\b",
+    "Assistants & Techs": "مساعد(?:ه|ي|ين)?\\s*(?:(?:طبيب|طبيبه|طب)\\s*)?(?:ال)?اسنان|مساعد(?:ه)?\\s*(?:طبيب|طبيبه)|مختبر(?:ات)?|مختبري|فني(?:ه)?|ممرض(?:ه|ين|ات)?|تمريض|\\bnurs(?:e|es|ing)\\b|dental assistant|lab tech",
+    "Medical Reps": "مندوب(?:ه|ين|ات)?\\s*(?:علمي(?:ه|ين)?|طبي(?:ه|ين)?)|مداوبين\\s*علميين|تمثيل\\s*طبي|medical\\s+(?:rep|representative)|scientific\\s+rep",
+    "Receptionists / Admin": "استقبال|سكرت(?:ير|يره|اريه)|اداري(?:ه|ين)?|محاسب(?:ه)?|receptionist|secretar|administrator",
+    "General Physicians": "(?:طبيب(?:ه)?|اطباء)\\s*(?:عام(?:ه|ين)?|بشري(?:ه|ين)?|طب\\s*عام)|\\bgeneral\\s+(?:physician|practitioner)s?\\b|\\bGPs?\\b"
+  }
+}

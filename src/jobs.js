@@ -1,5 +1,6 @@
+import {classifyJob} from '../config/job-targeting.js'
 import {jobTimestamp} from './dates.js'
-import { canonicalRole, canonicalCity, roles as roleList, cities as cityList } from './i18n.js'
+import { ar, canonicalRole, canonicalCity, roles as roleList, cities as cityList } from './i18n.js'
 import { extractContacts, normalizeIraqiPhone, telegramHandle, isRejectedPost, isRawJobAllowed } from './contacts.js'
 const roleNames = {
   dentist: 'Dentists', dentists: 'Dentists', pharmacist:'Pharmacists', pharmacists:'Pharmacists', nurse:'Assistants & Techs', medical_rep: 'Medical Reps',
@@ -24,7 +25,7 @@ export function toJob(row) {
   const meta = contact(row.contact_info)
   const raw = meta.parsing_status === 'unparsed'
   const text = row.description || ''
-  const title = raw ? text.split('\n').find(line => line.trim()) || 'Telegram post' : row.title || 'Job offer'
+  let title = raw ? text.split('\n').find(line => line.trim()) || 'Telegram post' : row.title || 'Job offer'
   const extracted = extractContacts(text)
   const phone = normalizeIraqiPhone(row.contact_phone || meta.phone)?.local || extracted.phone
   const whatsapp = normalizeIraqiPhone(row.contact_whatsapp || meta.whatsapp)?.whatsapp || extracted.whatsapp
@@ -34,17 +35,20 @@ export function toJob(row) {
   const scheduleValue=Object.hasOwn(meta,'employment_type')?meta.employment_type:row.employment_type
   const mappedRoles=(Array.isArray(meta.role_categories)?meta.role_categories:[]).map(canonicalRole).filter(value=>roleList.includes(value))
   const mappedLocations=(Array.isArray(meta.governorates)?meta.governorates:[]).map(canonicalCity).filter(value=>cityList.includes(value))
-  const role=canonicalRole(meta.role_category||roleNames[row.role_category]||row.role_category||'')
+  const inferred=classifyJob(title,text)
+  if(raw&&inferred.primary)title='فرصة عمل — '+ar(inferred.primary)
+  const role=canonicalRole(meta.role_category||roleNames[row.role_category]||row.role_category||inferred.primary||'')
   const province=canonicalCity(meta.governorate||row.location_city||'City not specified')
   return {
     id: row.id, type: 'jobs', title: title.slice(0, 140), company,
-    city:province, governorates:mappedLocations.length?mappedLocations:[province], role, roles:mappedRoles.length?mappedRoles:[role],
+    city:province, governorates:mappedLocations.length?mappedLocations:[province], role, roles:mappedRoles.length?mappedRoles:role?[role]:inferred.roles,
     salary: row.salary_range || 'Salary not specified',
     schedule: raw ? 'Schedule not specified' : ({ full_time: 'Full-time', part_time: 'Part-time', contract: 'Contract', internship: 'Internship', 'Full-time':'Full-time', 'Part-time':'Part-time', Contract:'Contract' }[scheduleValue] || 'Schedule not specified'),
     description: text, logo: row.source === 'telegram' ? '↗' : company.slice(0, 2).toUpperCase(), color: 'mint',
     time: jobTimestamp(meta.source_posted_at || row.created_at),
     createdAt: meta.source_posted_at || row.created_at || '', sourceUrl, phone, whatsapp,
     telegram: username,
+    targetAudience:meta.target_audience||inferred.targetAudience,
     live: true, raw, featured:meta.featured===true,
   }
 }

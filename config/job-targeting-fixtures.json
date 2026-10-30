@@ -1,0 +1,12 @@
+[
+ {"title":"مطلوب طبيب أسنان عام","description":"العمل في بغداد","roles":["Dentists"]},
+ {"title":"مطلوب طبيب عام","description":"عيادة في كربلاء","roles":["General Physicians"]},
+ {"title":"General practitioner","description":"Clinic in Babylon","roles":["General Physicians"]},
+ {"title":"مطلوب مساعدة طبيب أسنان","description":"عيادة أسنان في بابل","roles":["Assistants & Techs"]},
+ {"title":"مساعد طبيب عام","description":"بغداد","roles":["Assistants & Techs"]},
+ {"title":"مندوب علمي","description":"خريج صيدلاني لزيارة أطباء أسنان","roles":["Medical Reps"]},
+ {"title":"مطلوب موظفة استقبال في صيدلية","description":"العمل في النجف","roles":["Receptionists / Admin"]},
+ {"title":"فرصة طبية","description":"مطلوب صيدلاني في الحلة","roles":["Pharmacists"]},
+ {"title":"مطلوب صيدلي وموظفة استقبال","description":"دوام كامل","roles":["Pharmacists","Receptionists / Admin"]},
+ {"title":"فرصة عمل","description":"معلومات إضافية قريباً","roles":[]}
+]

@@ -32,3 +32,12 @@ test('jobs feed normalizes the base URL and keeps legacy optional-contact compat
  await createJobsHandler({SUPABASE_URL:'https://project.supabase.co/rest/v1',SUPABASE_SERVICE_ROLE_KEY:'test-private-key'},value=>{url=value;return {from(){return query}}})({method:'GET',url:'/'},res)
  assert.equal(url,'https://project.supabase.co');assert.equal(res.statusCode,200);assert.equal(calls,2);assert.equal(res.body.jobs[0].id,'active-job')
 })
+
+test('direct Vercel-style server requests have a timeout and preserve caller cancellation',async()=>{
+ let options;serverClient({SUPABASE_URL:'https://project.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'test-private-key'},(_url,_key,config)=>{options=config;return {}})
+ const original=globalThis.fetch;let signal
+ try{globalThis.fetch=async(_input,init)=>{signal=init.signal;return {ok:true}}
+  await options.global.fetch('https://project.supabase.co/rest/v1/job_offers',{});assert.ok(signal instanceof AbortSignal)
+  const controller=new AbortController();controller.abort();await options.global.fetch('https://project.supabase.co/rest/v1/job_offers',{signal:controller.signal});assert.equal(signal.aborted,true)
+ }finally{globalThis.fetch=original}
+})
