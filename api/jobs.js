@@ -1,3 +1,4 @@
+import {backendReason,safeBackendCode} from '../server/backend-errors.js'
 import { createClient } from '@supabase/supabase-js'
 import { EnvHttpProxyAgent, fetch as proxyFetch } from 'undici'
 
@@ -43,11 +44,8 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
     } catch (error) {
       console.error("Job feed unavailable:", error?.name || "Error", error?.code || error?.cause?.code || "unknown")
       res.statusCode = 502
-      const detail = String(error?.message || '').toLowerCase()
-      const reason = upstreamStatus === 401 || upstreamStatus === 403 || /jwt|api key/.test(detail)
-        ? 'credentials' : /fetch failed|timeout|abort/.test(detail) ? 'connection'
-        : ['42703', '42P01', 'PGRST204', 'PGRST205'].includes(error?.code) ? 'schema' : 'unavailable'
-      return res.end(JSON.stringify({ error: 'Live jobs are temporarily unavailable. Please try again.', reason }))
+      const reason = backendReason(error,upstreamStatus)
+      return res.end(JSON.stringify({ error: 'تعذر تحميل الإعلانات حالياً. يرجى إعادة المحاولة.', reason, code:safeBackendCode(error) }))
     }
   }
 }
