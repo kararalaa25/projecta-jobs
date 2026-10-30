@@ -11,3 +11,10 @@ const labels={
 }
 export const ar=value=>labels[canonicalRole(canonicalCity(value))]||String(value||'').replace(/IQD/g,'د.ع.').replace(/expected/g,'المتوقع')
 export const number=value=>new Intl.NumberFormat('ar-IQ').format(value)
+
+export function installCatalog(entries){
+ if(!Array.isArray(entries))return
+ for(const entry of entries)if(typeof entry.id==='string'&&typeof entry.label==='string')labels[entry.id]=entry.label
+ roles.splice(0,roles.length,'All roles',...entries.filter(e=>e.kind==='role'&&e.active).map(e=>e.id))
+ cities.splice(0,cities.length,'All cities',...entries.filter(e=>e.kind==='location'&&e.active).map(e=>e.id))
+}

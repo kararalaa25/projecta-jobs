@@ -1,17 +1,17 @@
+import {canPublish,isSuperAdmin} from '../config/access.js'
+import {readPlatform} from '../server/platform.js'
 import { serverClient } from '../server/supabase.js'
 import catalog from '../config/iraq.json' with { type: 'json' }
 import { normalizeIraqiPhone, telegramHandle } from '../src/contacts.js'
 const roles = new Set(catalog.roles.map(r=>r.id))
 const schedules = {'Full-time':'full_time','Part-time':'part_time','Contract':'contract'}
 const cities = new Set(catalog.governorates.map(g=>g.id))
-export function verifiedProfessional(user) {
-  return Boolean(user?.app_metadata?.medical_professional_verified === true && (user.email_confirmed_at || user.phone_confirmed_at))
-}
-export function validateJob(body) {
+export const verifiedProfessional=canPublish
+export function validateJob(body,custom) {
   if (!body || typeof body!=='object' || Array.isArray(body)) throw Error('Invalid body')
   const field=(name,max)=>{const value=body[name];if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('Invalid field');return value.trim()}
   const title=field('title',100), company=field('company',100), description=field('description',4000), salary=field('salary',100)
-  if(!roles.has(body.role)||!cities.has(body.city)||!schedules[body.schedule])throw Error('Invalid category')
+  if(!(custom?new Set(custom.roles):roles).has(body.role)||!(custom?new Set(custom.cities):cities).has(body.city)||!schedules[body.schedule])throw Error('Invalid category')
   const phone=normalizeIraqiPhone(body.phone)
   if(!phone)throw Error('Invalid Iraqi phone')
   const telegram=body.telegram?telegramHandle(body.telegram):null
@@ -39,13 +39,16 @@ export function createPublishHandler(env=process.env, clientFactory=serverClient
       user=result.data.user
     }catch{return send(503,'خدمة التحقق غير متاحة مؤقتاً.')}
     if(!verifiedProfessional(user))return send(403,'يتطلب النشر حساباً طبياً معتمداً ووسيلة تواصل مؤكدة. يرجى التواصل مع إدارة المنصة لاعتماد الحساب.')
+    let platform
+    try{platform=await readPlatform(db)}catch{return send(503,'تعذر التحقق من حالة المنصة. حاول لاحقاً.')}
+    if(platform.settings.maintenance&&!isSuperAdmin(user))return send(503,'المنصة قيد الصيانة حالياً. حاول لاحقاً.')
     let record
     try{
       let body=req.body
       if(body===undefined){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>16000)return send(413,'حجم الطلب أكبر من المسموح.')}body=JSON.parse(raw)}
       if(typeof body==='string'){if(Buffer.byteLength(body)>16000)return send(413,'حجم الطلب أكبر من المسموح.');body=JSON.parse(body)}
       if(Buffer.byteLength(JSON.stringify(body))>16000)return send(413,'حجم الطلب أكبر من المسموح.')
-      record=validateJob(body)
+      record=validateJob(body,{roles:platform.catalog.filter(c=>c.kind==='role'&&c.active).map(c=>c.id),cities:platform.catalog.filter(c=>c.kind==='location'&&c.active).map(c=>c.id)})
     }catch{return send(400,'يرجى التأكد من بيانات الإعلان ورقم الهاتف العراقي.')}
     try{
       // Ownership, source, status and all accepted columns are assigned by the server.

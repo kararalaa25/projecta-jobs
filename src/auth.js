@@ -1,5 +1,6 @@
 import { normalizeIraqiPhone } from './contacts.js'
-export const isVerifiedProfessional=user=>Boolean(user?.app_metadata?.medical_professional_verified===true&&(user.email_confirmed_at||user.phone_confirmed_at))
+export {isSuperAdmin,isOwner} from '../config/access.js'
+export {canPublish as isVerifiedProfessional} from '../config/access.js'
 export function iraqiAuthPhone(value){const phone=normalizeIraqiPhone(value);return phone?'+'+phone.whatsapp:null}
 export function authError(error,method){
  const code=String(error?.code||'');const message=String(error?.message||'').toLowerCase()

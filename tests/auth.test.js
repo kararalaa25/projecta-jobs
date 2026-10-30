@@ -5,7 +5,7 @@ import {iraqiAuthPhone,requestCode,verifyCode,normalizeOtp,signInWithGoogle} fro
 const job={title:'طبيب أسنان',company:'عيادة الرعاية',description:'فرصة عمل لطبيب أسنان في بغداد',salary:'١٬٠٠٠٬٠٠٠ د.ع.',city:'Baghdad',role:'Dentists',schedule:'Full-time',phone:'07701234567',telegram:'@clinic_jobs'}
 const res=()=>({setHeader(){},end(body){this.body=JSON.parse(body)}})
 const req=(body=job)=>({method:'POST',headers:{authorization:'Bearer valid-token',host:'projecta.test',origin:'https://projecta.test'},body})
-function client(user,error=null){let inserted;return {auth:{async getUser(){return {data:{user},error}}},from(table){assert.equal(table,'job_offers');return {insert(value){inserted=value;return this},select(){return this},async single(){return {data:{id:'new-id'},error:null}}}},get inserted(){return inserted}}}
+function client(user,error=null){let inserted;return {auth:{async getUser(){return {data:{user},error}}},from(table){if(table==='platform_settings')return {select(){return this},eq(){return this},async maybeSingle(){return {data:null,error:{code:'PGRST205'}}}};if(table==='admin_catalog')return {select(){return this},async order(){return {data:null,error:{code:'PGRST205'}}}};assert.equal(table,'job_offers');return {insert(value){inserted=value;return this},select(){return this},async single(){return {data:{id:'new-id'},error:null}}}},get inserted(){return inserted}}}
 test('email requests OTP using the email-only payload',async()=>{
  let sent;const c={auth:{async signInWithOtp(data){sent=data;return {error:null}}}}
  await requestCode(c,'email',' USER@EXAMPLE.COM ',true);assert.deepEqual(sent,{email:'user@example.com'})

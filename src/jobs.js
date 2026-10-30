@@ -45,7 +45,7 @@ export function toJob(row) {
     time: jobTimestamp(meta.source_posted_at || row.created_at),
     createdAt: meta.source_posted_at || row.created_at || '', sourceUrl, phone, whatsapp,
     telegram: username,
-    live: true, raw,
+    live: true, raw, featured:meta.featured===true,
   }
 }
 export async function fetchJobsPage(signal, offset=0) {
