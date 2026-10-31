@@ -99,9 +99,16 @@ select cron.alter_job(
 To pause, use the same call with `active := false`. To request a checked immediate
 run, execute `select private.dispatch_telegram_sync();` as the database operator.
 
-Validation: clean Vite build; 71 Node tests and 46 Python tests; real anonymous
+Validation: clean Vite build; 71 Node tests and 47 Python tests; real anonymous
 WebSocket subscription; real Telegram ingestion to Supabase to browser. In the
 browser test eight genuine INSERTs raised the visible count from 874 to 882,
 without page reload, through one batched sanitized API read. All event payloads
 contained only the publication's permitted identity/status columns. No synthetic
 public job listings were created for verification.
+
+Production verification completed with HTTP 200 from the authenticated scheduled
+endpoint: all seven channels completed and 131 genuine listings were inserted,
+with no ingestion errors. The production browser received identity-only INSERT
+events and updated its count without reloading. The five-minute cron is active;
+all seven channels have durable checkpoints. The worker normalizes Supabase API
+URLs and uses synchronous SDK options with a bounded 20-second RPC timeout.
