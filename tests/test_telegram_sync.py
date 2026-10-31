@@ -37,6 +37,15 @@ class SyncTests(unittest.IsolatedAsyncioTestCase):
 class AuthTests(unittest.TestCase):
     def test_unauthorized_requests_never_construct_database_client(self):
         client=MagicMock();self.assertEqual(api.invoke(None,client)[0],401);self.assertEqual(api.invoke('Bearer invalid',client)[0],401);client.assert_not_called()
+    def test_sync_client_options_and_rest_url_normalization(self):
+        db=MagicMock();db.rpc.return_value.execute.return_value.data='invalid'
+        def factory(url,key,options):
+            self.assertEqual(url,'https://test.supabase.co')
+            self.assertTrue(hasattr(options,'storage'))
+            self.assertEqual(options.postgrest_client_timeout,20)
+            return db
+        with patch.object(api,'required',side_effect=lambda name:'https://test.supabase.co/rest/v1' if name=='SUPABASE_URL' else 'test-key'):
+            self.assertEqual(api.invoke('Bearer 11111111-1111-4111-8111-111111111111',factory)[0],401)
     def test_used_tokens_and_overlapping_runs_do_not_invoke_ingestion(self):
         db=MagicMock();runner=AsyncMock()
         for claim,status in [('invalid',401),('busy',409)]:
