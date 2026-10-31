@@ -36,9 +36,8 @@ a,button,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .board-intro h2{font-size:25px;color:var(--pc-ink);margin:5px 0;font-weight:800;letter-spacing:-.025em}
 .board-intro p{color:#5d7180;font-size:11px;line-height:2;margin-top:7px}
 .search-bar{background:#fff;border:1px solid var(--pc-border);box-shadow:0 4px 24px #0b152503;border-radius:20px;padding:20px 23px}
-.search-field input,.search-field select,.salary-filter>span{color:#536a7a}
+.search-field input,.search-field select{color:#536a7a}
 .search-field input::placeholder{color:#64798a}
-.salary-filter strong{color:var(--pc-link);background:var(--pc-brand-soft)}
 .listing-tabs{scroll-margin-top:110px;margin:24px 0}
 .listing-tabs .tabs{padding:5px;background:#eaf1f8;border-color:var(--pc-border);border-radius:16px}
 .tabs button{color:#526f95;font-size:12px;padding:11px 18px;border-radius:11px}

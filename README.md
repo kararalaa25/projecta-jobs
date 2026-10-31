@@ -24,7 +24,7 @@ Without these variables, the sign-in modal explains that authentication is unava
 
 ## Listings and interactions
 
-- Search by title, organization/name, or description; filter by healthcare role, Iraqi city, schedule, and minimum monthly salary. Both listing tabs preserve the filters.
+- Search by title, organization/name, or description; filter by healthcare role, Iraqi city and schedule. Both listing tabs preserve the filters.
 - Switch between job openings and candidates, save listings, and revisit saved listings in either tab.
 - Create a listing with an international phone number to enable direct WhatsApp and phone actions; add an optional Telegram username for Telegram contact.
 - Demo listings do not contain fabricated phone numbers and are explicitly identified as samples.

@@ -57,3 +57,55 @@ button:active{transform:scale(.98)}
 .listing-tabs .tabs .count{background:#ffffffc9;color:var(--pc-link);min-width:22px;line-height:1.6;font-size:10px}
 @media(max-width:680px){.listing-tabs .tabs button{flex-wrap:wrap}.listing-tabs .tabs .count{font-size:9px}}
 .feed-connection{font-size:11px;line-height:1.8;color:var(--pc-muted);margin:0 2px 10px}.feed-connection.live{color:#176342}
+
+/* Calm search focus and a simpler three-part search layout. */
+.reference-board .search-bar{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,240px) auto;gap:12px;padding:12px;border:1px solid var(--pc-border);border-radius:16px;background:var(--pc-soft);box-shadow:none}
+.search-bar .search-field{max-width:none;min-width:0;padding:4px 12px;min-height:48px;border:0;border-radius:10px;transition:background-color .2s ease,box-shadow .2s ease}
+.search-bar .search-field:focus-within{background:#fff;box-shadow:0 2px 10px #0299b50d}
+.search-bar .search-field>svg{flex-shrink:0;color:var(--pc-link)}
+.search-bar .search-field input,.search-bar .search-field select{border:0;outline:none;box-shadow:none;font-size:13px;min-height:40px;padding:6px 0}
+.search-bar .search-field input:focus,.search-bar .search-field input:focus-visible,.search-bar .search-field select:focus,.search-bar .search-field select:focus-visible{border:0;outline:none;box-shadow:none}
+.search-bar .search-submit{min-height:48px;padding:12px 22px;border:0;box-shadow:none;border-radius:11px;transition:filter .2s ease,box-shadow .2s ease}
+.search-bar .search-submit:focus,.search-bar .search-submit:active{outline:none;border:0}
+.search-bar .search-submit:focus-visible{outline:none;box-shadow:0 0 0 3px #0299b52b}
+
+/* Shared premium hover feedback, including career-path and contact cards. */
+.reference-card,.reference-path-card,.reference-connect-actions>button,.reference-connect-actions>a,.reference-guide-grid article{transition:transform .24s cubic-bezier(.2,.7,.2,1),translate .24s cubic-bezier(.2,.7,.2,1),box-shadow .24s ease,border-color .24s ease}
+.reference-card{box-shadow:0 4px 18px #0b152508}
+.reference-card:focus-within,.reference-path-card:focus-within,.reference-connect-actions>button:focus-visible,.reference-connect-actions>a:focus-visible,.reference-guide-grid article:focus-within{border-color:var(--pc-cyan);box-shadow:0 10px 28px #0299b518}
+@media(hover:hover){.reference-card:hover,.reference-connect-actions>button:hover,.reference-connect-actions>a:hover,.reference-guide-grid article:hover{transform:translateY(-4px);border-color:var(--pc-cyan);box-shadow:0 12px 30px #0299b51a,0 2px 8px #0b152505}.reference-path-card:hover{translate:0 -4px;border-color:var(--pc-cyan);box-shadow:0 12px 30px #0299b526}}
+
+/* Compact cards: one identity row, short summary and scannable facts. */
+.reference-board .job-card{padding:20px;min-height:0;border:1px solid var(--pc-border);border-radius:18px;box-shadow:0 3px 16px #0b152505;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.job-card .card-top{justify-content:flex-start;gap:10px;margin-bottom:14px}
+.job-card .company-logo{width:36px;height:36px;border-radius:11px}
+.job-card .card-identity{flex:1;min-width:0}
+.job-card .company-name{font-size:11px;line-height:1.8;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job-card .listing-kind{font-size:9px;line-height:1.7;margin:2px 0 0;color:var(--pc-muted)}
+.job-card .save-button{flex-shrink:0;width:36px;height:36px;padding:0;align-items:center;justify-content:center;border-radius:10px}
+.job-card .job-preview{flex:0 0 auto}
+.job-card .job-preview h3{font-size:16px;font-weight:700;line-height:1.7;margin:0}
+.job-card .preview-description{margin:10px 0 12px}
+.job-card .job-preview.is-compact .preview-description>p{font-size:12px;line-height:1.85;-webkit-line-clamp:3;max-height:5.55em;color:#586c7e}
+.compact-facts{display:flex;flex-wrap:wrap;gap:8px 14px;padding:0;border:0;margin:0}
+.compact-facts>div{display:flex;min-width:0;max-width:100%}
+.compact-facts>div dd{display:flex;align-items:center;justify-content:flex-start;gap:5px;font-size:10px;font-weight:500;line-height:1.8;max-width:100%;text-align:start;color:#536a7a;overflow-wrap:anywhere}
+.compact-facts>div dd>svg{flex-shrink:0;color:var(--pc-link)}
+.job-card .role-badges{gap:5px;margin-top:13px}
+.job-card .role-badge{font-size:9px;padding:2px 7px}
+.job-card .raw-badge{font-size:8px;padding:3px 6px}
+.job-card .card-bottom{margin:10px 0 12px;justify-content:flex-start}
+.job-card .listing-time{font-size:9px;text-align:start;max-width:none;line-height:1.8;color:var(--pc-muted)}
+.job-card .card-footer{border-color:var(--pc-border);padding-top:12px;margin-top:auto}
+.job-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.job-actions .contact-buttons{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.job-actions .contact-buttons .contact-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;height:36px;min-width:36px;padding:0;border:1px solid transparent;border-radius:10px;transition:background-color .2s ease,color .2s ease,transform .2s ease}
+.job-actions .call-button{background:var(--pc-soft);color:#48667a}
+.job-actions .whatsapp{background:#eaf7ef;color:#14764b}
+.job-actions .telegram,.job-actions .source-icon{background:var(--pc-brand-soft);color:var(--pc-link)}
+.job-actions .apply-icon{background:#eef2ff;color:var(--pc-blue)}
+.job-actions .read-full-post{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 2px;min-height:36px;font-size:11px;line-height:1.8;font-weight:600;color:var(--pc-link);border-radius:7px;white-space:nowrap}
+.job-actions .no-contact{width:100%;font-size:10px;line-height:1.8;color:var(--pc-muted)}
+@media(hover:hover){.reference-board .job-card:hover{transform:translateY(-3px);border-color:#a2d4e2;box-shadow:0 10px 24px #0299b512}.job-actions .contact-icon:hover{transform:translateY(-2px)}.job-actions .call-button:hover{background:#e7f0f8;color:var(--pc-link)}.job-actions .whatsapp:hover{background:#d9f0e2}.job-actions .telegram:hover,.job-actions .source-icon:hover{background:#def0f7}.job-actions .apply-icon:hover{background:#e0e7ff}.job-actions .read-full-post:hover{text-decoration:underline;text-underline-offset:4px}}
+@media(max-width:680px){.reference-board .search-bar{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px}.search-bar .search-field:first-child{grid-column:1/-1}.search-bar .search-field input,.search-bar .search-field select{font-size:12px}.search-bar .search-submit{min-width:90px;padding:10px 16px}.reference-board .job-card{padding:18px}.job-card .job-preview h3{font-size:17px}.compact-facts>div dd{font-size:11px}.job-card .role-badge{font-size:10px}.job-card .save-button{width:44px;height:44px}.job-actions .contact-buttons .contact-icon{width:44px;height:44px;min-width:44px;flex-basis:44px}.job-actions .read-full-post{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.reference-card:hover,.reference-connect-actions>button:hover,.reference-connect-actions>a:hover,.reference-guide-grid article:hover,.reference-board .job-card:hover,.job-actions .contact-icon:hover{transform:none}.reference-path-card:hover{translate:none}}
