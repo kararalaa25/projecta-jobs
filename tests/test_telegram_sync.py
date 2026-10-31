@@ -42,5 +42,5 @@ class AuthTests(unittest.TestCase):
         for claim,status in [('invalid',401),('busy',409)]:
             db.rpc.return_value.execute.return_value.data=claim
             with patch.object(api,'required',return_value='test'):
-                self.assertEqual(api.invoke('Bearer 11111111-1111-4111-8111-111111111111',lambda *args:db,runner)[0],status)
+                self.assertEqual(api.invoke('Bearer 11111111-1111-4111-8111-111111111111',lambda *args,**kwargs:db,runner)[0],status)
         runner.assert_not_called()
