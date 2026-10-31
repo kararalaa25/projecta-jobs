@@ -188,3 +188,10 @@ Brand links and «المنصة الرئيسية» stay on `/`. The designated cl
 ## Super Admin Dashboard
 
 `/admin` provides owner-only administration, user/license approval, job CRUD/moderation, categories, applications, analytics, global settings, a read-only data viewer and audit history. Confirmed owner emails and trusted server-assigned super admins are checked on every API request. Owners automatically bypass professional verification for publishing. See [deployment, migration 007 and security details](docs/super-admin.md). Apply migration 007 in Supabase to activate settings, configurable categories, applications and audit tables; its production application is not automatic from a GitHub/Vercel deployment.
+
+## Automated Telegram sync and live updates
+
+The production feed now supports Supabase Realtime identity notifications with
+sanitized, uncached API reads. Supabase Cron invokes the Vercel fallback every
+five minutes; the optional `telegram_scraper.py --listen` mode supports a
+persistent Telethon worker. See [setup, recovery, monitoring and verification](docs/realtime-pipeline.md).

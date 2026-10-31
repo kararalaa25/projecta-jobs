@@ -1,0 +1,21 @@
+# Optional systemd user service on a persistent MTProto-capable worker.
+# Adjust the working directory if the repository lives elsewhere.
+[Unit]
+Description=Projecta continuous Telegram ingestion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projecta-jobs
+EnvironmentFile=%h/projecta-jobs/.env
+ExecStart=%h/projecta-jobs/.venv/bin/python telegram_scraper.py --listen --parser hybrid
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

@@ -8,5 +8,11 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/telegram-sync.py": {
+      "maxDuration": 300,
+      "includeFiles": "{telegram_scraper.py,telegram_sync.py,iraq_taxonomy.py,config/iraq.json}"
+    }
+  }
 }

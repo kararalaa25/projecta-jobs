@@ -60,16 +60,22 @@ export function toJob(row) {
     live: true, raw, featured:meta.featured===true,
   }
 }
+export function visibleJobs(rows){
+ return rows.filter(row=>row.source!=='telegram'||(!isRejectedPost(row.description||row.title||'')&&(contact(row.contact_info).parsing_status!=='unparsed'||isRawJobAllowed(row.description||row.title||'')))).map(toJob)
+}
+export async function fetchJobsByIds(ids,signal){
+ const response=await fetch(`/api/jobs?ids=${encodeURIComponent(ids.join(','))}`,{signal,cache:'no-store',headers:{Accept:'application/json'}})
+ if(!response.ok)throw Error('تعذر تحديث فرص العمل.')
+ const body=await response.json()
+ if(!Array.isArray(body.jobs))throw Error('تعذر قراءة تحديث الإعلانات.')
+ return visibleJobs(body.jobs)
+}
 export async function fetchJobsPage(signal, offset=0, feed='all') {
-  const response = await fetch(`/api/jobs?offset=${offset}&feed=${encodeURIComponent(feed)}`, { signal, headers: { Accept: 'application/json' } })
+  const response = await fetch(`/api/jobs?offset=${offset}&feed=${encodeURIComponent(feed)}`, { signal, cache:'no-store', headers: { Accept: 'application/json' } })
   if (!response.ok) throw new Error('تعذر تحميل فرص العمل. يرجى إعادة المحاولة.')
   const payload = await response.json()
   if (!Array.isArray(payload.jobs)) throw new Error('تعذر قراءة بيانات الإعلانات.')
-  return {hasMore:payload.hasMore===true,jobs:payload.jobs.filter(row => {
-    if (row.source !== 'telegram') return true
-    const text = row.description || row.title || ''
-    return !isRejectedPost(text) && (contact(row.contact_info).parsing_status !== 'unparsed' || isRawJobAllowed(text))
-  }).map(toJob)}
+  return {hasMore:payload.hasMore===true,jobs:visibleJobs(payload.jobs)}
 }
 export async function fetchJobs(signal,feed='all'){
  const jobs=[]

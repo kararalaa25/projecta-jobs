@@ -5,6 +5,8 @@ import {backendReason,safeBackendCode} from '../server/backend-errors.js'
 import { createClient } from '@supabase/supabase-js'
 import { EnvHttpProxyAgent, fetch as proxyFetch } from 'undici'
 
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 // Server-only module: never import from src/ or expose service credentials via VITE_.
 export function createJobsHandler(env = process.env, clientFactory = createClient) {
   const dispatcher = env.HTTPS_PROXY || env.HTTP_PROXY
@@ -12,7 +14,9 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
     : undefined
   return async function jobs(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
-    res.setHeader('Cache-Control','no-store')
+    res.setHeader('Cache-Control','no-store, max-age=0')
+    res.setHeader('CDN-Cache-Control','no-store')
+    res.setHeader('Vercel-CDN-Cache-Control','no-store')
     res.setHeader('X-Content-Type-Options','nosniff')
     if (req.method !== 'GET') {
       res.setHeader('Allow', 'GET')
@@ -25,9 +29,9 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       res.statusCode = 503
       return res.end(JSON.stringify({ error: 'The job feed is not configured on this server.' }))
     }
-    let offset,feed
-    try {const params=new URL(req.url||'/', 'http://localhost').searchParams;offset=Number(params.get('offset')||0);feed=params.get('feed')||'all'} catch {offset=NaN}
-    if(!Number.isInteger(offset)||offset<0||offset>20000||!['all','platform','telegram'].includes(feed)){res.statusCode=400;return res.end(JSON.stringify({error:'طلب غير صالح.'}))}
+    let offset,feed,ids
+    try {const params=new URL(req.url||'/', 'http://localhost').searchParams;offset=Number(params.get('offset')||0);feed=params.get('feed')||'all';ids=params.has('ids')?params.get('ids').split(','):null} catch {offset=NaN}
+    if(!Number.isInteger(offset)||offset<0||offset>20000||!['all','platform','telegram'].includes(feed)||(ids&&(!ids.length||ids.length>100||ids.some(id=>!UUID.test(id))))){res.statusCode=400;return res.end(JSON.stringify({error:'طلب غير صالح.'}))}
     let upstreamStatus
     try {
       const db = clientFactory(normalizeSupabaseUrl(url), key, { auth: { persistSession: false, autoRefreshToken: false },
@@ -38,6 +42,7 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       const query = columns => {
         let q=db.from('job_offers').select(columns).eq('status','active')
         if(feed!=='all')q=q.eq('source',feed==='telegram'?'telegram':'manual')
+        if(ids)q=q.in('id',[...new Set(ids)])
         return q.order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+199).abortSignal(AbortSignal.timeout(15000))
       }
       let result = await query(fields + ',contact_phone,contact_telegram,contact_whatsapp')
@@ -45,9 +50,8 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       const { data, error, status } = result
       upstreamStatus = status
       if (error) throw error
-      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
       res.statusCode = 200
-      return res.end(JSON.stringify({ jobs: (data||[]).filter(row=>feed!=='platform'||isPlatformOffer(row)).map(publicJobOffer), hasMore:(data||[]).length===200 }))
+      return res.end(JSON.stringify({ jobs: (data||[]).filter(row=>feed!=='platform'||isPlatformOffer(row)).map(publicJobOffer), hasMore:!ids&&(data||[]).length===200 }))
     } catch (error) {
       console.error("Job feed unavailable:", error?.name || "Error", error?.code || error?.cause?.code || "unknown")
       res.statusCode = error?.code==='SERVER_CONFIG'?503:502

@@ -372,7 +372,7 @@ def regex_job(text: str) -> ParsedJob | None:
                      salary_text=salary.group(1).strip() if salary else None,employment_type=schedule)
 
 
-def store_batch(db,records,storage):
+def store_batch(db,records,storage,ignore_duplicates=False):
     """Batch history writes; preserve classified metadata if a legacy role check rejects it."""
     if not records:return 0
     conflict="id" if is_native(storage) else "telegram_message_id"
@@ -384,11 +384,11 @@ def store_batch(db,records,storage):
         columns=set().union(*(record.keys() for record in records))
         for record in records:
             for column in columns:record.setdefault(column,None)
-    try:db.table("job_offers").upsert(records[0] if len(records)==1 else records,on_conflict=conflict).execute()
+    try:db.table("job_offers").upsert(records[0] if len(records)==1 else records,on_conflict=conflict, **({"ignore_duplicates": True} if ignore_duplicates else {})).execute()
     except Exception as exc:
         if is_native(storage) and getattr(exc,"code",None)=="23514" and "job_offers_role_category_check" in str(getattr(exc,"message","")):
             for record in records:record["role_category"]=""
-            db.table("job_offers").upsert(records[0] if len(records)==1 else records,on_conflict=conflict).execute()
+            db.table("job_offers").upsert(records[0] if len(records)==1 else records,on_conflict=conflict, **({"ignore_duplicates": True} if ignore_duplicates else {})).execute()
         else:raise
     return len(records)
 
@@ -466,7 +466,7 @@ async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_ru
         return "would_upsert_raw" if raw_fallback else "would_upsert"
     # Channel-qualified conflict key makes re-runs and edited posts idempotent.
     try:
-        await asyncio.to_thread(store_batch, db, [record], storage)
+        await asyncio.to_thread(store_batch, db, [record], storage, saved_hash is None)
     except Exception:
         await asyncio.to_thread(queue_record, record, storage)
         # Database failures are real failures, even though a recoverable copy is saved.
@@ -615,6 +615,11 @@ async def run(args) -> int:
                 if transport == "telethon":
                     raise ValueError("TELEGRAM_TRANSPORT=telethon requires connectivity and an authorized --login session") from exc
                 LOG.warning("MTProto unavailable (%s); trying public HTTPS previews", type(exc).__name__)
+        if getattr(args, 'listen', False):
+            if client is None:
+                raise ValueError("TELEGRAM listener requires an authorized Telethon session and MTProto connectivity")
+            from telegram_sync import listen
+            return await listen(client, gemini, db, channels, storage, args.parser)
         counts: dict[str, int] = {}
         report={"started_at":datetime.now(timezone.utc).isoformat(),"since":since.isoformat() if since else None,
                 "parser":args.parser,"channels":[],"coverage":{g["id"]:0 for g in GOVERNORATES}}
@@ -673,6 +678,7 @@ async def run(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--listen", action="store_true", help="Persistent Telethon new-message/edit listener with reconnect catch-up")
     mode.add_argument("--login", action="store_true", help="Interactively authorize a private Telegram session")
     mode.add_argument("--dry-run", action="store_true", help="Parse with Gemini, but never read or write Supabase")
     parser.add_argument("--limit", type=int, help="Maximum latest messages per channel (1–10000)")
@@ -688,6 +694,19 @@ def main() -> int:
     for name in ("httpx", "httpcore", "telethon", "google_genai", "google.genai"):
         logging.getLogger(name).setLevel(logging.CRITICAL)
     try:
+        if args.listen:
+            async def supervise():
+                delay = 5
+                while True:
+                    try:
+                        await run(args)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:
+                        LOG.error("Listener restarting (%s)", type(exc).__name__)
+                    await asyncio.sleep(delay)
+                    delay = min(delay * 2, 60)
+            return asyncio.run(supervise())
         return asyncio.run(run(args))
     except ValueError as exc:
         # Only our configuration errors may be surfaced verbatim.
