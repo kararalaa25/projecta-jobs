@@ -1,0 +1,58 @@
+/* Shared interaction polish: Projecta cyan and blue, readable pastels and RTL navigation. */
+html{scroll-behavior:smooth;scroll-padding-top:110px}
+.search-help{font-size:11px;color:var(--pc-muted);line-height:1.9;margin:10px 5px 0}
+.role-badge.specialty-dentistry{--specialty-bg:#e5f7f8;--specialty-text:#155e65;--specialty-border:#bce7eb}
+.role-badge.specialty-pharmacy{--specialty-bg:#e9f7ef;--specialty-text:#176342;--specialty-border:#c4e8d3}
+.role-badge.specialty-reps{--specialty-bg:#eef0ff;--specialty-text:#414995;--specialty-border:#d4d9f6}
+.role-badge.specialty-nursing{--specialty-bg:#fff5df;--specialty-text:#805317;--specialty-border:#f2dfb2}
+.role-badge.specialty-general{--specialty-bg:#f2f4f5;--specialty-text:#505d67;--specialty-border:#dce2e5}
+.role-badge[class*="specialty-"]{background:var(--specialty-bg);color:var(--specialty-text);border:1px solid var(--specialty-border);line-height:1.8}
+.filter-option .role-badge{font-size:11px;white-space:normal}
+.filter-option:has(input:checked) .role-badge{box-shadow:0 0 0 2px #fff,0 0 0 3px var(--pc-blue)}
+.telegram-filter-grid select.specialty-dentistry{background:#e5f7f8;color:#155e65;border-color:#bce7eb}
+.telegram-filter-grid select.specialty-pharmacy{background:#e9f7ef;color:#176342;border-color:#c4e8d3}
+.telegram-filter-grid select.specialty-reps{background:#eef0ff;color:#414995;border-color:#d4d9f6}
+.telegram-filter-grid select.specialty-nursing{background:#fff5df;color:#805317;border-color:#f2dfb2}
+.telegram-filter-grid select.specialty-general{background:#f2f4f5;color:#505d67;border-color:#dce2e5}
+.desktop-nav>a,.desktop-nav>button,.footer-links>a,footer>a:last-child{position:relative;transition:color .2s ease}
+.desktop-nav>a::after,.desktop-nav>button::after,.footer-links>a::after,footer>a:last-child::after{content:"";position:absolute;inset-inline:0;bottom:-5px;height:2px;background:var(--pc-blue);transform:scaleX(0);transform-origin:right;transition:transform .2s ease}
+.desktop-nav>a:hover::after,.desktop-nav>button:hover::after,.desktop-nav>a:focus-visible::after,.desktop-nav>button:focus-visible::after,.footer-links>a:hover::after,.footer-links>a:focus-visible::after,footer>a:last-child:hover::after,footer>a:last-child:focus-visible::after{transform:scaleX(1)}
+.footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;font-size:12px}
+footer{flex-wrap:wrap;gap:22px}
+.menu-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--pc-border);border-radius:12px;color:var(--pc-blue);background:var(--pc-soft);margin-inline-start:auto}
+.drawer-overlay{position:fixed;inset:0;z-index:80;background:#07182670;visibility:hidden;opacity:0;transition:opacity .25s ease,visibility .25s ease;backdrop-filter:blur(5px)}
+.drawer-overlay.is-open{visibility:visible;opacity:1}
+.mobile-drawer{position:absolute;inset-block:0;inset-inline-start:0;width:min(360px,90vw);background:#fff;box-shadow:-12px 0 48px #10263a20;padding:26px 24px max(26px,env(safe-area-inset-bottom));overflow-y:auto;transform:translateX(100%);transition:transform .25s ease}
+:dir(ltr) .mobile-drawer{transform:translateX(-100%)}
+.drawer-overlay.is-open .mobile-drawer{transform:translateX(0)}
+.drawer-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.drawer-heading h2{font-size:18px}.drawer-heading button{min-width:44px;min-height:44px}
+.mobile-drawer>p{font-size:12px;line-height:2;color:var(--pc-muted);margin:12px 0 22px}
+.mobile-drawer nav{display:grid;gap:8px;margin-bottom:25px}
+.mobile-drawer nav>a,.mobile-drawer nav>button{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:start;min-height:48px;padding:12px;border-radius:12px;color:var(--pc-ink);font-size:14px;transition:background .2s,color .2s}
+.mobile-drawer nav>a:hover,.mobile-drawer nav>button:hover{background:var(--pc-soft);color:var(--pc-blue)}
+.empty-state-icon{display:grid;place-items:center;width:78px;height:78px;border:1px solid var(--pc-brand-border);background:linear-gradient(145deg,var(--pc-brand-soft),#fff);border-radius:26px;margin:0 auto 20px;color:var(--pc-blue);box-shadow:0 6px 18px #2780a909}
+.empty-state .primary{margin-top:22px;min-height:44px}
+.save-button,.icon-button,.mobile-nav button{transition:background .2s,color .2s,transform .2s}
+.save-button:hover{color:var(--pc-blue);transform:scale(1.1)}
+button:active{transform:scale(.98)}
+@media(min-width:851px){.header{gap:20px}.desktop-nav{gap:18px}.desktop-nav>a,.desktop-nav>button{font-size:12px}.header-actions{gap:14px}}
+@media(max-width:850px){.header .desktop-nav,.header .header-actions{display:none}.menu-toggle{display:flex}.header{height:76px}}
+@media(max-width:680px){html{scroll-padding-top:90px}.search-help{font-size:10px}.filter-option .role-badge{font-size:10px}.search-field{min-width:0}.search-field input{min-width:0;width:100%}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}.feature-card:hover,.save-button:hover,button:active{transform:none}}
+/* Let completed entrance animations release transform for hover feedback. */
+.board-intro,.career-hero,.job-card{animation-fill-mode:backwards}
+.has-tooltip{position:relative;transition:transform .22s ease,color .22s ease,background .22s ease}
+.icon-tooltip{position:absolute;inset-inline-start:0;bottom:calc(100% + 10px);width:230px;max-width:70vw;padding:10px 12px;border-radius:10px;background:var(--pc-ink);color:white;font-size:11px;font-weight:400;line-height:1.8;pointer-events:none;opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .18s,transform .18s,visibility .18s;z-index:2}
+.has-tooltip:hover .icon-tooltip,.has-tooltip:focus .icon-tooltip{opacity:1;visibility:visible;transform:translateY(0)}
+.reference-card,.reference-connect-actions>button,.reference-connect-actions>a,.reference-guide-grid article{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.reference-card:focus-within{border-color:var(--pc-cyan)}
+.reference-connect-actions>button,.reference-connect-actions>a{border:1px solid var(--pc-border)}
+#our-message{scroll-margin-top:110px}
+@media(hover:hover){.reference-card:hover,.reference-connect-actions>button:hover,.reference-connect-actions>a:hover,.reference-guide-grid article:hover{transform:translateY(-4px);box-shadow:0 14px 32px #2780a918;border-color:var(--pc-cyan)}.reference-card:hover .has-tooltip,.has-tooltip:focus-visible{transform:scale(1.1);color:var(--pc-cyan);background:var(--pc-brand-soft)}.reference-card:hover .has-tooltip>svg,.reference-connect-actions>button:hover>svg,.reference-connect-actions>a:hover>svg{fill:#0299b51c;color:var(--pc-cyan)}}
+.reference-connect-actions svg,.reference-guide-icon{transition:transform .22s ease,color .22s ease}
+@media(hover:hover){.reference-connect-actions>button:hover>svg,.reference-connect-actions>a:hover>svg,.reference-guide-grid article:hover .reference-guide-icon{transform:scale(1.1)}}
+@media(max-width:850px){.reference-header .desktop-nav,.reference-header .header-actions{display:none}.reference-header .menu-toggle{display:flex;margin-left:auto;margin-inline-start:0}.reference-header.header{justify-content:space-between}}
+@media(prefers-reduced-motion:reduce){.reference-card:hover,.reference-connect-actions>button:hover,.reference-connect-actions>a:hover,.reference-guide-grid article:hover,.reference-card:hover .has-tooltip,.has-tooltip:focus-visible{transform:none}}
+.listing-tabs .tabs .count{background:#ffffffc9;color:var(--pc-link);min-width:22px;line-height:1.6;font-size:10px}
+@media(max-width:680px){.listing-tabs .tabs button{flex-wrap:wrap}.listing-tabs .tabs .count{font-size:9px}}
