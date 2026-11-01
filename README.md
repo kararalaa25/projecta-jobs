@@ -52,7 +52,7 @@ Set credentials securely in `.env` or environment settings. Exported variables o
 
 ### Database migration
 
-The published marketplace schema is supported directly without a migration (see the mapping below). If using the separate ingestion-specific schema, apply `supabase/migrations/202610300002_reconcile_job_offers.sql` in the Supabase SQL editor. This migration works independently for existing tables: it adds required columns, preserves rows, uses text channel-qualified `telegram_message_id` keys, backfills earlier ingestion identities, creates a unique index, and reloads the API schema. It also retains source metadata needed by the worker. Duplicate existing keys or incompatible ID types cause an atomic failure requiring manual reconciliation; the migration does not delete data. Existing RLS policies are preserved and RLS is enabled.
+The published marketplace requires the durable multi-job migration described in [multi-job ingestion](docs/multi-job-ingestion.md) before running the current worker (see the mapping below). If using the separate ingestion-specific schema, apply `supabase/migrations/202610300002_reconcile_job_offers.sql` in the Supabase SQL editor. This migration works independently for existing tables: it adds required columns, preserves rows, uses text channel-qualified `telegram_message_id` keys, backfills earlier ingestion identities, creates a unique index, and reloads the API schema. It also retains source metadata needed by the worker. Duplicate existing keys or incompatible ID types cause an atomic failure requiring manual reconciliation; the migration does not delete data. Existing RLS policies are preserved and RLS is enabled.
 
 Alternatively, configure the PostgreSQL connection string `SUPABASE_DB_URL` securely and run:
 
@@ -89,7 +89,7 @@ The worker discovers available text-generation models using `client.aio.models.l
 
 `TELEGRAM_FETCH_LIMIT` defaults to 100 newest messages per channel (maximum 10,000). This is a bounded polling worker, not a full channel archive. Schedule it on a trusted worker; Vercel static hosting does not run it.
 
-`telegram_message_id` is `channel_username:message_id` (or `chat_id:message_id` for private channels). This prevents collisions between channels and deduplicates public HTTPS/Telethon runs. SHA-256 hashes skip unchanged posts before Gemini; edits update the row. Renaming a public channel changes its canonical namespace; reconcile earlier rows if that occurs. An offer edited into non-job content is removed. Deleted Telegram posts are not reconciled; reposts with different IDs remain separate source listings. Logs show outcome counts/error types and codes, not raw posts or secrets. Failures produce a nonzero exit status.
+Marketplace ingestion now stores a durable message receipt before parsing. Gemini extracts separate offers with scoped descriptions/contacts; deterministic message/index UUIDs deduplicate jobs. An atomic RPC replaces edited groups and removes obsolete children. Parsing failures remain retryable even after the source history window has moved on. See [multi-job ingestion and recovery](docs/multi-job-ingestion.md). The optional ingestion-specific legacy schema retains its original single-record path.
 
 ```sh
 .venv/bin/python -m unittest discover -s tests -v
@@ -99,9 +99,9 @@ Tests mock external services. Live readiness additionally requires accessible ch
 
 ### Published marketplace schema mapping
 
-The worker checks column availability before reading posts. If the live table uses the published marketplace schema, no migration is required: parsed `city` maps to `location_city`, `salary_text` to `salary_range`, and the original post to `description`. `title` and `role_category` retain their parsed values. Explicit employment types use the table's snake_case convention (`full_time`, `part_time`, `contract`, `internship`); unknown types use the table default. Parsed offers with no known city use the raw preservation path because `location_city` is required.
+The marketplace maps each extracted job's city to `location_city`, salary to `salary_range`, and individual source excerpt plus shared context to `description`. `contact_info` holds validated scoped contacts, the original source link, publication timestamp and specialty. Missing city/schedule facts stay unknown; contract/internship map to the supported temporary-work value. Original publication dates are preserved.
 
-`contact_info` stores JSON text containing `phone`, `telegram`, `company_name`, `source_url`, and `telegram_message_id`. This preserves extracted details without writing nonexistent columns. `source` is `telegram`. A deterministic UUID derived from channel and message ID is used as `id`, allowing upsert/deduplication on the existing primary key. `created_at`, `status`, and nullable `publisher_id` use table defaults. Unchanged raw `description` hashes skip repeated Gemini calls. The optional ingestion-specific schema remains supported as a fallback when its columns are present instead.
+The durable inbox and transaction RPCs are required for this path. Failed parsing publishes a conservative fallback and schedules automatic re-extraction. Local private outbox files on persistent hosts re-enqueue the original message rather than overwriting split jobs. The optional legacy ingestion-specific table remains single-record only. See [current schema, setup, retries and verification](docs/multi-job-ingestion.md).
 
 ### Raw preservation and retry outbox
 
@@ -175,7 +175,7 @@ The current seven user-provided sources are documented in `config/telegram_chann
 
 History mode follows Telegram's public HTTPS `before` cursor until the date cutoff, while authenticated Telethon can iterate to that same cutoff. It rejects simultaneous `--days`/`--limit` arguments. A stalled cursor or exhausted `--max-pages` budget is an explicit failure, not a successful partial archive. Public previews cannot expose private/deleted/protected posts or media text; they are not a substitute for an authenticated full Telegram archive.
 
-`--parser regex` avoids Gemini charges/timeouts for large backfills, writes batches of 100 using deterministic source IDs, and leaves uncertain details unclassified. `--parser hybrid` uses local classification when sufficient and Gemini for ambiguity; `--parser gemini` always attempts Gemini. Reports in ignored `.telegram_history/last-run.json` record the time window, per-channel outcomes, failures and observed governorate counts. Counts describe actual detected locations, not promised geographic coverage.
+`--parser regex` avoids Gemini calls during the manual pass, conservatively splits explicit numbered offers and leaves AI enrichment pending in the durable inbox. Both `--parser hybrid` and `--parser gemini` attempt full multi-offer AI extraction for marketplace ingestion; parsing outages use retryable local fallbacks. Reports in ignored `.telegram_history/last-run.json` record the time window, per-channel outcomes, failures and observed governorate counts. Counts describe actual detected locations, not promised geographic coverage.
 
 Source post timestamps are retained for ordering. The public feed uses offset pagination in pages of 200, so older governorates/categories are not hidden behind the previous fixed 200-row feed limit. Empty combinations display an Arabic empty state rather than sample job offers.
 

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import telegram_scraper as scraper
+import telegram_pipeline as pipeline
 
 
 class PipelineTests(unittest.IsolatedAsyncioTestCase):
@@ -115,48 +116,41 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([c.kwargs['model'] for c in client.aio.models.generate_content.call_args_list],
                          [scraper.FALLBACK_MODELS[0], scraper.FALLBACK_MODELS[1], scraper.FALLBACK_MODELS[1]])
 
-    async def test_parse_failure_preserves_native_raw_post(self):
-        with patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(side_effect=ValueError('bad JSON'))):
-            outcome = await scraper.ingest_message(None, self.db, self.message, 123, 'test', storage='native')
-        self.assertEqual(outcome, 'upserted_raw')
-        row = self.db.table.return_value.upsert.call_args.args[0]
-        self.assertEqual(row['title'], self.message.raw_text)
-        self.assertEqual(row['description'], self.message.raw_text)
-        self.assertEqual(row['location_city'], 'Baghdad')
-        self.assertIn('unparsed', row['contact_info'])
+    async def test_parse_failure_keeps_offer_and_durable_retry(self):
+        receipt={'message_key':'test:17','message_id':17,'channel':'test','chat_id':123,
+                 'source_hash':scraper.text_hash(self.message.raw_text),'raw_text':self.message.raw_text,
+                 'posted_at':self.message.date.isoformat(),'state':'pending','next_attempt_at':'2020-01-01T00:00:00Z'}
+        with patch.object(pipeline,'enqueue_post',return_value=receipt), patch.object(scraper,'parse_jobs',AsyncMock(side_effect=ValueError())), patch.object(pipeline,'commit_jobs',return_value='retry') as commit:
+            result=await scraper.ingest_message(None,self.db,self.message,123,'test',storage='native')
+        self.assertEqual(result,'upserted_raw')
+        self.assertTrue(commit.call_args.args[3])
+        row=commit.call_args.args[2][0]
+        self.assertEqual(row['description'],self.message.raw_text)
+        self.assertEqual(row['location_city'],'Baghdad')
 
     async def test_dry_run_fallback_does_not_write(self):
-        with patch.object(scraper, 'parse_job', AsyncMock(side_effect=TimeoutError())):
-            result = await scraper.ingest_message(None, self.db, self.message, 123, 'test', dry_run=True, storage='native')
-        self.assertEqual(result, 'would_upsert_raw')
-        self.db.table.assert_not_called()
+        with patch.object(scraper,'parse_jobs',AsyncMock(side_effect=TimeoutError())):
+            result=await scraper.ingest_message(None,self.db,self.message,123,'test',dry_run=True,storage='native')
+        self.assertEqual(result,'would_upsert_raw');self.db.table.assert_not_called();self.db.rpc.assert_not_called()
 
-    async def test_database_failure_queues_then_replays(self):
-        import tempfile, json
+    async def test_database_failure_queues_then_reenqueues_source(self):
+        import tempfile,json
         from pathlib import Path
-        with tempfile.TemporaryDirectory() as temp, patch.dict('os.environ', {'TELEGRAM_OUTBOX':temp}), patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(side_effect=TimeoutError())):
-            self.db.table.return_value.upsert.return_value.execute.side_effect = RuntimeError('database down')
+        with tempfile.TemporaryDirectory() as temp,patch.dict('os.environ',{'TELEGRAM_OUTBOX':temp}),patch.object(pipeline,'enqueue_post',side_effect=RuntimeError()):
             with self.assertRaises(RuntimeError):
-                await scraper.ingest_message(None, self.db, self.message, 123, 'test', storage='native')
-            files = list(Path(temp).glob('*.json'))
-            self.assertEqual(len(files), 1)
-            self.assertEqual(json.loads(files[0].read_text())['record']['description'], self.message.raw_text)
-            self.assertEqual(files[0].stat().st_mode & 0o777, 0o600)
-            self.db.table.return_value.upsert.return_value.execute.side_effect = None
-            self.assertEqual(scraper.replay_outbox(self.db,'native'), (1,0))
+                await scraper.ingest_message(None,self.db,self.message,123,'test',storage='native')
+            files=list(Path(temp).glob('*.json'));self.assertEqual(len(files),1)
+            self.assertEqual(files[0].stat().st_mode & 0o777,0o600)
+            with patch.object(pipeline,'enqueue_post') as enqueue:
+                self.assertEqual(scraper.replay_outbox(self.db,'native'),(1,0))
+                self.assertEqual(enqueue.call_args.args[1].raw_text,self.message.raw_text)
             self.assertFalse(files[0].exists())
 
-    async def test_native_upsert_only_uses_live_columns(self):
-        with patch.object(scraper, 'existing_hash', return_value=None), patch.object(scraper, 'parse_job', AsyncMock(return_value=self.job)):
-            result = await scraper.ingest_message(None, self.db, self.message, 123, 'test', storage='native')
-        self.assertEqual(result, 'upserted')
-        call = self.db.table.return_value.upsert.call_args
-        self.assertEqual(call.kwargs['on_conflict'], 'id')
-        row = call.args[0]
-        self.assertEqual(set(row), {'id','title','role_category','location_city','salary_range','description','source','contact_info','created_at','employment_type'})
-        self.assertEqual(row['location_city'], 'Baghdad')
-        self.assertEqual(row['description'], self.message.raw_text)
-        self.assertEqual(row['id'], scraper.native_id(-123, 'test', 17))
+    async def test_native_message_uses_atomic_pipeline(self):
+        with patch.object(pipeline,'ingest_native_message',AsyncMock(return_value='upserted')) as ingest:
+            result=await scraper.ingest_message(None,self.db,self.message,123,'test',storage='native_contacts')
+        self.assertEqual(result,'upserted');self.assertEqual(ingest.call_args.args[-2],'native_contacts')
+        self.db.table.return_value.upsert.assert_not_called()
 
     def test_native_mapping_skips_unknown_city(self):
         self.message.raw_text='مطلوب طبيب اسنان للعمل في عيادة خاصة'

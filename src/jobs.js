@@ -61,7 +61,14 @@ export function toJob(row) {
   }
 }
 export function visibleJobs(rows){
- return rows.filter(row=>row.source!=='telegram'||(!isRejectedPost(row.description||row.title||'')&&(contact(row.contact_info).parsing_status!=='unparsed'||isRawJobAllowed(row.description||row.title||'')))).map(toJob)
+ return rows.filter(row=>{
+  if(row.source!=='telegram')return true
+  const meta=contact(row.contact_info),text=row.description||row.title||''
+  // Grounded AI extractions can be short (e.g. one role in a numbered list).
+  // The raw-post heuristic must not hide a successfully parsed individual offer.
+  if(meta.parsing_status==='parsed')return typeof row.title==='string'&&Boolean(row.title.trim())&&Boolean(text.trim())
+  return !isRejectedPost(text)&&(meta.parsing_status!=='unparsed'||isRawJobAllowed(text))
+ }).map(toJob)
 }
 export async function fetchJobsByIds(ids,signal){
  const response=await fetch(`/api/jobs?ids=${encodeURIComponent(ids.join(','))}`,{signal,cache:'no-store',headers:{Accept:'application/json'}})

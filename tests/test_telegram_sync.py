@@ -6,19 +6,18 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 import telegram_sync as sync
 import telegram_scraper as scraper
+import telegram_pipeline as pipeline
 
 spec=importlib.util.spec_from_file_location('telegram_sync_api','api/telegram-sync.py')
 api=importlib.util.module_from_spec(spec);spec.loader.exec_module(api)
 
 class SyncTests(unittest.IsolatedAsyncioTestCase):
-    async def test_existing_posts_are_skipped_new_ids_ignore_conflicts_and_edits_update(self):
-        posts=[SimpleNamespace(id=i,raw_text=f'مطلوب صيدلاني للعمل في بغداد هاتف 07701234567 {i}',date=datetime.now(timezone.utc)) for i in range(1,4)]
-        ids=[scraper.native_id(123,'clinic',p.id) for p in posts]
-        db=MagicMock();db.table.return_value.select.return_value.in_.return_value.execute.return_value.data=[{'id':ids[0],'description':posts[0].raw_text},{'id':ids[1],'description':'old'}]
-        with patch.object(scraper,'store_batch') as store:
-            result=await sync.store_changed_posts(db,posts,123,'clinic','native')
-        self.assertEqual(result,{'inserted':1,'updated':1,'unchanged':1,'filtered':0})
-        self.assertTrue(store.call_args_list[0].args[-1]);self.assertEqual(store.call_args_list[0].args[1][0]['id'],ids[2]);self.assertEqual(store.call_args_list[1].args[1][0]['id'],ids[1])
+    async def test_all_posts_are_durable_before_parsing_including_filtered_edits(self):
+        posts=[SimpleNamespace(id=i,raw_text='إعلان عام',date=datetime.now(timezone.utc)) for i in range(3)]
+        with patch.object(pipeline,'enqueue_post',side_effect=[{'state':'complete'},{'state':'pending'},{'state':'retry'}]) as enqueue:
+            result=await sync.store_changed_posts(MagicMock(),posts,123,'clinic','native')
+        self.assertEqual(result['queued'],2);self.assertEqual(result['unchanged'],1)
+        self.assertEqual(enqueue.call_count,3)
 
     async def test_failure_does_not_advance_durable_checkpoint(self):
         db=MagicMock();db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data=[]
@@ -49,7 +48,7 @@ class SyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(http.get.call_args.kwargs['headers']['Cache-Control'],'no-cache')
 
     async def test_listener_registers_new_messages_and_edits_and_cleans_up(self):
-        client=MagicMock();entity=SimpleNamespace(id=123,username='clinic');client.get_entity=AsyncMock(return_value=entity)
+        client=MagicMock();entity=SimpleNamespace(id=123,username='clinic');client.get_entity=AsyncMock(return_value=entity);client.catch_up=AsyncMock()
         async def disconnected():await asyncio.sleep(0)
         client.run_until_disconnected=disconnected
         with patch.object(scraper,'replay_outbox'),patch.object(scraper,'ingest_message',AsyncMock()),self.assertRaises(ConnectionError):

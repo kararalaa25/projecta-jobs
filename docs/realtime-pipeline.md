@@ -8,7 +8,7 @@ Implemented 1 November 2026 (Asia/Baghdad). The authoritative table is
 The Vercel project is on Hobby, whose native cron frequency is insufficient for
 five-minute ingestion. Supabase Cron therefore dispatches the existing Vercel
 Python function `/api/telegram-sync` every five minutes using `pg_net`. Production
-needs only its existing Supabase server credentials and `TELEGRAM_CHANNELS`.
+needs Supabase server credentials, `TELEGRAM_CHANNELS` and a server-only `GEMINI_API_KEY`.
 
 `private.dispatch_telegram_sync()` creates a short-lived, single-use bearer token.
 Only its SHA-256 hash is stored in a private table. The service-role-only
@@ -26,11 +26,12 @@ exhausted history budget does not advance that channel's checkpoint. Successful
 channels retain their progress even if a different channel fails. This durable
 checkpoint is the serverless retry mechanism; it does not depend on `/tmp`.
 
-Stable channel/message UUIDs enforce database deduplication. New rows use
-`ON CONFLICT DO NOTHING`; changed source text updates the existing row, and
-unchanged source text does not rewrite moderated metadata or emit redundant events.
-The scheduled path uses deterministic regex classification and explicitly raw
-fallbacks, without a Gemini credential or model calls.
+The scheduled path now enqueues each source message durably and uses Gemini to
+extract individual offers. Atomic group commits, parser-version tracking and a
+persistent retry inbox replace the old one-record regex sync. See
+[multi-job extraction, schema and recovery](multi-job-ingestion.md) for the current
+mapping and verification commands. Source checkpoints track durable capture;
+parsing failures remain in the inbox independently of that checkpoint.
 
 ## Persistent listener alternative
 
@@ -48,8 +49,8 @@ path before installation. No persistent worker host was provisioned by this
 release. The deployed ingestion mode is the five-minute scheduled fallback.
 
 The listener registers `events.NewMessage` and `events.MessageEdited` before
-catch-up. Writes are serialized, retried, and retain the existing durable local
-outbox. Periodic checkpoint-based history catch-up and supervised restarts cover
+catch-up. Writes use atomic message receipts, bounded concurrency and a private local
+outbox in addition to the durable database inbox. Periodic checkpoint-based history catch-up and supervised restarts cover
 connection interruptions. The same canonical IDs allow it to coexist with the
 fallback without duplicate rows.
 

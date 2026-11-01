@@ -12,7 +12,7 @@
   "functions": {
     "api/telegram-sync.py": {
       "maxDuration": 300,
-      "includeFiles": "{telegram_scraper.py,telegram_sync.py,iraq_taxonomy.py,config/iraq.json}"
+      "includeFiles": "{telegram_scraper.py,telegram_sync.py,telegram_pipeline.py,iraq_taxonomy.py,config/iraq.json}"
     }
   }
 }
