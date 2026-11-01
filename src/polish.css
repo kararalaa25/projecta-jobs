@@ -171,3 +171,8 @@ button:active{transform:scale(.98)}
 .job-preview:not(.is-compact) .job-facts dd{font-weight:600;color:#475569}
 @media(hover:hover){.reference-board .filter-option:hover{background:#f4f7fa;color:#334155}.reference-board .filter-option:has(input:checked):hover{background:#e7f3f9}.reference-board .filter-heading button:hover{background:var(--pc-brand-soft)}}
 @media(max-width:680px){.reference-board .filter-panel{padding:18px 12px;gap:20px 12px;border-radius:16px}.reference-board .filter-option{min-height:44px;padding:7px 6px;font-size:12px;gap:7px}.reference-board .filter-panel fieldset{margin-bottom:0;padding-bottom:16px}.reference-board .filter-option .role-badge{font-size:11px;padding:4px 8px}.reference-board .job-card .role-badge,.reference-board .job-card .raw-badge{font-size:11px}.reference-board .job-card .listing-kind{font-size:10px}}
+
+/* A full-width feed band; the surrounding page keeps its own background. */
+.reference-board{max-width:none;width:100%;padding-inline:max(16px,calc((100% - 1280px)/2));background:var(--pc-soft)}
+.reference-board .job-card,.reference-board .filter-panel{background:var(--pc-surface)}
+@media(max-width:680px){.reference-board{padding-inline:20px}}
