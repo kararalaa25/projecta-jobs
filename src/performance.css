@@ -1,0 +1,16 @@
+/* Explicit geometry keeps loading surfaces steady without changing the palette. */
+.content-loading{min-height:180px;display:grid;align-content:center;gap:14px;padding:24px;color:var(--pc-muted);text-align:center;font-size:14px;line-height:1.8}
+.job-grid-skeleton{display:grid;grid-template-columns:subgrid;grid-column:1/-1;gap:inherit}
+.job-card-skeleton{min-height:400px;aspect-ratio:5/6;border:1px solid var(--pc-border);border-radius:18px;background:#fff;padding:20px;display:flex;flex-direction:column;gap:22px}
+.skeleton-avatar{display:block;width:36px;aspect-ratio:1;border-radius:11px;background:#edf5fa;margin-bottom:8px}
+.skeleton-line{display:block;height:14px;border-radius:999px;background:#edf3f8;width:100%;max-width:440px}
+.skeleton-line:nth-of-type(2n){width:70%}
+.job-card-skeleton .skeleton-line:last-child{margin-top:auto}
+.deferred-training{min-width:0;scroll-margin-top:100px}
+.reference-board .job-card{min-height:400px}
+.training-placeholder{min-height:900px;padding:64px 24px;background:#f5f9fd;display:flex;flex-direction:column;gap:22px}
+.training-placeholder-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.training-placeholder-card{min-height:490px;padding:22px;border-radius:20px;background:#fff;border:1px solid var(--pc-border);display:flex;flex-direction:column;gap:22px}
+@supports not (grid-template-columns:subgrid){.job-grid-skeleton{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:1200px){.job-grid-skeleton{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:680px){.job-grid-skeleton{grid-template-columns:1fr}}}
+@media(max-width:1050px){.training-placeholder-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.training-placeholder{min-height:1480px}}
+@media(max-width:580px){.training-placeholder-grid{grid-template-columns:1fr}.training-placeholder{min-height:2084px;padding:48px 20px}}

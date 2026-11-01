@@ -1,11 +1,11 @@
-@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/ui-inter-400.woff') format('woff')}
-@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/ui-inter-500.woff') format('woff')}
-@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/ui-inter-600.woff') format('woff')}
-@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/ui-inter-700.woff') format('woff')}
-@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/ui-arabic-400.woff') format('woff')}
-@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/ui-arabic-500.woff') format('woff')}
-@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/ui-arabic-700.woff') format('woff')}
-@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/ui-arabic-800.woff') format('woff')}
+@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/ui-inter-400.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/ui-inter-500.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/ui-inter-600.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Inter";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/ui-inter-700.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/ui-arabic-400.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/ui-arabic-500.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/ui-arabic-700.woff2') format('woff2')}
+@font-face{font-family:"Projecta UI Arabic";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/ui-arabic-800.woff2') format('woff2')}
 /* Original f106622 Projecta colors; current layout typography is retained. */
 @font-face{font-family:"Projecta Sora";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/sora-latin-800-normal.woff2') format('woff2')}
 @font-face{font-family:"Projecta Sora";font-style:normal;font-weight:800;font-display:swap;src:url('/fonts/sora-latin-ext-800-normal.woff2') format('woff2');unicode-range:U+0100-02BA}

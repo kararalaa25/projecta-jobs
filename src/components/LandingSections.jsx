@@ -1,21 +1,5 @@
-import {BookOpen,Library,BriefcaseMedical,MapPin,Bookmark,Smartphone,Users,ShieldCheck,Check,Send,FileText,Building2,Lightbulb,Eye,Target,UserRound,ArrowUpLeft} from 'lucide-react'
+import {Bookmark,Users,Check,Send,FileText,Building2,UserRound,ArrowUpLeft} from 'lucide-react'
 import SocialLinks from './SocialLinks'
-
-function FeatureIcon({Icon,text,id,className}){
- return <span className={`${className} has-tooltip`} tabIndex={0} role="img" aria-label={text} aria-describedby={id}><Icon size={27} aria-hidden="true"/><span className="icon-tooltip" role="tooltip" id={id}>{text}</span></span>
-}
-
-const features=[
- [BookOpen,'فرص مباشرة من العيادات','إعلانات واضحة تتضمن عنوان الوظيفة ووصفها والراتب المتوقع والموقع ورقم التواصل.'],
- [Library,'وظائف التليجرام','تابع منشورات القنوات الطبية في قسم مستقل، مع رابط المنشور الأصلي ووسائل التواصل المتاحة.'],
- [BriefcaseMedical,'تخصصك، وفرصتك','أطباء أسنان، صيادلة، مندوبون علميون، مساعدون، أطباء عامون، وإدارة وسكرتارية.'],
- [MapPin,'كل المحافظات العراقية','ابحث في بغداد وكربلاء وبابل والنجف وأربيل، مع خيارات تصفية تغطي المحافظات الثماني عشرة.'],
- [Bookmark,'فرصك المحفوظة','احتفظ بالإعلانات التي تهمك على هذا الجهاز، وعد إليها من قائمة المحفوظات.'],
- [Smartphone,'أينما كنت','تجربة متجاوبة تتيح لك استعراض الفرص والتواصل من الهاتف أو الجهاز اللوحي أو الحاسوب.'],
- [Users,'مجتمع من الكفاءات','استكشف قسم الباحثين عن عمل. تظهر النماذج التوضيحية والملفات المحلية بتسميات واضحة.'],
- [ShieldCheck,'سيرتك الذاتية بخصوصية','ارفع ملف PDF أو DOCX عند التقديم على فرصة مباشرة، مع تخزين خاص وروابط تنزيل مؤقتة.'],
-]
-export function ProjectaFeatures({compact=false}){return <section className={compact?"information-content information-features":"reference-features full-bleed"} id="features" aria-labelledby="features-title"><div className="reference-container"><div className="reference-section-heading"><span>لماذا تختار بروجكتا</span><h2 id="features-title">كل ما تحتاجه لخطوتك المهنية</h2><p>تجربة واضحة تجمع فرص العمل والكفاءات في القطاع الصحي العراقي.</p></div><div className="reference-feature-grid">{features.map(([Icon,title,description],index)=><article className="reference-card feature-card" key={title}><FeatureIcon className="reference-feature-icon" Icon={Icon} text={description} id={`feature-tip-${index}`}/><h3>{title}</h3><p>{description}</p></article>)}</div></div></section>}
 
 export function ProjectaPaths({onBrowse,onPost,onAccount}){
  const paths=[{id:'jobs',title:'وظائف المنصة',label:'عيادات ومؤسسات',featured:true,badge:'إعلانات مباشرة',items:['عنوان ووصف وظيفي واضحان','الراتب والموقع ورقم التواصل','النشر من حساب مهني معتمد','التقديم مع سيرة ذاتية خاصة'],action:'استعراض وظائف المنصة'},
@@ -27,5 +11,4 @@ export function ProjectaPaths({onBrowse,onPost,onAccount}){
  <div className="reference-glass-panel"><h2>ابدأ بخطوتك المناسبة</h2><div className="reference-guide-grid"><article><span className="reference-guide-icon"><FileText size={29}/></span><h3>أبحث عن فرصة</h3><p>اختر تخصصك ومحافظتك، اقرأ التفاصيل، وتواصل مع جهة الإعلان. عند التقديم على فرصة مباشرة، أرفق سيرتك الذاتية بشكل خاص.</p><button onClick={()=>onBrowse('jobs')}>استكشف الفرص <ArrowUpLeft size={16}/></button></article><article><span className="reference-guide-icon"><Building2 size={29}/></span><h3>أبني فريقي الطبي</h3><p>سجّل الدخول وقدّم بياناتك المهنية للاعتماد، ثم انشر فرصة واضحة بالوصف والراتب والموقع ورقم الهاتف.</p><button onClick={onPost}>نشر فرصة عمل <ArrowUpLeft size={16}/></button></article></div><div className="reference-glass-callout"><p>مسيرتك المهنية تبدأ بخطوة. اجعل حسابك جاهزاً للفرصة القادمة.</p><button onClick={onAccount}><UserRound size={17}/> حسابي في بروجكتا</button></div></div>
  </div></section>
 }
-export function ProjectaAbout({compact=false}){const cards=[[Lightbulb,'رسالتنا','تقريب الكفاءات الطبية من الفرص المناسبة، وتسهيل التواصل بين المتخصصين والعيادات والمؤسسات الصحية في العراق.'],[Eye,'رؤيتنا','مساحة مهنية واضحة تساعدك على استكشاف خياراتك وبناء الخطوة التالية في مسيرتك، مع الفصل بين الإعلانات المباشرة ومصادر المجتمع.'],[Target,'هدفنا','تقديم معلومات وظيفية منظمة حسب التخصص والمحافظة والدوام، مع احترام خصوصية المتقدمين وإبقاء المعلومات غير المذكورة واضحة.']];return <section className={compact?"information-content information-about":"reference-about full-bleed"} id="projecta-about" aria-labelledby="about-title"><div className="reference-container"><div className="reference-section-heading"><h2 id="about-title">عن بروجكتا</h2><p>فرص أفضل للكفاءات. وفِرق أفضل للرعاية.</p></div><div className="reference-about-grid">{cards.map(([Icon,title,text],index)=><article className="reference-card about-card" id={index===0?'our-message':undefined} key={title}><FeatureIcon className="reference-about-icon" Icon={Icon} text={title} id={`about-tip-${index}`}/><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>}
 export function ProjectaConnect({onAccount,onSaved,onBrowse}){return <section className="reference-connect full-bleed" id="connect" aria-labelledby="connect-title"><div className="reference-container"><div className="reference-section-heading"><h2 id="connect-title">ابقَ قريباً من فرصتك القادمة</h2><p>عد إلى حسابك، تابع الفرص التي حفظتها، واستكشف مجتمع بروجكتا.</p></div><SocialLinks/><div className="reference-connect-actions"><button onClick={onAccount}><UserRound size={21}/> حسابك المهني</button><a href="/talent"><Users size={21}/> دليل الكفاءات</a><button onClick={onSaved}><Bookmark size={21}/> الإعلانات المحفوظة</button><button onClick={()=>onBrowse('telegram')}><Send size={21}/> وظائف التليجرام</button><a href="https://dental-profile-hub-nea2.vercel.app/" target="_blank" rel="noopener noreferrer"><Building2 size={21}/> منصة إدارة العيادات</a></div></div></section>}
