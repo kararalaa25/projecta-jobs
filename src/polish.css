@@ -209,3 +209,27 @@ button:active{transform:scale(.98)}
 .trust-explanation{font-size:12px;line-height:1.9;color:#5f6f83;margin-bottom:16px}
 .detail-trust{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}
 @media(max-width:680px){.profile-identity{padding:16px;gap:10px}.profile-avatar{width:42px;height:42px;border-radius:14px}.profile-identity h3{font-size:16px}.card-trust{margin-bottom:10px}}
+
+/* Symmetric hero choices, native posting controls, and compact feed feedback. */
+.reference-hero .hero-stream-button{border-radius:24px;border-width:1px;text-shadow:0 1px 8px #ffffff1a}
+.reference-hero .hero-stream-button svg{filter:drop-shadow(0 1px 4px #ffffff26)}
+.modal form select{appearance:auto;color-scheme:light;min-height:48px;cursor:pointer;color:var(--pc-ink);background-color:#f8fbff}
+.modal form select option{color:var(--pc-ink);background:#fff}
+.feed-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 18px;min-height:32px}
+.feed-toolbar .feed-connection{margin:0;font-size:11px;line-height:1.8}
+.reference-board .feed-status.feed-status-compact{display:flex;gap:12px;align-items:center;border:0;background:none;padding:0;margin:0;font-size:12px;box-shadow:none}
+.feed-status-compact button{padding:5px 10px;border-radius:999px;font-weight:600}
+.feed-status-compact button:hover{background:var(--pc-brand-soft)}
+.feed-source-info{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 20px;margin:0 0 20px;color:var(--pc-muted);font-size:12px;line-height:1.8}
+.feed-source-info .telegram-sync-status.is-compact{border:0;background:none;padding:0;margin:0;box-shadow:none;font-size:11px}
+.feed-source-info .telegram-sync-status.is-compact>div{gap:3px}
+.credential-badges{gap:7px;margin-top:8px}
+.credential-badge{padding:5px 10px;border:1px solid #bce6df;background:#eaf8f4;color:#126650;font-weight:700;line-height:1.7;border-radius:999px}
+.credential-badge svg{width:15px;height:15px}
+.account-greeting .credential-badges{margin-top:7px}
+.license-upload{display:grid;gap:12px;border:1px solid var(--pc-border);background:#f5faff;border-radius:20px;padding:18px;margin:16px 0}
+.license-upload>strong{font-size:14px;color:var(--pc-ink)}
+.license-upload>p,.license-upload>small{font-size:12px;color:#526f89;line-height:1.9}
+.license-upload>button{justify-self:start;display:inline-flex;gap:8px;align-items:center;padding:10px 14px;border-radius:12px;color:var(--pc-link);background:#e6f5fa}
+.license-upload-ready{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#126650;font-size:12px;font-weight:600}
+@media(max-width:680px){.feed-toolbar{flex-wrap:wrap}.feed-source-info{font-size:11px}.license-upload{padding:14px}}

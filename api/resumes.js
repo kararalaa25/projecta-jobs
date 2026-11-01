@@ -43,6 +43,11 @@ export function createResumesHandler(env=process.env,factory=serverClient){retur
    return json(res,200,{id:asset.id,filename:asset.filename})
   }
   if(body.action==='discard'){
+   // License evidence shares the existing private PDF store. Retain documents
+   // linked to a current profile, review, or review history for the owner.
+   const profile=check(await db.from('profiles').select('medical_credentials').eq('user_id',user.id).maybeSingle()),credentials=profile?.medical_credentials||{}
+   const evidence=[credentials.license_asset_id,credentials.verification_request?.snapshot?.license_asset_id,...(credentials.verification_history||[]).map(request=>request.snapshot?.license_asset_id)]
+   if(evidence.includes(asset.id))throw new HttpError(409,'هذا الملف مرتبط ببيانات الترخيص أو طلب توثيق ولا يمكن حذفه.')
    const discarded=await db.rpc('projecta_discard_resume',{asset_id:asset.id,owner_id:user.id})
    if(discarded.error?.code==='P0001')throw new HttpError(409,'الملف مرتبط بطلب أو لم يعد متاحاً للحذف.')
    const path=check(discarded)

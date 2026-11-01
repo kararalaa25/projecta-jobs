@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto'
-import {profileDraft,profileCompletion,validProfileKind,credentialUrl,credentialKeys,profileKinds} from '../config/account-profile.js'
+import {profileDraft,profileCompletion,validProfileKind,credentialUrl,credentialKeys,profileKinds,requiresSyndicateDocument,validEvidenceId} from '../config/account-profile.js'
 import {profileTrust} from '../config/profile-trust.js'
 import {isSuspended,hasConfirmedIdentity,isSuperAdmin} from '../config/access.js'
 import {normalizeIraqiPhone} from '../src/contacts.js'
@@ -11,14 +11,23 @@ export const requestOf=profile=>record(profile).verification_request||null
 const editing=profile=>Date.parse(record(profile).editing?.until||'')>Date.now()
 function busy(profile){if(editing(profile)||['submitting','pending','reviewing','withdrawing'].includes(requestOf(profile)?.status))throw new HttpError(409,'هناك طلب قيد المراجعة أو عملية حفظ جارية. اسحب الطلب المعلّق قبل تعديل الملف، وانتظر اكتمال المراجعة الجارية.')}
 export function validateProfile(body,user,complete=false){
- const value={full_name:text(body.full_name||'',120,false),profession:text(body.profession||'',100,false),profile_kind:text(body.profile_kind||'dentist',40),governorate:text(body.governorate||'',100,false),phone:text(body.phone||'',30,false),license_number:text(body.license_number||'',150,false),license_url:text(body.license_url||'',2000,false)}
+ const value={full_name:text(body.full_name||'',120,false),profession:text(body.profession||'',100,false),profile_kind:text(body.profile_kind||'dentist',40),governorate:text(body.governorate||'',100,false),phone:text(body.phone||'',30,false),license_number:text(body.license_number||'',150,false),license_url:text(body.license_url||'',2000,false),license_asset_id:text(body.license_asset_id||'',36,false)}
  if(value.profession&&!catalog.roles.some(role=>role.id===value.profession)||!validProfileKind(value))throw new HttpError(400,'اختر نوع حساب وتخصصاً متوافقين.')
  if(value.governorate&&!catalog.governorates.some(city=>city.id===value.governorate))throw new HttpError(400,'اختر محافظة صالحة.')
  if(value.phone&&!normalizeIraqiPhone(value.phone))throw new HttpError(400,'أدخل رقم هاتف عراقياً صالحاً.')
  if(value.license_url&&!credentialUrl(value.license_url))throw new HttpError(400,'مستند الترخيص يحتاج إلى رابط HTTPS صالح دون بيانات دخول.')
+ if(value.license_asset_id&&!validEvidenceId(value.license_asset_id))throw new HttpError(400,'معرّف مستند الترخيص غير صالح.')
  if(value.phone)value.phone=normalizeIraqiPhone(value.phone).local
  if(complete&&!profileCompletion({...user,user_metadata:value}).complete)throw new HttpError(400,'أكمل جميع متطلبات الملف وأكّد وسيلة الدخول قبل طلب التوثيق.')
  return value
+}
+// Upload ownership and ready state are checked on every save/submission/review;
+// editable Auth metadata is never proof that a document was actually uploaded.
+export async function licenseEvidence(db,user,value,required=requiresSyndicateDocument(value)){
+ if(!value.license_asset_id){if(required)throw new HttpError(400,'ارفع بطاقة النقابة أو الترخيص بصيغة صورة أو PDF قبل طلب التوثيق.');return null}
+ const asset=check(await db.from('resume_assets').select('id,user_id,state,filename,mime_type').eq('id',value.license_asset_id).eq('user_id',user.id).maybeSingle())
+ if(!asset||asset.state!=='ready'||asset.mime_type!=='application/pdf')throw new HttpError(400,'مستند الترخيص غير متاح أو لم يكتمل فحصه. ارفع ملفك الشخصي بصيغة PDF أو صورة.')
+ return asset
 }
 export async function getPrivateProfile(db,user,{create=true}={}){
  let row=check(await db.from('profiles').select(columns).eq('user_id',user.id).maybeSingle())
@@ -44,6 +53,7 @@ export async function broadcastTrust(db){
 const unverify=meta=>({...meta,medical_professional_verified:false,organization_verified:false,verification_status:'not_submitted',organization_verification_status:'unverified',verified_credentials:{}})
 export async function saveProfile(db,user,body){
  const value=validateProfile(body,user),old=await getPrivateProfile(db,user);busy(old)
+ await licenseEvidence(db,user,value,false)
  let cvId=old.cv_asset_id,cv
  if(body.cv_asset_id!==undefined){
   cvId=body.cv_asset_id===null?null:uuid(body.cv_asset_id)
@@ -61,12 +71,13 @@ export async function saveProfile(db,user,body){
  catch(error){try{await changeProfile(db,locked,{...record(locked),editing:null})}catch{};throw error}
  const trust=profileTrust(next),verification_status=trust.status==='verified'?'verified':trust.status==='pending'?'pending':trust.status==='rejected'?'rejected':'unverified'
  const verified_credentials=Object.fromEntries(trust.credentials.map(key=>[key,true]))
- const saved=await changeProfile(db,locked,{...record(locked),editing:null},{display_name:value.full_name||'عضو بروجكتا',specialty:value.profession,governorate:value.governorate||null,profile_kind:value.profile_kind,cv_asset_id:cvId,verification_status,verified_credentials})
+ const saved=await changeProfile(db,locked,{...record(locked),editing:null,license_asset_id:value.license_asset_id||null},{display_name:value.full_name||'عضو بروجكتا',specialty:value.profession,governorate:value.governorate||null,profile_kind:value.profile_kind,cv_asset_id:cvId,verification_status,verified_credentials})
  return {user:next,profile:saved,cv,warning:await broadcastTrust(db)}
 }
 export async function submitVerification(db,user){
  if(!hasConfirmedIdentity(user)||isSuspended(user))throw new HttpError(403,'يجب تأكيد الحساب وألّا يكون معلّقاً.')
  const snapshot=validateProfile(profileDraft(user),user,true),old=await getPrivateProfile(db,user)
+ await licenseEvidence(db,user,snapshot)
  const existing=requestOf(old)
  if(existing?.status!=='submitting')busy(old)
  if(editing(old))throw new HttpError(409,'انتظر اكتمال حفظ الملف.')
@@ -112,6 +123,7 @@ export async function reviewVerification(db,actor,body){
  if(!Array.isArray(credentials)||credentials.some(key=>!credentialKeys.includes(key)||(organization?key!=='facility_license':key==='facility_license')))throw new HttpError(400,'إشارات المؤهلات لا تناسب نوع الحساب.')
  const note=text(body.note||'',1000,false)
  if(body.decision==='reject'&&note.length<8)throw new HttpError(400,'اذكر سبب الرفض بوضوح (ثمانية أحرف على الأقل).')
+ if(body.decision==='approve'){await licenseEvidence(db,target,request.snapshot);if(requiresSyndicateDocument(request.snapshot)&&!credentials.includes('syndicate_membership'))throw new HttpError(400,'تحقق من العضوية النقابية وأضف شارتها قبل اعتماد الحساب الطبي.')}
  if(body.decision==='approve'&&body.evidence_reviewed!==true)throw new HttpError(400,'أكّد مراجعة مستند الترخيص قبل منح الشارة.')
  const decision={decision:body.decision,credentials:[...new Set(credentials)].sort(),note,reviewer_id:actor.id}
  let locked

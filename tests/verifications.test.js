@@ -8,10 +8,11 @@ import {createVerificationsHandler} from '../api/verifications.js'
 import {createAdminHandler} from '../api/admin.js'
 import {subscribeTrustEvents} from '../src/trust-events.js'
 const owner={id:'11111111-1111-4111-8111-111111111111',email:'kararalkhafaji20@gmail.com',email_confirmed_at:'2026-01-01',app_metadata:{},user_metadata:{}}
-const member={id:'22222222-2222-4222-8222-222222222222',email:'member@example.test',email_confirmed_at:'2026-01-01',app_metadata:{existing:'retained'},user_metadata:{full_name:'طبيب الاختبار',profession:'Dentists',profile_kind:'dentist',governorate:'Baghdad',phone:'07701234567',license_number:'TEST-123',license_url:'https://example.org/license'}}
+const member={id:'22222222-2222-4222-8222-222222222222',email:'member@example.test',email_confirmed_at:'2026-01-01',app_metadata:{existing:'retained'},user_metadata:{full_name:'طبيب الاختبار',profession:'Dentists',profile_kind:'dentist',governorate:'Baghdad',phone:'07701234567',license_number:'TEST-123',license_url:'https://example.org/license',license_asset_id:'77777777-7777-4777-8777-777777777777'}}
 const clone=value=>structuredClone(value)
 function database(user=member){
  const users=new Map([[owner.id,clone(owner)],[user.id,clone(user)]]),profiles=new Map(),assets=new Map(),audits=[],messages=[],authWrites=[]
+ if(user.user_metadata?.license_asset_id)assets.set(user.user_metadata.license_asset_id,{id:user.user_metadata.license_asset_id,user_id:user.id,state:'ready',mime_type:'application/pdf',filename:'license.pdf'})
  const db={users,profiles,assets,audits,messages,authWrites,failAuth:false,failFinish:false,
  auth:{async getUser(token){return token==='owner'?{data:{user:clone(users.get(owner.id))}}:token==='member'?{data:{user:clone(users.get(user.id))}}:{error:Error('invalid')}},admin:{async getUserById(id){return {data:{user:clone(users.get(id))}}},async updateUserById(id,patch){if(db.failAuth){db.failAuth=false;throw Error('auth unavailable')};authWrites.push(clone(patch));users.set(id,{...users.get(id),...clone(patch)});return {data:{user:clone(users.get(id))}}}}},
  channel(){return {async send(message){messages.push(message);return 'ok'}}},async removeChannel(){},
@@ -42,10 +43,10 @@ const approval=(request,user=member,extra={})=>({user_id:user.id,request_id:requ
 
 test('completion requires actual required fields and confirmed identity, never a CV or verification claim',()=>{
  assert.equal(profileCompletion(member).percentage,100)
- for(const missing of ['full_name','profession','governorate','phone','license_number','license_url'])assert.equal(profileCompletion({...member,user_metadata:{...member.user_metadata,[missing]:''}}).complete,false)
+ for(const missing of ['full_name','profession','governorate','phone','license_number','license_asset_id'])assert.equal(profileCompletion({...member,user_metadata:{...member.user_metadata,[missing]:''}}).complete,false)
  assert.equal(profileCompletion({...member,email_confirmed_at:null}).complete,false)
  assert.equal(profileCompletion({...member,user_metadata:{...member.user_metadata,profile_kind:'pharmacist'}}).complete,false)
- assert.equal(profileCompletion({...member,user_metadata:{...member.user_metadata,license_url:'https://name:secret@example.org'}}).complete,false)
+ assert.equal(profileCompletion({...member,user_metadata:{...member.user_metadata,license_asset_id:'invalid'}}).complete,false)
 })
 test('structured request is durable, immutable, deduplicated and cannot self-approve',async()=>{
  const db=database(),result=await submitVerification(db,member),stored=db.profiles.get(member.id)
@@ -58,7 +59,7 @@ test('structured request is durable, immutable, deduplicated and cannot self-app
  assert.equal(db.profiles.get(member.id).medical_credentials.verification_request.id,result.request.id)
 })
 test('incomplete requests do not write a request or Auth approval',async()=>{
- const db=database();await assert.rejects(()=>submitVerification(db,{...member,user_metadata:{...member.user_metadata,license_url:''}}),error=>error.status===400);assert.equal(db.profiles.size,0);assert.equal(db.authWrites.length,0)
+ const db=database();await assert.rejects(()=>submitVerification(db,{...member,user_metadata:{...member.user_metadata,license_asset_id:''}}),error=>error.status===400);assert.equal(db.profiles.size,0);assert.equal(db.authWrites.length,0)
 })
 test('Auth interruption leaves a recoverable submitting request that is not approvable',async()=>{
  const db=database();db.failAuth=true;await assert.rejects(()=>submitVerification(db,member))
@@ -188,4 +189,28 @@ test('retrying an interrupted profile save reconciles the private status with tr
  await saveProfile(db,db.users.get(member.id),changed)
  assert.equal(db.profiles.get(member.id).verification_status,'unverified')
  const result=await submitVerification(db,db.users.get(member.id));assert.equal(result.request.status,'pending')
+})
+
+test('core medical completion requires an uploaded document; an external link alone is insufficient',async()=>{
+ const linkOnly={...clone(member),user_metadata:{...member.user_metadata,license_asset_id:''}}
+ assert.equal(profileCompletion(linkOnly).complete,false)
+ await assert.rejects(()=>submitVerification(database(linkOnly),linkOnly),error=>error.status===400)
+ const general={...clone(member),user_metadata:{...member.user_metadata,profession:'Medical Reps',profile_kind:'medical_rep',license_number:'',license_url:'',license_asset_id:''}}
+ assert.equal(profileCompletion(general).complete,true)
+ assert.equal((await submitVerification(database(general),general)).request.status,'pending')
+})
+test('forged, pending and other-account evidence cannot satisfy medical verification',async()=>{
+ for(const patch of [{user_id:owner.id},{state:'pending'},{mime_type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}]){
+  const db=database(),id=member.user_metadata.license_asset_id;Object.assign(db.assets.get(id),patch)
+  await assert.rejects(()=>saveProfile(db,member,profileDraft(member)),error=>error.status===400)
+  await assert.rejects(()=>submitVerification(db,member),error=>error.status===400)
+  assert.equal(db.authWrites.length,0)
+ }
+})
+test('core medical approval requires explicitly reviewed syndicate membership and available evidence',async()=>{
+ const db=database(),{request}=await submitVerification(db,member)
+ await assert.rejects(()=>reviewVerification(db,owner,approval(request,member,{credentials:[]})),error=>error.status===400)
+ db.assets.delete(member.user_metadata.license_asset_id)
+ await assert.rejects(()=>reviewVerification(db,owner,approval(request)),error=>error.status===400)
+ assert.equal(profileTrust(db.users.get(member.id)).status,'pending')
 })
