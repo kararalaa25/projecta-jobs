@@ -1,19 +1,19 @@
 /* Shared interaction polish: Projecta cyan and blue, readable pastels and RTL navigation. */
 html{scroll-behavior:smooth;scroll-padding-top:110px}
 .search-help{font-size:11px;color:var(--pc-muted);line-height:1.9;margin:10px 5px 0}
-.role-badge.specialty-dentistry{--specialty-bg:#e5f7f8;--specialty-text:#155e65;--specialty-border:#bce7eb}
-.role-badge.specialty-pharmacy{--specialty-bg:#e9f7ef;--specialty-text:#176342;--specialty-border:#c4e8d3}
-.role-badge.specialty-reps{--specialty-bg:#eef0ff;--specialty-text:#414995;--specialty-border:#d4d9f6}
-.role-badge.specialty-nursing{--specialty-bg:#fff5df;--specialty-text:#805317;--specialty-border:#f2dfb2}
-.role-badge.specialty-general{--specialty-bg:#f2f4f5;--specialty-text:#505d67;--specialty-border:#dce2e5}
+.role-badge.specialty-dentistry{--specialty-bg:#effafb;--specialty-text:#155e65;--specialty-border:#bce7eb}
+.role-badge.specialty-pharmacy{--specialty-bg:#eff9f3;--specialty-text:#176342;--specialty-border:#c4e8d3}
+.role-badge.specialty-reps{--specialty-bg:#f2f4ff;--specialty-text:#414995;--specialty-border:#d4d9f6}
+.role-badge.specialty-nursing{--specialty-bg:#fff8e9;--specialty-text:#805317;--specialty-border:#f2dfb2}
+.role-badge.specialty-general{--specialty-bg:#f5f6f8;--specialty-text:#505d67;--specialty-border:#dce2e5}
 .role-badge[class*="specialty-"]{background:var(--specialty-bg);color:var(--specialty-text);border:1px solid var(--specialty-border);line-height:1.8}
 .filter-option .role-badge{font-size:11px;white-space:normal}
-.filter-option:has(input:checked) .role-badge{box-shadow:0 0 0 2px #fff,0 0 0 3px var(--pc-blue)}
-.telegram-filter-grid select.specialty-dentistry{background:#e5f7f8;color:#155e65;border-color:#bce7eb}
-.telegram-filter-grid select.specialty-pharmacy{background:#e9f7ef;color:#176342;border-color:#c4e8d3}
-.telegram-filter-grid select.specialty-reps{background:#eef0ff;color:#414995;border-color:#d4d9f6}
-.telegram-filter-grid select.specialty-nursing{background:#fff5df;color:#805317;border-color:#f2dfb2}
-.telegram-filter-grid select.specialty-general{background:#f2f4f5;color:#505d67;border-color:#dce2e5}
+.filter-option:has(input:checked) .role-badge{box-shadow:none}
+.telegram-filter-grid select.specialty-dentistry{background:#effafb;color:#155e65;border-color:#bce7eb}
+.telegram-filter-grid select.specialty-pharmacy{background:#eff9f3;color:#176342;border-color:#c4e8d3}
+.telegram-filter-grid select.specialty-reps{background:#f2f4ff;color:#414995;border-color:#d4d9f6}
+.telegram-filter-grid select.specialty-nursing{background:#fff8e9;color:#805317;border-color:#f2dfb2}
+.telegram-filter-grid select.specialty-general{background:#f5f6f8;color:#505d67;border-color:#dce2e5}
 .desktop-nav>a,.desktop-nav>button,.footer-links>a,footer>a:last-child{position:relative;transition:color .2s ease}
 .desktop-nav>a::after,.desktop-nav>button::after,.footer-links>a::after,footer>a:last-child::after{content:"";position:absolute;inset-inline:0;bottom:-5px;height:2px;background:var(--pc-blue);transform:scaleX(0);transform-origin:right;transition:transform .2s ease}
 .desktop-nav>a:hover::after,.desktop-nav>button:hover::after,.desktop-nav>a:focus-visible::after,.desktop-nav>button:focus-visible::after,.footer-links>a:hover::after,.footer-links>a:focus-visible::after,footer>a:last-child:hover::after,footer>a:last-child:focus-visible::after{transform:scaleX(1)}
@@ -128,3 +128,46 @@ button:active{transform:scale(.98)}
 .telegram-sync-status .sync-last-check{font-weight:600;color:var(--pc-ink)}
 .telegram-sync-status.delayed{border-color:#ead4a5;background:#fffaf0}
 .telegram-sync-status.delayed .sync-last-check{color:#805317}
+
+/* Airy filter typography and soft, borderless label surfaces. */
+.reference-board{--label-muted:#5f6f83;--label-ink:#475569}
+.reference-board .filter-heading{align-items:center;margin-bottom:16px}
+.reference-board .filter-heading h2{font-size:19px;font-weight:700;line-height:1.65;letter-spacing:0}
+.reference-board .filter-heading button{padding:6px 8px;border-radius:8px;font-size:11px;font-weight:500;line-height:1.8;color:var(--pc-link);transition:background-color .18s ease}
+.reference-board .filter-panel{padding:22px 14px;border:1px solid var(--pc-border);border-radius:18px;box-shadow:0 3px 16px #0b152505}
+.reference-board .filter-panel fieldset{padding-bottom:22px;margin-bottom:22px;border-bottom-color:#edf1f5}
+.reference-board .filter-panel legend{font-size:12px;font-weight:700;line-height:1.85;color:#27394d;margin-bottom:10px}
+.reference-board .filter-panel legend svg{color:#8391a1;flex-shrink:0}
+.reference-board .filter-option{gap:9px;min-height:40px;padding:7px 8px;margin-top:4px;border-radius:11px;font-size:12px;font-weight:500;line-height:1.85;color:var(--label-ink);transition:background-color .18s ease,color .18s ease}
+.reference-board .filter-option input{width:15px;height:15px;flex-shrink:0;accent-color:var(--pc-cyan)}
+.reference-board .filter-option input:focus-visible{outline:2px solid var(--pc-focus);outline-offset:3px}
+.reference-board .filter-option:has(input:checked){background:var(--pc-brand-soft);color:#155e75;font-weight:600}
+.reference-board .filter-option:focus-within{background:#edf6fb}
+.reference-board .filter-panel select,.reference-board .telegram-filter-grid select{font-size:12px;font-weight:500;line-height:1.8;min-height:42px;padding:9px 11px;border-color:var(--pc-border);border-radius:11px;color:var(--label-ink)}
+.reference-board .telegram-filter-grid label{font-size:12px;font-weight:600;line-height:1.8;gap:8px;color:var(--label-ink)}
+.reference-board .filter-note{padding:4px 8px;color:var(--label-muted)}
+.reference-board .filter-note strong{font-size:12px;line-height:1.9;font-weight:600;color:var(--label-ink)}
+.reference-board .filter-note p{font-size:11px;line-height:1.95;color:var(--label-muted)}
+.reference-board .role-badge,.reference-board .role-badge[class*="specialty-"],.reference-board .raw-badge{border:0;box-shadow:none;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:600;line-height:1.75}
+.reference-board .role-badge.neutral{background:#f1f4f7;color:#5f6b7a}
+.reference-board .role-badge.featured-badge,.reference-board .raw-badge{background:#fff8e9;color:#805317}
+.reference-board .filter-option .role-badge{font-size:11px;line-height:1.8;white-space:normal}
+.reference-board .filter-option:has(input:checked) .role-badge{box-shadow:none}
+.reference-board .role-badges{gap:6px;margin-top:14px}
+.reference-board .count{padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;line-height:1.65;background:#edf2f7;color:#526275}
+.reference-board .listing-tabs .count{background:#fff;color:var(--pc-link)}
+.reference-board .section-eyebrow{font-size:11px;font-weight:600;line-height:1.8;letter-spacing:0;margin-bottom:6px}
+.reference-board .results-heading h2>span{font-size:11px;font-weight:500;line-height:1.8;color:var(--label-muted)}
+.reference-board .job-card .company-name{font-size:12px;font-weight:600;line-height:1.8;color:var(--label-ink)}
+.reference-board .job-card .listing-kind{display:inline-flex;align-items:center;max-width:100%;padding:2px 8px;margin-top:4px;border-radius:999px;background:#f3f6f9;color:var(--label-muted);font-size:10px;font-weight:500;line-height:1.8}
+.job-preview .compact-facts{gap:6px 8px}
+.job-preview .compact-facts>div dd{padding:3px 8px;border-radius:9px;background:#f6f8fa;color:#526173;font-size:11px;font-weight:500;line-height:1.75}
+.job-preview .compact-facts>div dd>svg{color:#728096}
+.job-preview .compact-facts .province-extra{display:inline-flex;align-items:center;justify-content:center;min-width:20px;padding:0 5px;border-radius:999px;background:#eaf0f5;color:#526173;font-size:10px;font-weight:600;line-height:1.8}
+.reference-board .job-card .listing-time{font-size:11px;font-weight:400;line-height:1.9;color:var(--label-muted)}
+.job-preview .preview-label{font-size:11px;font-weight:600;line-height:1.8;color:#64748b}
+.job-preview:not(.is-compact) .job-facts>div{font-size:12px;line-height:1.9}
+.job-preview:not(.is-compact) .job-facts dt{font-weight:500;color:#64748b}
+.job-preview:not(.is-compact) .job-facts dd{font-weight:600;color:#475569}
+@media(hover:hover){.reference-board .filter-option:hover{background:#f4f7fa;color:#334155}.reference-board .filter-option:has(input:checked):hover{background:#e7f3f9}.reference-board .filter-heading button:hover{background:var(--pc-brand-soft)}}
+@media(max-width:680px){.reference-board .filter-panel{padding:18px 12px;gap:20px 12px;border-radius:16px}.reference-board .filter-option{min-height:44px;padding:7px 6px;font-size:12px;gap:7px}.reference-board .filter-panel fieldset{margin-bottom:0;padding-bottom:16px}.reference-board .filter-option .role-badge{font-size:11px;padding:4px 8px}.reference-board .job-card .role-badge,.reference-board .job-card .raw-badge{font-size:11px}.reference-board .job-card .listing-kind{font-size:10px}}
