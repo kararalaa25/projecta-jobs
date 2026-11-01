@@ -171,7 +171,7 @@ async def ingest_native_message(gemini, db, message, chat_id, channel, dry_run=F
     return 'upserted_raw' if result['retry'] else ('upserted' if result['jobs'] else 'not_job')
 
 
-async def drain_inbox(gemini, db, storage, limit=24):
+async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
     now = datetime.now(timezone.utc).isoformat()
     # Reserve retry capacity so old failures cannot be starved by a busy channel.
     retries = await retry_io(lambda:db.table('telegram_ingestion_messages').select('*').eq('state','retry').lte('next_attempt_at',now).order('next_attempt_at').limit(6).execute())
@@ -186,6 +186,18 @@ async def drain_inbox(gemini, db, storage, limit=24):
             except Exception as exc:
                 LOG.warning('Inbox write remains pending (%s)',type(exc).__name__)
                 return {'outcome':'failed','jobs':0,'retry':True}
-    outcomes=await asyncio.gather(*(process(r) for r in retries.data+pending.data))
+    tasks=[asyncio.create_task(process(r)) for r in retries.data+pending.data]
+    done,pending_tasks=set(),set()
+    try:
+        if tasks:
+            done,pending_tasks=await asyncio.wait(tasks,timeout=budget_seconds)
+        outcomes=[task.result() for task in done]
+    finally:
+        # Leave unfinished receipts durable and due for the next run. A normal
+        # backlog is not a failed sync and must not exhaust the function deadline.
+        for task in tasks:
+            if not task.done():task.cancel()
+        await asyncio.gather(*tasks,return_exceptions=True)
     return {'processed':len(outcomes),'jobs':sum(o['jobs'] for o in outcomes),
-            'retrying':sum(o['retry'] for o in outcomes),'failed':sum(o['outcome']=='failed' for o in outcomes)}
+            'retrying':sum(o['retry'] for o in outcomes),'failed':sum(o['outcome']=='failed' for o in outcomes),
+            'deferred':len(pending_tasks)}

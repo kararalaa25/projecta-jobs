@@ -147,6 +147,14 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
             result=await pipeline.drain_inbox(None,db,'native')
         self.assertEqual(result['processed'],2);self.assertEqual(process.call_count,2)
 
+    async def test_processing_budget_defers_receipts_without_failing_sync(self):
+        db=MagicMock()
+        db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.side_effect=[SimpleNamespace(data=[]),SimpleNamespace(data=[receipt('new')])]
+        async def blocked(*args):await asyncio.Event().wait()
+        with patch.object(pipeline,'process_receipt',side_effect=blocked):
+            result=await pipeline.drain_inbox(None,db,'native',budget_seconds=.01)
+        self.assertEqual(result['deferred'],1);self.assertEqual(result['failed'],0);self.assertEqual(result['processed'],0)
+
     async def test_schema_failure_releases_only_owned_schedule_lease(self):
         db=MagicMock()
         with patch.object(scraper,'check_database_schema',side_effect=RuntimeError()):

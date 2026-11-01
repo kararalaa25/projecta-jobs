@@ -43,7 +43,9 @@ restarts and retains failures after they leave that history window. A run handle
 up to 24 new messages and reserves capacity for six due retries, concurrently
 processing three messages. Channel fetches have a 100-second phase budget within
 the 240-second invocation deadline; a slow channel cannot consume all retry time.
-Higher traffic may require raising throughput or hosting the persistent worker.
+Extraction batches have a 125-second budget; unfinished receipts stay due for the
+next run, without treating a normal backlog as a sync failure. Higher traffic may
+require raising throughput or hosting the persistent worker.
 
 AI failures publish conservative numbered-section regex fallbacks (or a raw job
 post) and leave the receipt in `retry`. Already published split groups survive
