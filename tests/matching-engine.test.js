@@ -67,3 +67,16 @@ test('account profile fallback and local preference keys stay separated by accou
  const preference=readMatchingPreference({getItem:()=>JSON.stringify({enabled:false,profile})},'test');assert.equal(preference.disabled,true)
  assert.equal(readMatchingPreference({getItem:()=>'{bad'},'test').profile,null)
 })
+
+test('recommendation filtering reacts to specialty, governorate, shifts and bilingual skills',async()=>{
+ const {isSpecialtyRecommendation}=await import('../src/matching_engine.ts')
+ const job={role:'Dentists',city:'Baghdad',schedule:'Full-time',description:'خبرة تقويم الأسنان وتحضير التيجان'}
+ const preferences={role:'Dentists',city:'Baghdad',workTypes:['Full-time'],skills:['Orthodontics']}
+ assert.equal(isSpecialtyRecommendation(preferences,job),true)
+ assert.equal(isSpecialtyRecommendation({...preferences,role:'Pharmacists'},job),false)
+ assert.equal(isSpecialtyRecommendation({...preferences,city:'Erbil'},job),false)
+ assert.equal(isSpecialtyRecommendation({...preferences,workTypes:['Part-time']},job),false)
+ assert.equal(isSpecialtyRecommendation({...preferences,skills:['Wound care']},job),false)
+ assert.equal(isSpecialtyRecommendation(preferences,{...job,city:''}),false)
+ assert.equal(isSpecialtyRecommendation(preferences,{...job,description:'مطلوب طبيب أسنان'}),true)
+})

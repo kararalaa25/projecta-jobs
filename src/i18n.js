@@ -7,7 +7,7 @@ export const canonicalCity=value=>legacyCities[value]||catalog.governorates.find
 const labels={
  'Unsorted':'غير مصنّف',
  ...Object.fromEntries(catalog.roles.map(r=>[r.id,r.ar])),...Object.fromEntries(catalog.governorates.map(g=>[g.id,g.ar])),
- 'All roles':'جميع التخصصات','All cities':'جميع المحافظات','Any schedule':'جميع أنواع الدوام','Full-time':'دوام كامل','Part-time':'دوام جزئي','Contract':'عقد مؤقت','Internship':'تدريب',
+ 'All roles':'جميع التخصصات','All cities':'جميع المحافظات','Shift':'شفت / مناوبة','Day':'دوام صباحي','Evening':'دوام مسائي','Night':'دوام ليلي','Any schedule':'جميع أنواع الدوام','Full-time':'دوام كامل','Part-time':'دوام جزئي','Contract':'عقد مؤقت','Internship':'تدريب',
  'City not specified':'المحافظة غير محددة','Salary not specified':'الراتب غير محدد','Schedule not specified':'الدوام غير محدد','Telegram community':'مجتمع تليغرام','Healthcare employer':'مؤسسة صحية','Telegram post':'منشور من تليغرام','Job offer':'فرصة عمل','Just now':'الآن',
 }
 export const ar=value=>labels[canonicalRole(canonicalCity(value))]||String(value||'').replace(/IQD/g,'د.ع.').replace(/expected/g,'المتوقع')

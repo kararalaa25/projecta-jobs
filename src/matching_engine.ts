@@ -130,3 +130,11 @@ export function scoreSpecialtyFit(profile:PractitionerProfile|null|undefined,job
  return {score,coverage,level:score===null?'insufficient':score>=85?'high':score>=55?'medium':'low',specialty:candidateRole,
   matchedSkills:matched.map(key=>jobSkills.get(key)!),missingSkills:missing.map(key=>jobSkills.get(key)!),dimensions}
 }
+
+// Location/shift filters require positive evidence when the practitioner selects
+// them. Unspecified job skills remain visible with an honest limited-data score.
+export function isSpecialtyRecommendation(profile:PractitionerProfile,job:JobRequirements,fit=scoreSpecialtyFit(profile,job)):boolean {
+ const required=['specialty',...(locations(profile).length?['location']:[]),...(shifts([...strings(profile.workTypes),...strings(profile.shiftPreferences)]).length?['shift']:[])]
+ if(required.some(key=>fit.dimensions.find(item=>item.key===key)?.status!=='match'))return false
+ return fit.dimensions.find(item=>item.key==='skills')?.status!=='mismatch'
+}

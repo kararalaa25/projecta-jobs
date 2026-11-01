@@ -4,8 +4,10 @@ import {isSuperAdmin,isOwner,isSuspended,hasConfirmedIdentity} from '../config/a
 import {headers,json,sameOrigin,readBody,authenticate,bearerToken,HttpError,check,uuid,text,errorResponse,missingSchema} from '../server/http.js'
 import {readPlatform,adminMutation} from '../server/platform.js'
 import {normalizeIraqiPhone,telegramHandle} from '../src/contacts.js'
+import {profileTrust} from '../config/profile-trust.js'
+import {listVerifications,verificationCount,reviewVerification,updateManagedAccount,broadcastTrust} from '../server/verifications.js'
 const memberRoles=['member','moderator','admin','super_admin']
-export const publicUser=user=>({id:user.id,email:user.email||'',phone:user.phone||'',created_at:user.created_at,last_sign_in_at:user.last_sign_in_at,confirmed:hasConfirmedIdentity(user),owner:isOwner(user),role:isOwner(user)?'super_admin':user.app_metadata?.role||'member',verified:isOwner(user)||user.app_metadata?.medical_professional_verified===true,verification_status:isOwner(user)?'approved':user.app_metadata?.verification_status||'not_submitted',suspended:isSuspended(user),suspension:isSuspended(user)?user.app_metadata?.suspension_kind||'ban':'none',license:{name:String(user.user_metadata?.full_name||'').slice(0,150),profession:String(user.user_metadata?.profession||'').slice(0,150),number:String(user.user_metadata?.license_number||'').slice(0,150),url:/^https:\/\//.test(user.user_metadata?.license_url||'')?String(user.user_metadata.license_url).slice(0,2000):''}})
+export const publicUser=user=>({id:user.id,email:user.email||'',phone:user.phone||'',created_at:user.created_at,last_sign_in_at:user.last_sign_in_at,confirmed:hasConfirmedIdentity(user),owner:isOwner(user),role:isOwner(user)?'super_admin':user.app_metadata?.role||'member',verified:profileTrust(user).status==='verified',verification_status:user.app_metadata?.verification_status||'not_submitted',suspended:isSuspended(user),suspension:isSuspended(user)?user.app_metadata?.suspension_kind||'ban':'none',license:{name:String(user.user_metadata?.full_name||'').slice(0,150),profession:String(user.user_metadata?.profession||'').slice(0,150),number:String(user.user_metadata?.license_number||'').slice(0,150),url:/^https:\/\//.test(user.user_metadata?.license_url||'')?String(user.user_metadata.license_url).slice(0,2000):''}})
 const pageOf=url=>{const page=Number(url.searchParams.get('page')||1);if(!Number.isInteger(page)||page<1||page>1000)throw new HttpError(400,'رقم صفحة غير صالح.');return page}
 const jobColumns='id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,status,created_at'
 export function adminJobRecord(job,catalog){
@@ -30,13 +32,15 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
   const db=factory(env)
   const url=new URL(req.url||'/','http://localhost'),section=url.searchParams.get('section')||'overview',page=pageOf(url),start=(page-1)*30
   if(req.method==='GET'){
+   if(section==='verification-count')return json(res,200,{pending:await verificationCount(db)})
+   if(section==='verifications'){const status=url.searchParams.get('status')||'pending';if(!['pending','verified','rejected','all'].includes(status))throw new HttpError(400,'حالة غير صالحة.');return json(res,200,await listVerifications(db,{page,status}))}
    if(section==='session')return json(res,200,{user:publicUser(actor)})
    if(section==='overview'){
-    let total=0,pending=0,complete=false
-    for(let p=1;p<=100;p++){const r=await db.auth.admin.listUsers({page:p,perPage:1000});if(r.error)throw r.error;const users=r.data.users;total+=users.length;pending+=users.filter(u=>!isOwner(u)&&u.app_metadata?.verification_status==='pending').length;if(users.length<1000){complete=true;break}}
-    const [jobs,applications,platform]=await Promise.all([db.from('job_offers').select('id',{count:'exact',head:true}).eq('status','active'),db.from('job_applications').select('id',{count:'exact',head:true}),readPlatform(db)])
+    let total=0,complete=false
+    for(let p=1;p<=100;p++){const r=await db.auth.admin.listUsers({page:p,perPage:1000});if(r.error)throw r.error;const users=r.data.users;total+=users.length;if(users.length<1000){complete=true;break}}
+    const [jobs,applications,platform,pending]=await Promise.all([db.from('job_offers').select('id',{count:'exact',head:true}).eq('status','active'),db.from('job_applications').select('id',{count:'exact',head:true}),readPlatform(db),verificationCount(db).catch(error=>{if(missingSchema(error))return null;throw error})])
     if(jobs.error)throw jobs.error;if(applications.error&&!missingSchema(applications.error))throw applications.error
-    return json(res,200,{metrics:{users:complete?total:null,usersScanned:total,active:jobs.count,pending:complete?pending:null,applications:applications.error?null:applications.count},platform,updatedAt:new Date().toISOString()})
+    return json(res,200,{metrics:{users:complete?total:null,usersScanned:total,active:jobs.count,pending,applications:applications.error?null:applications.count},platform,updatedAt:new Date().toISOString()})
    }
    if(section==='users'){const r=await db.auth.admin.listUsers({page,perPage:30});if(r.error)throw r.error;return json(res,200,{rows:r.data.users.map(publicUser),hasMore:r.data.users.length===30})}
    if(section==='jobs'){let q=db.from('job_offers').select(jobColumns,{count:'exact'}).order('created_at',{ascending:false}).range(start,start+29);const status=url.searchParams.get('status');if(status&&status!=='all')q=q.eq('status',text(status,30));const search=url.searchParams.get('search');if(search)q=q.ilike('title',`%${text(search,150)}%`);const r=await q;return json(res,200,{rows:check(r),total:r.count,hasMore:start+30<r.count})}
@@ -49,19 +53,19 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
   }
   const body=await readBody(req),action=body.action
   async function saved(target){const audit=await db.from('admin_audit_log').insert({actor_id:actor.id,operation:action,target_id:target||null});return json(res,200,{ok:true,warning:audit.error?'تم الحفظ، لكن سجل التدقيق غير متاح؛ طبّق ترحيل 007.':null})}
+  if(action==='verification.review')return json(res,200,await reviewVerification(db,actor,body))
   if(action==='user.update'){
+   if(body.verified!==undefined||body.verification_status!==undefined)throw new HttpError(400,'راجع الطلب من لوحة طلبات التوثيق لمنح الشارة أو رفضها.');
    const id=uuid(body.id),r=await db.auth.admin.getUserById(id);if(r.error)throw r.error;const target=r.data.user
    if(isOwner(target))throw new HttpError(403,'حسابات المالك محمية من تغيير الصلاحيات أو التعليق.')
    if(id===actor.id)throw new HttpError(403,'لا يمكنك تعديل صلاحيات حسابك من هذه الشاشة.')
-   const meta={...target.app_metadata};let ban
+   const meta={};let ban
    if(body.role!==undefined){if(!memberRoles.includes(body.role))throw new HttpError(400,'صلاحية غير صالحة.');meta.role=body.role}
-   if(body.verified!==undefined){if(typeof body.verified!=='boolean')throw new HttpError(400,'قيمة غير صالحة.');meta.medical_professional_verified=body.verified;meta.verification_status=body.verified?'approved':'rejected'}
-   if(body.verification_status!==undefined){if(!['not_submitted','pending','approved','rejected'].includes(body.verification_status))throw new HttpError(400,'حالة غير صالحة.');meta.verification_status=body.verification_status;meta.medical_professional_verified=body.verification_status==='approved'}
    if(body.suspension!==undefined){if(!['none','week','ban'].includes(body.suspension))throw new HttpError(400,'مدة غير صالحة.');meta.suspended=body.suspension!=='none';meta.suspension_kind=body.suspension;meta.suspended_until=body.suspension==='none'?null:new Date(Date.now()+(body.suspension==='week'?7:36500)*86400000).toISOString();ban=body.suspension==='none'?'none':body.suspension==='week'?'168h':'876000h'}
    // Store no passwords, access tokens, recovery links or private credentials in audit.
-   const result=await db.auth.admin.updateUserById(id,{app_metadata:meta,...(ban?{ban_duration:ban}:{})});if(result.error)throw result.error
+   const result=await updateManagedAccount(db,target,meta,ban)
    const audit=await db.from('admin_audit_log').insert({actor_id:actor.id,operation:action,target_id:id})
-   return json(res,200,{user:publicUser(result.data.user),warning:audit.error?'تم تحديث الحساب، لكن سجل التدقيق غير متاح. طبّق ترحيل 007.':null})
+   return json(res,200,{user:publicUser(result.data.user),warning:await broadcastTrust(db)||(audit.error?'تم تحديث الحساب، لكن سجل التدقيق غير متاح. طبّق ترحيل 007.':null)})
   }
   if(action==='user.recovery'){
    const r=await db.auth.admin.getUserById(uuid(body.id));if(r.error)throw r.error;const target=r.data.user

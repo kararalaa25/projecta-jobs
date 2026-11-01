@@ -19,5 +19,5 @@ export function accountMatchingProfile(user){
 }
 export const matchingStorageKey=user=>`projecta-specialty-fit-v1:${user?.id?'account:'+user.id:'device'}`
 export function readMatchingPreference(storage,key){
- try{const value=JSON.parse(storage.getItem(key)||'null');return {disabled:value?.enabled===false,profile:normalizeMatchingProfile(value?.profile)}}catch{return {disabled:false,profile:null}}
+ try{const value=JSON.parse(storage.getItem(key)||'null');return {disabled:value?.enabled===false,filtering:value?.filtering===true,profile:normalizeMatchingProfile(value?.profile)}}catch{return {disabled:false,filtering:false,profile:null}}
 }

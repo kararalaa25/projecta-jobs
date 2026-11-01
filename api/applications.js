@@ -12,12 +12,7 @@ export function createApplicationsHandler(env=process.env,factory=serverClient){
   if(req.method==='GET'){const r=await db.from('job_applications').select('id,job_id,status,created_at').eq('applicant_id',user.id).order('created_at',{ascending:false}).limit(100);return json(res,200,{rows:check(r)})}
   const platform=await readPlatform(db);if(platform.settings.maintenance&&!isSuperAdmin(user))throw new HttpError(503,'المنصة قيد الصيانة حالياً. حاول لاحقاً.')
   const body=await readBody(req)
-  if(body.action==='license.submit'){
-   const profile={full_name:text(body.full_name,150),profession:text(body.profession,150),license_number:text(body.license_number,150),license_url:text(body.license_url||'',2000,false)}
-   if(profile.license_url){try{if(new URL(profile.license_url).protocol!=='https:')throw Error()}catch{throw new HttpError(400,'رابط الترخيص يجب أن يبدأ بـ https://.')}}
-   const result=await db.auth.admin.updateUserById(user.id,{user_metadata:{...user.user_metadata,...profile},...(!isSuperAdmin(user)?{app_metadata:{...user.app_metadata,medical_professional_verified:false,verification_status:'pending'}}:{})});if(result.error)throw result.error
-   return json(res,200,{ok:true})
-  }
+  if(body.action==='license.submit')throw new HttpError(409,'استخدم الملف الشخصي المكتمل وطلب التوثيق المنظم من قائمة حسابك.');
   const job=check(await db.from('job_offers').select('id,status').eq('id',uuid(body.job_id)).single());if(job.status!=='active')throw new HttpError(400,'الإعلان غير متاح للتقديم.')
   if(body.cv_url)throw new HttpError(400,'ارفع ملف السيرة الذاتية بدلاً من إدخال رابط خارجي.')
   const resume=body.resume_asset_id?await attachResume(db,uuid(body.resume_asset_id),user.id):null

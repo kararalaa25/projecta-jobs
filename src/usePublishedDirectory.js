@@ -1,6 +1,8 @@
 import {useEffect,useState} from 'react'
+import useTrustSync from './useTrustSync'
 // Read only reviewed public records. Local drafts are never uploaded implicitly.
 export default function usePublishedDirectory(kind){
+ useTrustSync()
  const [items,setItems]=useState([]),[error,setError]=useState('')
  useEffect(()=>{
   const controller=new AbortController();let active=true,busy=false
@@ -19,8 +21,8 @@ export default function usePublishedDirectory(kind){
    }catch(failure){if(active&&failure.name!=='AbortError'){setItems([]);setError('تعذر تحميل المحتوى المنشور حالياً. ملفات هذا الجهاز ما زالت متاحة.')}}finally{busy=false}
   }
   refresh();const timer=setInterval(refresh,60000)
-  window.addEventListener('focus',refresh);window.addEventListener('online',refresh)
-  return()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh)}
+  window.addEventListener('projecta-trust-updated',refresh);window.addEventListener('focus',refresh);window.addEventListener('online',refresh)
+  return()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener('projecta-trust-updated',refresh);window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh)}
  },[kind])
  return {items,error}
 }

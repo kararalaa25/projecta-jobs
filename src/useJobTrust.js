@@ -35,8 +35,8 @@ export default function useJobTrust(jobs){
   const onVisible=()=>{if(document.visibilityState==='visible')refresh()}
   refresh()
   const timer=setInterval(onVisible,60000)
-  window.addEventListener('focus',refresh);window.addEventListener('online',refresh);document.addEventListener('visibilitychange',onVisible)
-  return()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh);document.removeEventListener('visibilitychange',onVisible)}
+  window.addEventListener('projecta-trust-updated',refresh);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);document.addEventListener('visibilitychange',onVisible)
+  return()=>{active=false;controller.abort();clearInterval(timer);window.removeEventListener('projecta-trust-updated',refresh);window.removeEventListener('focus',refresh);window.removeEventListener('online',refresh);document.removeEventListener('visibilitychange',onVisible)}
  },[key])
  return summaries
 }

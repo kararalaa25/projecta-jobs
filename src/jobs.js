@@ -44,7 +44,7 @@ export function toJob(row) {
   const inferredLocations=row.source==='telegram'&&!mappedLocations.length?matchGovernorates(text):[]
   const candidateCity=canonicalCity(meta.governorate||row.location_city||'')
   const province=cityList.includes(candidateCity)?candidateCity:inferredLocations[0]||'City not specified'
-  const schedule=({full_time:'Full-time',part_time:'Part-time',contract:'Contract',internship:'Internship','Full-time':'Full-time','Part-time':'Part-time',Contract:'Contract'}[scheduleValue])
+  const schedule=({full_time:'Full-time',part_time:'Part-time',contract:'Contract',locum_temp:'Contract',internship:'Internship','Full-time':'Full-time','Part-time':'Part-time',Contract:'Contract',Shift:'Shift',Day:'Day',Evening:'Evening',Night:'Night'}[scheduleValue])
   // Imported full_time defaults are not evidence when parsing explicitly left the schedule unknown.
   const inferredSchedule=row.source==='telegram'?matchEmploymentType(text):null
   return {

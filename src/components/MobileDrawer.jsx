@@ -1,4 +1,5 @@
 import {useEffect,useRef} from 'react'
+import {acquireOverlayLock} from '../overlay-lock.js'
 import {createPortal} from 'react-dom'
 import {X,Plus,ShieldCheck,Bookmark,ArrowUpLeft,Users,GraduationCap} from 'lucide-react'
 
@@ -7,10 +8,7 @@ export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onIn
  close.current=onClose
  useEffect(()=>{
   if(!open)return
-  const previous=document.activeElement,el=ref.current,overflow=document.body.style.overflow
-  const root=document.getElementById('root'),wasInert=root?.inert
-  if(root)root.inert=true
-  document.body.style.overflow='hidden'
+  const previous=document.activeElement,el=ref.current,release=acquireOverlayLock({inertRoot:true})
   const frame=requestAnimationFrame(()=>el.focus())
   const key=e=>{
    if(e.key==='Escape')close.current()
@@ -22,7 +20,7 @@ export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onIn
   }
   const media=window.matchMedia('(min-width: 851px)'),resize=()=>{if(media.matches)close.current()}
   document.addEventListener('keydown',key);media.addEventListener('change',resize)
-  return()=>{cancelAnimationFrame(frame);if(root)root.inert=wasInert;document.body.style.overflow=overflow;document.removeEventListener('keydown',key);media.removeEventListener('change',resize);previous?.focus({preventScroll:true})}
+  return()=>{cancelAnimationFrame(frame);release();document.removeEventListener('keydown',key);media.removeEventListener('change',resize);previous?.focus({preventScroll:true})}
  },[open])
  return createPortal(<div className={`drawer-overlay ${open?'is-open':''}`} onClick={e=>e.target===e.currentTarget&&onClose()} inert={!open} aria-hidden={!open}>
   <section id="mobile-menu" className="mobile-drawer" role="dialog" aria-modal={open?true:undefined} aria-labelledby="drawer-title" tabIndex={-1} ref={ref}>
@@ -34,7 +32,7 @@ export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onIn
     <a href="/training" onClick={onClose}>التدريب والورش <GraduationCap size={18}/></a>
     <button aria-haspopup="dialog" onClick={()=>onInformation('features')}>المزايا</button><button aria-haspopup="dialog" onClick={()=>onInformation('about')}>عن بروجكتا</button><a href="#connect" onClick={onClose}>تواصل معنا</a>
     <button onClick={()=>{onClose();onSaved()}}>الإعلانات المحفوظة <Bookmark size={18}/></button>
-    <button onClick={()=>{onClose();onAccount()}}>حسابي <ShieldCheck size={18}/></button>
+    <button aria-haspopup="dialog" onClick={()=>{onClose();onAccount()}}>حسابي <ShieldCheck size={18}/></button>
     {isAdmin&&<a href="/admin">الإدارة <ShieldCheck size={18}/></a>}
    </nav>
    <button className="primary full" onClick={()=>{onClose();onPost()}}><Plus size={18}/> نشر فرصة عمل</button>
