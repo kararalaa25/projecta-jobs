@@ -474,7 +474,7 @@ async def ingest_message(gemini, db, message, chat_id: int, channel: str, dry_ru
     return "upserted_raw" if raw_fallback else "upserted"
 
 
-async def fetch_public_posts(channel: str | int, limit: int | None, since: datetime | None = None, max_pages=1000) -> tuple[int, str, list]:
+async def fetch_public_posts(channel: str | int, limit: int | None, since: datetime | None = None, max_pages=1000, fresh=False) -> tuple[int, str, list]:
     """Page public text history until the requested cutoff, or fail explicitly."""
     name=str(channel).strip().lstrip("@")
     if name.startswith("https://t.me/"):
@@ -485,7 +485,12 @@ async def fetch_public_posts(channel: str | int, limit: int | None, since: datet
     budget=max_pages if since else min(max_pages,(int(limit or 100)+19)//20+2)
     async with httpx.AsyncClient(timeout=20,follow_redirects=False) as http:
         for page in range(budget):
-            response=await http.get(f"https://t.me/s/{name}",params={"before":before} if before else None)
+            params={"before":before} if before else {}
+            if fresh:
+                # A new URL each polling window avoids reusing stale preview/CDN pages.
+                params["_sync"]=str(int(datetime.now(timezone.utc).timestamp())//300)
+            response=await http.get(f"https://t.me/s/{name}",params=params or None,
+                                    headers={"Cache-Control":"no-cache","Pragma":"no-cache"} if fresh else None)
             response.raise_for_status()
             soup=BeautifulSoup(response.text,"html.parser");nodes=soup.select(".tgme_widget_message[data-post]")
             ids=[];dates=[]

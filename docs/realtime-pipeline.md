@@ -18,7 +18,8 @@ return 409. No browser or public RPC can mint tokens. Responses and logs contain
 aggregate counts/error types, never credentials or source post text.
 
 `telegram_sync.py` fetches complete public text history since each channel's last
-successful checkpoint, with a one-hour overlap to reconcile recent edits. Initial
+successful checkpoint, with a one-hour overlap and at least 24 hours of lookback
+to recover delayed public previews and reconcile recent edits. Initial
 catch-up covers three days. Three channels run concurrently, with bounded retries
 and a 240-second invocation deadline. An incomplete fetch, write failure, or
 exhausted history budget does not advance that channel's checkpoint. Successful
@@ -112,3 +113,21 @@ with no ingestion errors. The production browser received identity-only INSERT
 events and updated its count without reloading. The five-minute cron is active;
 all seven channels have durable checkpoints. The worker normalizes Supabase API
 URLs and uses synchronous SDK options with a bounded 20-second RPC timeout.
+
+## Freshness visibility and late previews
+
+The public `/api/telegram-status` endpoint exposes only the last successful check,
+the five-minute interval and a normalized health state. It never publishes lease
+owners, internal errors, tokens or per-channel metadata. The Telegram section
+refreshes this status automatically every minute and on focus/online. Job cards
+explicitly label their original publication time, separate from ingestion status.
+
+Scheduled HTTPS requests use no-cache headers and a polling-window query parameter.
+Every run revisits at least the previous 24 hours, even with a recent checkpoint,
+so delayed preview content does not fall permanently behind a moving one-hour
+window. Deduplication prevents old posts from being republished as new. Private
+checkpoint diagnostics retain fetched counts and the newest observed text-post time.
+
+A November 1 check confirmed that cron requests were succeeding every five minutes
+for all seven channels. Newer public entries included promotional/image-only posts;
+an old job publication timestamp did not mean that sync itself had stopped.

@@ -26,6 +26,28 @@ class SyncTests(unittest.IsolatedAsyncioTestCase):
             result=await sync.sync_public_channel(db,'clinic','native')
         self.assertEqual(result['status'],'failed');db.table.return_value.upsert.assert_not_called()
 
+    async def test_recent_checkpoint_revisits_day_for_delayed_preview_posts(self):
+        db=MagicMock()
+        db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data=[{'last_success_at':'2026-11-01T00:05:00Z'}]
+        now=datetime(2026,11,1,0,10,tzinfo=timezone.utc)
+        fetch=AsyncMock(return_value=(123,'clinic',[]))
+        with patch.object(sync,'utcnow',return_value=now),patch.object(scraper,'fetch_public_posts',fetch):
+            result=await sync.sync_public_channel(db,'@clinic','native')
+        self.assertEqual(result['status'],'complete')
+        self.assertEqual(fetch.call_args.args[2],datetime(2026,10,31,0,10,tzinfo=timezone.utc))
+        self.assertTrue(fetch.call_args.kwargs['fresh'])
+        checkpoint=db.table.return_value.upsert.call_args.args[0]
+        self.assertEqual(checkpoint['counts']['fetched'],0)
+
+    async def test_fresh_preview_requests_change_url_each_polling_window(self):
+        html='<div class="tgme_widget_message" data-post="clinic/1"><div class="tgme_widget_message_text">مطلوب صيدلاني للعمل في بغداد</div><time datetime="2026-11-01T00:00:00Z"></time></div>'
+        http=MagicMock();http.get=AsyncMock(return_value=SimpleNamespace(text=html,raise_for_status=lambda:None))
+        context=MagicMock();context.__aenter__=AsyncMock(return_value=http);context.__aexit__=AsyncMock(return_value=None)
+        with patch.object(scraper.httpx,'AsyncClient',return_value=context):
+            await scraper.fetch_public_posts('clinic',1,fresh=True)
+        self.assertIn('_sync',http.get.call_args.kwargs['params'])
+        self.assertEqual(http.get.call_args.kwargs['headers']['Cache-Control'],'no-cache')
+
     async def test_listener_registers_new_messages_and_edits_and_cleans_up(self):
         client=MagicMock();entity=SimpleNamespace(id=123,username='clinic');client.get_entity=AsyncMock(return_value=entity)
         async def disconnected():await asyncio.sleep(0)

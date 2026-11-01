@@ -61,13 +61,16 @@ async def sync_public_channel(db, channel, storage):
     key = str(channel).strip().lower().lstrip('@')
     state = await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').select('last_success_at').eq('channel', key).limit(1).execute())
     previous = state.data[0]['last_success_at'] if state.data else None
-    since = datetime.fromisoformat(previous.replace('Z', '+00:00')) - timedelta(hours=1) if previous else utcnow() - timedelta(days=3)
+    # Public previews can expose a post late. Revisit at least 24 hours even
+    # when checkpoints are current; stable source IDs make this inexpensive to deduplicate.
+    since = min(datetime.fromisoformat(previous.replace('Z', '+00:00')) - timedelta(hours=1), utcnow() - timedelta(days=1)) if previous else utcnow() - timedelta(days=3)
     started = utcnow().isoformat()
     # Never advance a checkpoint on incomplete history, HTTP or database failures.
     for attempt in range(3):
         try:
-            chat_id, source, posts = await scraper.fetch_public_posts(channel, None, since, max_pages=200)
+            chat_id, source, posts = await scraper.fetch_public_posts(channel, None, since, max_pages=200, fresh=True)
             counts = await store_changed_posts(db, posts, chat_id, source, storage)
+            counts.update(fetched=len(posts),newest_source_post_at=max((p.date.isoformat() for p in posts),default=None))
             await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').upsert({'channel': key, 'last_success_at': started, 'counts': counts}, on_conflict='channel').execute())
             return {'status': 'complete', **counts}
         except asyncio.CancelledError:
