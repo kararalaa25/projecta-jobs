@@ -14,7 +14,7 @@ from uuid import NAMESPACE_URL, uuid5
 import telegram_scraper as scraper
 
 LOG = logging.getLogger('telegram_pipeline')
-PARSER_VERSION = 2
+PARSER_VERSION = 3
 
 
 async def retry_io(call, attempts=3):
@@ -51,13 +51,18 @@ def fallback_post(text):
     Responsibility/qualification bullets are not offers. Unstructured compilations
     remain raw and pending AI; they are never silently marked fully parsed.
     """
-    starts = []
-    for match in re.finditer(r'(?m)^\s*(?:[0-9٠-٩۰-۹]{1,3}\s*[.)\-–:ـ]|[①-⑳]|[🔹🔸▪•])\s*([^\n]+)', text):
-        heading = match.group(1)
-        if scraper.classify_roles(heading) and not re.search(r'سنوات|خبرة|شروط|مهام|years|experience|requirements', heading, re.I):
-            starts.append(match.start())
-    sections = [text[a:b].strip() for a,b in zip(starts, starts[1:] + [len(text)])] if len(starts) > 1 else [text.strip()]
+    starts = [start for start, _ in scraper.explicit_job_sections(text)]
+    end = len(text)
     shared = [text[:starts[0]].strip()] if len(starts) > 1 and text[:starts[0]].strip() else []
+    if len(starts) > 1:
+        # Only an explicitly shared application footer may supply contacts to all.
+        # An unlabeled phone at the end can belong to the final offer alone.
+        for marker in re.finditer(r"(?im)^[^\S\n]*(?:للتقديم|للتواصل|التقديم|التواصل|apply|contact)[^\n]*(?:لجميع|لكل|جميع|لكافة|كافة|\ball\b)[^\n]*", text):
+            if marker.start() > starts[-1]:
+                end = marker.start()
+                shared.append(text[end:].strip())
+                break
+    sections = [text[a:b].strip() for a,b in zip(starts, starts[1:] + [end])] if len(starts) > 1 else [text.strip()]
     jobs = []
     for section in sections:
         job = scraper.regex_job(section)
@@ -72,9 +77,10 @@ def fallback_post(text):
 def job_records(parsed, message, chat_id, channel, storage, fallback=False):
     """Scope contacts, classification and locations to one offer + common context."""
     records, seen = [], set()
+    channel = str(channel).strip().lstrip('@').lower()
     common = '\n'.join(parsed.shared_context)
     common_contacts = scraper.extract_contacts(common)
-    for job in parsed.jobs:
+    for job in sorted(parsed.jobs, key=lambda j: (message.raw_text.find(j.source_text), j.role_category or "", j.title or "")):
         if not job.is_job_offer:
             continue
         section = job.source_text.strip()
@@ -89,7 +95,7 @@ def job_records(parsed, message, chat_id, channel, storage, fallback=False):
         city = places[0] if places else (job.city if job.city in [g['id'] for g in scraper.GOVERNORATES] else '')
         description = section + ('\n\n' + common if common else '')
         # Don't multiply identical extractions, but keep same-role distinct offers.
-        fingerprint = (job.title.strip(),section,role)
+        fingerprint = (section,role,job.company_name,job.city,job.salary_text,job.employment_type)
         if fingerprint in seen:
             continue
         seen.add(fingerprint)
@@ -100,7 +106,7 @@ def job_records(parsed, message, chat_id, channel, storage, fallback=False):
         # Marketplace constraint uses locum_temp for contract/internship, not contract.
         native_schedule = {'Full-time':'full_time','Part-time':'part_time','Contract':'locum_temp','Internship':'locum_temp'}.get(schedule)
         meta = {'phone':contacts['contact_phone'],'whatsapp':contacts['contact_whatsapp'],'telegram':contacts['contact_telegram'],
-                'company_name':job.company_name if job.company_name and job.company_name in scope else None,'source_url':f'https://t.me/{channel}/{message.id}' if not channel.lstrip('-').isdigit() else f'https://t.me/c/{str(chat_id).removeprefix("-100")}/{message.id}',
+                'company_name':job.company_name if job.company_name and job.company_name in scope else None,'source_url':scraper.telegram_source_url(chat_id,channel,message.id),
                 'telegram_message_id':scraper.message_key(chat_id,channel,message.id),'source_message_key':scraper.message_key(chat_id,channel,message.id),
                 'source_text_hash':scraper.text_hash(message.raw_text),'source_posted_at':message.date.isoformat(),
                 'role_category':role,'role_categories':[role],'governorate':city or None,'governorates':places or ([city] if city else []),

@@ -1,0 +1,15 @@
+import {useState} from 'react'
+import catalog from '../../config/iraq.json' with {type:'json'}
+import {trainingTypes,baghdadDateTime,localCourseDateTime,saveCourse} from './data.js'
+export default function CourseForm({course,onSaved}){
+ const [error,setError]=useState('')
+ function submit(event){
+  event.preventDefault();setError('')
+  const form=new FormData(event.currentTarget)
+  try{
+   const saved=saveCourse(window.localStorage,{...Object.fromEntries(form),id:course?.id||crypto.randomUUID(),startsAt:baghdadDateTime(form.get('starts')),endsAt:baghdadDateTime(form.get('ends')),whatsappEnabled:form.get('whatsappEnabled')==='on'})
+   window.dispatchEvent(new Event('training-updated'));onSaved(saved)
+  }catch(failure){setError(failure.message||'تعذر حفظ البرنامج المحلي.')}
+ }
+ return <form className="course-form" onSubmit={submit}><p className="course-context">يُحفظ هذا البرنامج على جهازك فقط. لا يُنشر إعلان، ولا تُعتمد مؤهلات المدرب أو نقاط CME عند الحفظ.</p><label>عنوان البرنامج<input name="title" required maxLength={160} defaultValue={course?.title||''}/></label><div className="form-row"><label>التخصص<select name="role" aria-label="تخصص البرنامج" defaultValue={course?.role||'Dentists'}>{catalog.roles.map(role=><option key={role.id} value={role.id}>{role.ar}</option>)}</select></label><label>نوع التدريب<select name="kind" aria-label="نوع البرنامج" defaultValue={course?.kind||'hands_on'}>{trainingTypes.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label></div><div className="form-row"><label>بدء البرنامج — توقيت بغداد<input name="starts" type="datetime-local" required defaultValue={course?localCourseDateTime(course.startsAt):''}/></label><label>انتهاء البرنامج — توقيت بغداد<input name="ends" type="datetime-local" required defaultValue={course?localCourseDateTime(course.endsAt):''}/></label></div><label>المحافظة<select name="city" aria-label="محافظة البرنامج" defaultValue={course?.city||'Baghdad'}>{catalog.governorates.map(city=><option key={city.id} value={city.id}>{city.ar}</option>)}</select></label><label>الموقع التفصيلي<input name="venue" maxLength={180} defaultValue={course?.venue||''}/></label><label>اسم المدرب<input name="instructor" maxLength={120} required defaultValue={course?.instructor||''}/></label><label>مؤهلات المدرب المعلنة<input name="credentials" maxLength={240} required defaultValue={course?.credentials||''}/></label><label>وصف البرنامج<textarea name="description" rows={3} maxLength={1800} defaultValue={course?.description||''}/></label><label>رابط التسجيل — اختياري<input name="registrationUrl" type="url" dir="ltr" placeholder="https://…" maxLength={2000} defaultValue={course?.registrationUrl||''}/></label><label>رقم التواصل — اختياري<input name="phone" type="tel" dir="ltr" defaultValue={course?.phone||''} placeholder="07701234567"/></label><label className="course-whatsapp-choice"><input name="whatsappEnabled" type="checkbox" defaultChecked={course?.whatsappEnabled||false}/> التسجيل والتواصل على واتساب عبر هذا الرقم</label>{error&&<p className="form-message" role="alert">{error}</p>}<button className="primary full">حفظ البرنامج على هذا الجهاز</button></form>
+}

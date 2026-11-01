@@ -13,6 +13,9 @@
     "api/telegram-sync.py": {
       "maxDuration": 300,
       "includeFiles": "{telegram_scraper.py,telegram_sync.py,telegram_pipeline.py,iraq_taxonomy.py,config/iraq.json}"
+    },
+    "api/directory.js": {
+      "maxDuration": 60
     }
   }
 }

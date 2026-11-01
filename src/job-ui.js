@@ -1,7 +1,7 @@
 import {ar,canonicalRole} from './i18n.js'
 
 export function specialtyClass(role){
- return ({Dentists:'specialty-dentistry',Pharmacists:'specialty-pharmacy','Medical Reps':'specialty-reps','Assistants & Techs':'specialty-nursing'})[canonicalRole(role)]||'specialty-general'
+ return ({Dentists:'specialty-dentistry',Pharmacists:'specialty-pharmacy','Medical Reps':'specialty-reps','Assistants & Techs':'specialty-nursing','General Physicians':'specialty-gp','Receptionists / Admin':'specialty-operations'})[canonicalRole(role)]||'specialty-general'
 }
 export function normalizeSearch(value){
  return String(value||'').normalize('NFKD').replace(/[\u0300-\u036f\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').toLowerCase().trim().replace(/\s+/g,' ')

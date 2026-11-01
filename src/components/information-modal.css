@@ -1,0 +1,31 @@
+/* Reserve the scrollbar space when a dialog locks the page. */
+html{scrollbar-gutter:stable}
+.information-dialog{position:fixed;inset:0;margin:auto;width:min(900px,calc(100% - 48px));max-width:none;max-height:min(850px,calc(100dvh - 48px));padding:0;border:1px solid var(--pc-border);border-radius:24px;background:#fff;color:var(--pc-ink);box-shadow:0 32px 100px #061c3559;overflow:auto;overscroll-behavior:contain;animation:information-enter .24s ease-out}
+.information-dialog::backdrop{background:#071826b3;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:information-backdrop-in .24s ease-out}
+.information-heading{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 28px;background:#fffffff5;border-bottom:1px solid var(--pc-border);backdrop-filter:blur(8px)}
+.information-heading h2{font-size:22px;line-height:1.6;font-weight:800}
+.information-heading .icon-button{width:44px;height:44px;color:var(--pc-ink);transition:background .2s,color .2s}
+.information-heading .icon-button:hover{background:var(--pc-brand-soft);color:var(--pc-link)}
+.information-dialog :focus-visible{outline:2px solid var(--pc-cyan);outline-offset:3px}
+.information-body{padding:26px 28px 30px}
+.information-content .reference-container{padding:0;width:100%;max-width:none}
+.information-content .reference-section-heading{margin:0 0 24px;text-align:start}
+.information-content .reference-section-heading h2{font-size:25px;line-height:1.6;margin:6px 0 10px}
+.information-content .reference-section-heading>span{color:var(--pc-link);font-size:12px;font-weight:700}
+.information-content .reference-section-heading p{font-size:14px;line-height:1.9;color:#526a7c}
+.information-content .reference-feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.information-content .reference-about-grid{display:grid;grid-template-columns:1fr;gap:16px}
+.information-content .reference-card{min-width:0;padding:22px;text-align:start;border:1px solid var(--pc-border);border-radius:18px;background:#fff;box-shadow:0 4px 16px #143c5305}
+.information-dialog .information-content .reference-card{min-height:0}
+.information-content .icon-tooltip{width:min(230px,calc(100vw - 150px))}
+.information-content .reference-card h3{font-size:16px;line-height:1.7;margin:14px 0 8px;font-weight:750}
+.information-content .reference-card p{font-size:13px;line-height:2;color:#526a7c;margin:0}
+.information-content .reference-feature-icon,.information-content .reference-about-icon{margin:0;width:44px;height:44px;border-radius:14px;background:var(--pc-brand-soft);color:var(--pc-link)}
+.information-dialog.is-closing{animation:information-exit .18s ease-in forwards}
+.information-dialog.is-closing::backdrop{animation:information-backdrop-out .18s ease-in forwards}
+@keyframes information-enter{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes information-exit{to{opacity:0;transform:translateY(10px) scale(.985)}}
+@keyframes information-backdrop-in{from{opacity:0}to{opacity:1}}
+@keyframes information-backdrop-out{to{opacity:0}}
+@media(max-width:600px){.information-dialog{width:calc(100% - 24px);max-height:calc(100dvh - 24px);border-radius:20px}.information-heading{padding:14px 18px}.information-heading h2{font-size:19px}.information-body{padding:22px 18px}.information-content .reference-feature-grid{grid-template-columns:1fr}.information-content .reference-section-heading h2{font-size:22px}.information-content .reference-card{padding:18px}}
+@media(prefers-reduced-motion:reduce){.information-dialog,.information-dialog::backdrop,.information-dialog.is-closing,.information-dialog.is-closing::backdrop{animation:none}}

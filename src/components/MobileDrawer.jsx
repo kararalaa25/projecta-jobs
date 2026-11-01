@@ -1,8 +1,8 @@
 import {useEffect,useRef} from 'react'
 import {createPortal} from 'react-dom'
-import {X,Plus,ShieldCheck,Bookmark,ArrowUpLeft} from 'lucide-react'
+import {X,Plus,ShieldCheck,Bookmark,ArrowUpLeft,Users,GraduationCap} from 'lucide-react'
 
-export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,isAdmin}){
+export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onInformation,isAdmin}){
  const ref=useRef(null),close=useRef(onClose)
  close.current=onClose
  useEffect(()=>{
@@ -30,7 +30,9 @@ export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,isAd
    <p>خطوتك القادمة في الرعاية الصحية.</p>
    <nav aria-label="قائمة الهاتف">
     <a href="#job-board" onClick={onClose}>استكشف فرص العمل <ArrowUpLeft size={18}/></a>
-    <a href="#projecta-about" onClick={onClose}>من نحن</a><a href="#our-message" onClick={onClose}>رسالتنا</a><a href="#connect" onClick={onClose}>تواصل معنا</a>
+    <a href="/talent" onClick={onClose}>دليل الكفاءات الطبية <Users size={18}/></a>
+    <a href="/training" onClick={onClose}>التدريب والورش <GraduationCap size={18}/></a>
+    <button aria-haspopup="dialog" onClick={()=>onInformation('features')}>المزايا</button><button aria-haspopup="dialog" onClick={()=>onInformation('about')}>عن بروجكتا</button><a href="#connect" onClick={onClose}>تواصل معنا</a>
     <button onClick={()=>{onClose();onSaved()}}>الإعلانات المحفوظة <Bookmark size={18}/></button>
     <button onClick={()=>{onClose();onAccount()}}>حسابي <ShieldCheck size={18}/></button>
     {isAdmin&&<a href="/admin">الإدارة <ShieldCheck size={18}/></a>}

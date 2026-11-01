@@ -42,6 +42,65 @@ class ExtractionTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(json.loads(row['contact_info'])['source_url'],'https://t.me/clinic/17')
                 self.assertEqual(row['created_at'],self.message.date.isoformat())
 
+    async def test_partial_numbered_list_is_rejected_for_retry(self):
+        sections=[f'{i}. مطلوب طبيب أسنان في بغداد للعيادة رقم {i}' for i in range(1,13)]
+        text='\n'.join(sections)
+        with patch.object(scraper,'_parse_schema',AsyncMock(return_value=scraper.ParsedPost(jobs=[offer(sections[0])]))):
+            with self.assertRaisesRegex(ValueError,'missing'):
+                await scraper.parse_jobs(None,text)
+
+    async def test_whole_compilation_cannot_be_one_job_description(self):
+        text='1. مطلوب طبيب أسنان في بغداد\n2. مطلوب صيدلاني في البصرة'
+        with patch.object(scraper,'_parse_schema',AsyncMock(return_value=scraper.ParsedPost(jobs=[offer(text)]))):
+            with self.assertRaisesRegex(ValueError,'multiple numbered'):
+                await scraper.parse_jobs(None,text)
+
+    async def test_source_order_keeps_job_ids_stable_when_ai_reorders_jobs(self):
+        a='1. مطلوب طبيب أسنان في بغداد'
+        b='2. مطلوب صيدلاني في البصرة'
+        self.message.raw_text=a+'\n'+b
+        first=scraper.ParsedPost(jobs=[offer(a),offer(b,'Pharmacists','صيدلاني')])
+        reversed_post=scraper.ParsedPost(jobs=list(reversed(first.jobs)))
+        self.assertEqual(pipeline.job_records(first,self.message,123,'clinic','native'),
+                         pipeline.job_records(reversed_post,self.message,123,'clinic','native'))
+        with patch.object(scraper,'_parse_schema',AsyncMock(return_value=reversed_post)):
+            parsed=await scraper.parse_jobs(None,self.message.raw_text)
+        self.assertEqual([j.source_text for j in parsed.jobs],[a,b])
+
+    def test_duplicate_ai_titles_do_not_multiply_the_same_offer(self):
+        section='مطلوب طبيب أسنان للعمل في بغداد'
+        self.message.raw_text=section
+        a=offer(section);b=a.model_copy(update={'title':'فرصة عمل لطبيب أسنان'})
+        rows=pipeline.job_records(scraper.ParsedPost(jobs=[a,b]),self.message,123,'clinic','native')
+        self.assertEqual(len(rows),1)
+
+    def test_shared_footer_contacts_reach_all_fallback_jobs(self):
+        footer='للتقديم لجميع الوظائف واتساب 07701234567 @shared_jobs'
+        text='فرص عمل في بغداد\n1. مطلوب طبيب أسنان\n2. مطلوب صيدلاني\n'+footer
+        self.message.raw_text=text
+        parsed=pipeline.fallback_post(text)
+        rows=pipeline.job_records(parsed,self.message,123,'clinic','native_contacts',True)
+        self.assertEqual(len(rows),2)
+        for row in rows:
+            self.assertEqual(row['contact_whatsapp'],'9647701234567')
+            self.assertEqual(row['contact_telegram'],'shared_jobs')
+            self.assertEqual(row['description'].count(footer),1)
+
+    def test_unlabeled_last_section_phone_is_not_shared_by_fallback(self):
+        text='فرص عمل في بغداد\n1. مطلوب طبيب أسنان\n2. مطلوب صيدلاني هاتف 07801234567'
+        self.message.raw_text=text
+        rows=pipeline.job_records(pipeline.fallback_post(text),self.message,123,'clinic','native_contacts',True)
+        self.assertIsNone(rows[0]['contact_phone']);self.assertEqual(rows[1]['contact_phone'],'07801234567')
+
+    def test_hiring_heading_with_experience_remains_a_distinct_offer(self):
+        text='1. مطلوب طبيب أسنان خبرة سنتين في بغداد\n2. مطلوب صيدلاني خبرة سنة في البصرة'
+        self.assertEqual(len(pipeline.fallback_post(text).jobs),2)
+
+    def test_source_urls_normalize_usernames_and_private_channel_ids(self):
+        self.assertEqual(scraper.telegram_source_url(123,'@Clinic_Jobs',17),'https://t.me/clinic_jobs/17')
+        self.assertEqual(scraper.telegram_source_url(-1001234567890,'-1001234567890',17),'https://t.me/c/1234567890/17')
+        self.assertIsNone(scraper.telegram_source_url(0,'0',17))
+
     def test_section_contacts_locations_and_roles_never_bleed_into_siblings(self):
         common='العمل في بغداد. للتقديم واتساب 07701234567 @shared_jobs'
         a='مطلوب طبيب أسنان في البصرة هاتف 07801234567 @dentist_jobs'

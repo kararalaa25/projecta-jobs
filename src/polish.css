@@ -173,6 +173,39 @@ button:active{transform:scale(.98)}
 @media(max-width:680px){.reference-board .filter-panel{padding:18px 12px;gap:20px 12px;border-radius:16px}.reference-board .filter-option{min-height:44px;padding:7px 6px;font-size:12px;gap:7px}.reference-board .filter-panel fieldset{margin-bottom:0;padding-bottom:16px}.reference-board .filter-option .role-badge{font-size:11px;padding:4px 8px}.reference-board .job-card .role-badge,.reference-board .job-card .raw-badge{font-size:11px}.reference-board .job-card .listing-kind{font-size:10px}}
 
 /* Restore the reference cyan/mint/periwinkle glows only inside the feed band. */
-.reference-board{max-width:none;width:100%;padding-inline:max(16px,calc((100% - 1280px)/2));background-color:var(--pc-page);background-image:radial-gradient(480px 540px at 91% 13%,#87cad9a1,transparent 80%),radial-gradient(540px 510px at 8% 87%,#9fe2ce80,transparent 78%),radial-gradient(390px 590px at 49% 66%,#cdd8f566,transparent 78%);background-attachment:fixed}
+.reference-board{max-width:none;width:100%;padding-inline:max(16px,calc((100% - 1280px)/2));background-color:var(--pc-soft);background-image:radial-gradient(480px 540px at 91% 13%,#87cad9a1,transparent 80%),radial-gradient(540px 510px at 8% 87%,#9fe2ce80,transparent 78%),radial-gradient(390px 590px at 49% 66%,#cdd8f566,transparent 78%);background-attachment:fixed}
 .reference-board .job-card,.reference-board .filter-panel{background:var(--pc-surface)}
 @media(max-width:680px){.reference-board{padding-inline:20px}}
+
+/* Feed-only label refinement: calm pills with room for Arabic category names. */
+.reference-board .job-card{background:#fff;border-color:#e2edf7;box-shadow:0 4px 18px #0b152509}
+.reference-board .job-card .role-badge,.reference-board .job-card .raw-badge{max-width:100%;padding:5px 11px;white-space:normal;overflow-wrap:anywhere;line-height:1.8}
+.reference-board .job-card .listing-kind{font-size:11px;padding:3px 9px;background:#f1f6fa}
+.reference-board .job-card .compact-facts>div dd{border-radius:999px;padding:4px 9px;background:#f1f6fa;line-height:1.85}
+.reference-board .telegram-filter-grid select[class*="specialty-"]{border-radius:12px;border-color:transparent}
+
+/* Reusable trust signals and six distinct professional identities. */
+.role-badge.specialty-gp{--specialty-bg:#f5f0ff;--specialty-text:#65449a;--specialty-border:#e5d9f7}
+.role-badge.specialty-operations{--specialty-bg:#fff1f4;--specialty-text:#90405d;--specialty-border:#f2d8e2}
+.reference-board .telegram-filter-grid select.specialty-gp{background:#f5f0ff;color:#65449a}
+.reference-board .telegram-filter-grid select.specialty-operations{background:#fff1f4;color:#90405d}
+.identity-name{display:flex;align-items:center;gap:6px;min-width:0}
+.identity-name .company-name{min-width:0;margin:0;flex:0 1 auto}
+.verified-badge{--verification-blue:#2563eb;display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;max-width:100%;padding:4px 9px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:600;line-height:1.8;vertical-align:middle}
+.verified-badge>svg{flex-shrink:0;fill:var(--verification-blue);stroke:#fff;stroke-width:2}
+.verified-badge.is-compact{padding:0;background:transparent;line-height:1}
+.verification-status{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:#f4f7fa;color:#5f6f83;font-size:10px;font-weight:500;line-height:1.8;max-width:100%;overflow-wrap:anywhere}
+.verification-status.status-pending{background:#fff8e9;color:#805317}
+.card-trust{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin:-3px 0 12px}
+.card-trust:empty{display:flex}
+.credential-badges{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.credential-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:#edf8f7;color:#206761;font-size:10px;font-weight:600;line-height:1.8;max-width:100%;overflow-wrap:anywhere}
+.profile-identity{display:flex;align-items:flex-start;gap:14px;padding:20px;border:1px solid var(--pc-border);border-radius:18px;background:linear-gradient(140deg,#f3f9fd,#fff);margin-bottom:14px}
+.profile-avatar{width:52px;height:52px;display:grid;place-items:center;border-radius:17px;color:var(--pc-link);background:#e7f3f8;flex-shrink:0}
+.profile-identity-copy{display:grid;gap:9px;justify-items:start;min-width:0}
+.profile-identity h3{font-size:18px;line-height:1.7;font-weight:700;overflow-wrap:anywhere}
+.profile-specialty{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:11px;color:#5f6f83}
+.profile-specialty .role-badge{border:0;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:600}
+.trust-explanation{font-size:12px;line-height:1.9;color:#5f6f83;margin-bottom:16px}
+.detail-trust{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}
+@media(max-width:680px){.profile-identity{padding:16px;gap:10px}.profile-avatar{width:42px;height:42px;border-radius:14px}.profile-identity h3{font-size:16px}.card-trust{margin-bottom:10px}}
