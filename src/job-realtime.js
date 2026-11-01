@@ -10,12 +10,12 @@ export function reconcileSnapshot(jobs,changes,since){
 }
 export function startJobFeed({client,onSnapshot,onUpsert,onRemove,onLoad,onConnection,fetchAll=fetchJobs,fetchByIds=fetchJobsByIds,win=window,doc=document,interval=60000}){
  const lifecycle=new AbortController(),changes=new Map(),pending=new Map(),versions=new Map()
- let version=0,loading=null,batchTimer=null,flushing=false,closed=false,lastRefresh=0
+ let version=0,loading=null,batchTimer=null,flushing=false,closed=false,lastRefresh=0,complete=false
  const record=(id,job)=>{changes.set(id,{version:++version,job});if(job)onUpsert(job);else onRemove(id)}
  const refresh=()=>{
   if(closed||loading)return loading
   const since=version;lastRefresh=Date.now();onLoad('loading')
-  loading=fetchAll(lifecycle.signal).then(jobs=>{if(!closed){onSnapshot(reconcileSnapshot(jobs,changes,since));onLoad('ready')}}).catch(error=>{if(!closed&&error.name!=='AbortError')onLoad('error')}).finally(()=>{loading=null})
+  loading=fetchAll(lifecycle.signal,'all',{onPage:jobs=>{if(!closed&&!complete)onSnapshot(reconcileSnapshot(jobs,changes,since))}}).then(jobs=>{if(!closed){complete=true;onSnapshot(reconcileSnapshot(jobs,changes,since));onLoad('ready')}}).catch(error=>{if(!closed&&error.name!=='AbortError')onLoad('error')}).finally(()=>{loading=null})
   return loading
  }
  const schedule=()=>{if(!closed&&!batchTimer&&!flushing)batchTimer=win.setTimeout(flush,100)}

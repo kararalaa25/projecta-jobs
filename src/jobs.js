@@ -82,10 +82,29 @@ export async function fetchJobsPage(signal, offset=0, feed='all') {
   if (!response.ok) throw new Error('تعذر تحميل فرص العمل. يرجى إعادة المحاولة.')
   const payload = await response.json()
   if (!Array.isArray(payload.jobs)) throw new Error('تعذر قراءة بيانات الإعلانات.')
-  return {hasMore:payload.hasMore===true,jobs:visibleJobs(payload.jobs)}
+  return {hasMore:payload.hasMore===true,total:Number.isInteger(payload.total)&&payload.total>=0?payload.total:null,jobs:visibleJobs(payload.jobs)}
 }
-export async function fetchJobs(signal,feed='all'){
- const jobs=[]
- for(let page=0;page<100;page++){const result=await fetchJobsPage(signal,page*200,feed);jobs.push(...result.jobs);if(!result.hasMore)return jobs}
- throw new Error("تجاوزت النتائج حد التحميل. يرجى تضييق نطاق البحث.")
+export async function fetchJobs(signal,feed='all',{onPage,fetchPage=fetchJobsPage}={}){
+ const first=await fetchPage(signal,0,feed),jobs=new Map(first.jobs.map(job=>[job.id,job]))
+ if(!first.hasMore)return [...jobs.values()]
+ onPage?.([...jobs.values()])
+ if(first.total!==null){
+  if(first.total>20000)throw new Error('تجاوزت النتائج حد التحميل. يرجى تضييق نطاق البحث.')
+  // Bounded parallel reads shorten catch-up without overwhelming the API.
+  const pages=Math.ceil(first.total/200)
+  for(let page=1;page<pages;page+=2){
+   const batch=await Promise.all(Array.from({length:Math.min(2,pages-page)},(_,index)=>fetchPage(signal,(page+index)*200,feed)))
+   for(const result of batch)for(const job of result.jobs)jobs.set(job.id,job)
+   onPage?.([...jobs.values()])
+  }
+  return [...jobs.values()]
+ }
+ // Compatibility with older API responses that do not yet include total.
+ for(let page=1;page<100;page++){
+  const result=await fetchPage(signal,page*200,feed)
+  for(const job of result.jobs)jobs.set(job.id,job)
+  if(!result.hasMore)return [...jobs.values()]
+  onPage?.([...jobs.values()])
+ }
+ throw new Error('تجاوزت النتائج حد التحميل. يرجى تضييق نطاق البحث.')
 }

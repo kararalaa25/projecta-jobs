@@ -1,3 +1,5 @@
+import {ensurePublisher} from '../server/publishers.js'
+import {safeBackendCode} from '../server/backend-errors.js'
 import {classifyJob} from '../config/job-targeting.js'
 import {canPublish,isSuperAdmin} from '../config/access.js'
 import {readPlatform} from '../server/platform.js'
@@ -5,7 +7,7 @@ import { serverClient } from '../server/supabase.js'
 import catalog from '../config/iraq.json' with { type: 'json' }
 import { normalizeIraqiPhone, telegramHandle } from '../src/contacts.js'
 const roles = new Set(catalog.roles.map(r=>r.id))
-const schedules = {'Full-time':'full_time','Part-time':'part_time','Contract':'contract'}
+const schedules = {'Full-time':'full_time','Part-time':'part_time','Contract':'locum_temp'}
 const cities = new Set(catalog.governorates.map(g=>g.id))
 export const verifiedProfessional=canPublish
 export function validateJob(body,custom) {
@@ -20,7 +22,7 @@ export function validateJob(body,custom) {
   const categorization=classifyJob(title,description)
   const primary=categorization.primary&&(custom?custom.roles.includes(categorization.primary):roles.has(categorization.primary))?categorization.primary:body.role
   return {title,role_category:primary,employment_type:schedules[body.schedule],location_city:body.city,salary_range:salary,description,
-    contact_info:JSON.stringify({phone:phone.local,whatsapp:phone.whatsapp,telegram,company_name:company,role_category:primary,role_categories:categorization.roles.length?categorization.roles:[primary],target_audience:categorization.targetAudience,categorization}),source:'manual',status:'active'}
+    contact_info:JSON.stringify({phone:phone.local,whatsapp:phone.whatsapp,telegram,company_name:company,role_category:primary,role_categories:categorization.roles.length?categorization.roles:[primary],target_audience:categorization.targetAudience,categorization,employment_type:body.schedule}),source:'manual',status:'active'}
 }
 export function createPublishHandler(env=process.env, clientFactory=serverClient) {
   return async(req,res)=>{
@@ -54,11 +56,12 @@ export function createPublishHandler(env=process.env, clientFactory=serverClient
       record=validateJob(body,{roles:platform.catalog.filter(c=>c.kind==='role'&&c.active).map(c=>c.id),cities:platform.catalog.filter(c=>c.kind==='location'&&c.active).map(c=>c.id)})
     }catch{return send(400,'يرجى التأكد من بيانات الإعلان ورقم الهاتف العراقي.')}
     try{
+      await ensurePublisher(db,user,JSON.parse(record.contact_info).company_name)
       // Ownership, source, status and all accepted columns are assigned by the server.
       const {data,error}=await db.from('job_offers').insert({...record,publisher_id:user.id}).select('id').single()
       if(error)throw error
       res.statusCode=201;return res.end(JSON.stringify({id:data.id}))
-    }catch{return send(502,'تعذر حفظ الإعلان. لم يتم تأكيد النشر؛ يرجى المحاولة لاحقاً.')}
+    }catch(error){console.error('Job publishing failed:',safeBackendCode(error));return send(502,'تعذر حفظ الإعلان. لم يتم تأكيد النشر؛ يرجى المحاولة لاحقاً.')}
   }
 }
 export default createPublishHandler()

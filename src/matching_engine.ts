@@ -6,6 +6,7 @@ export interface PractitionerProfile {
  shiftPreferences?: readonly string[]; skills?: readonly string[];
 }
 export interface JobRequirements extends PractitionerProfile {
+ id?:string;
  roles?: readonly string[]; schedule?: string; shifts?: readonly string[];
  requiredSkills?: readonly string[]; title?: string; description?: string;
 }
@@ -42,16 +43,32 @@ export function normalizeMatchText(value:unknown):string {
  return typeof value==='string'?value.normalize('NFKD').replace(/[\u0300-\u036f\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').toLowerCase().replace(/[_–-]/g,' ').replace(/\s+/g,' ').trim():''
 }
 const strings=(value:unknown):string[]=>Array.isArray(value)?value.filter((item):item is string=>typeof item==='string').slice(0,60):typeof value==='string'?[value]:[]
+const normalizedAliases=new Map<string,string>()
+const patterns=new Map<string,RegExp>()
+const negations=new Map<string,boolean>()
 const pattern=(alias:string)=>{
- const escaped=alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
- const prefix=/^[\u0600-\u06ff]/u.test(alias)?'(?:[وف])?(?:ب|ل)?(?:ال)?':''
- return new RegExp(`(^|[^\\p{L}\\p{N}])${prefix}${escaped}(?=$|[^\\p{L}\\p{N}])`,'u')
+ const cached=patterns.get(alias)
+ if(cached)return cached
+ const normalized=normalizeMatchText(alias)
+ const escaped=normalized.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
+ const prefix=/^[\u0600-\u06ff]/u.test(normalized)?'(?:[وف])?(?:ب|ل)?(?:ال)?':''
+ const expression=new RegExp(`(^|[^\\p{L}\\p{N}])${prefix}${escaped}(?=$|[^\\p{L}\\p{N}])`,'u')
+ if(patterns.size>=512)patterns.clear()
+ patterns.set(alias,expression)
+ return expression
 }
 function evidenceText(value:string):string {
  return value.slice(0,20000).split(/\r?\n/).map(normalizeMatchText).join('\n')
 }
 function mentioned(text:string,alias:string,skipNegated=false):boolean {
- const expression=pattern(normalizeMatchText(alias))
+ let normalized=normalizedAliases.get(alias)
+ if(normalized===undefined){normalized=normalizeMatchText(alias);if(normalizedAliases.size>=512)normalizedAliases.clear();normalizedAliases.set(alias,normalized)}
+ if(!text.includes(normalized))return false
+ const expression=pattern(alias)
+ if(!skipNegated)return expression.test(text)
+ let hasNegation=negations.get(text)
+ if(hasNegation===undefined){hasNegation=/لا يشترط|لا يتطلب|لا يلزم|بدون خبرة|no experience|not required/u.test(text);if(negations.size>=128)negations.clear();negations.set(text,hasNegation)}
+ if(!hasNegation)return expression.test(text)
  for(const match of text.matchAll(new RegExp(expression.source,'gu'))){
   if(!skipNegated)return true
   const before=text.slice(Math.max(0,match.index-65),match.index),after=text.slice(match.index+match[0].length,match.index+match[0].length+30)
@@ -72,14 +89,17 @@ const roleAliases:Record<string,readonly string[]>={
 export function canonicalMatchRole(value:unknown):string|null {
  const text=normalizeMatchText(value)
  if(!text)return null
- const exact=catalog.roles.find(role=>normalizeMatchText(role.id)===text||normalizeMatchText(role.ar)===text)
- if(exact)return exact.id
+ const exact=exactRoles.get(text)
+ if(exact)return exact
  for(const role of ['Assistants & Techs','Medical Reps','Receptionists / Admin','Dentists','Pharmacists','General Physicians'])if(roleAliases[role].some(alias=>mentioned(text,alias)))return role
  return MEDICAL_SKILLS.find(skill=>skill.role&&[skill.id,...skill.aliases].some(alias=>normalizeMatchText(alias)===text))?.role||null
 }
+const exactRoles=new Map(catalog.roles.flatMap(role=>[[normalizeMatchText(role.id),role.id],[normalizeMatchText(role.ar),role.id]] as [string,string][]))
+const cityAliases=new Map<string,string[]>()
+for(const city of catalog.governorates)for(const alias of [city.id,city.ar,...city.aliases]){const key=normalizeMatchText(alias);cityAliases.set(key,[...(cityAliases.get(key)||[]),city.id])}
 function locations(value:PractitionerProfile):string[]{
- const values=[...strings(value.governorates),...strings(value.city),...strings(value.location)].map(normalizeMatchText)
- return catalog.governorates.filter(city=>values.some(value=>[city.id,city.ar,...city.aliases].some(alias=>normalizeMatchText(alias)===value))).map(city=>city.id)
+ const found=new Set([...strings(value.governorates),...strings(value.city),...strings(value.location)].flatMap(value=>cityAliases.get(normalizeMatchText(value))||[]))
+ return catalog.governorates.filter(city=>found.has(city.id)).map(city=>city.id)
 }
 const shiftAliases:Record<string,readonly string[]>={
  'Full-time':['full time','دوام كامل'], 'Part-time':['part time','دوام جزئي'],
@@ -106,15 +126,35 @@ function dimension(key:FitDimension['key'],label:string,known:boolean,ratio:numb
  const weight=MATCH_WEIGHTS[key]
  return {key,label,weight,points:known?weight*ratio:0,status:!known?'unknown':ratio===1?'match':ratio===0?'mismatch':'partial',detail}
 }
+interface CandidateDetails {role:string|null;places:string[];shifts:string[];skills:Map<string,string>}
+interface JobDetails {roles:string[];places:string[];shifts:string[];skills:Map<string,string>}
+const candidateCache=new WeakMap<PractitionerProfile,{key:string;value:CandidateDetails}>()
+const jobCache=new WeakMap<JobRequirements,{key:string;value:JobDetails}>()
+const jobIdCache=new Map<string,{key:string;value:JobDetails}>()
+const emptyProfile:PractitionerProfile={}
+function candidateDetails(profile:PractitionerProfile):CandidateDetails {
+ const key=JSON.stringify([profile.role,profile.specialty,profile.city,profile.location,profile.governorates,profile.workTypes,profile.shiftPreferences,profile.skills])
+ const cached=candidateCache.get(profile);if(cached?.key===key)return cached.value
+ const value={role:canonicalMatchRole(profile.role||profile.specialty),places:locations(profile),shifts:shifts([...strings(profile.workTypes),...strings(profile.shiftPreferences)]),skills:skillMap(strings(profile.skills),profile.specialty||'')}
+ candidateCache.set(profile,{key,value});return value
+}
+function jobDetails(job:JobRequirements):JobDetails {
+ const key=JSON.stringify([job.role,job.roles,job.specialty,job.city,job.location,job.governorates,job.workTypes,job.shiftPreferences,job.shifts,job.schedule,job.skills,job.requiredSkills,job.title,job.description])
+ const cached=jobCache.get(job);if(cached?.key===key)return cached.value
+ const shared=job.id?jobIdCache.get(job.id):undefined
+ if(shared?.key===key){jobCache.set(job,shared);return shared.value}
+ const text=`${job.title||''}\n${job.description||''}`
+ const value={roles:[...strings(job.roles),...strings(job.role),...strings(job.specialty)].map(canonicalMatchRole).filter((role):role is string=>Boolean(role)),places:locations(job),shifts:shifts([...strings(job.shifts),...strings(job.workTypes),...strings(job.shiftPreferences),...strings(job.schedule)],text),skills:skillMap([...strings(job.requiredSkills),...strings(job.skills)],text)}
+ const result={key,value};jobCache.set(job,result)
+ if(job.id){if(jobIdCache.size>=2000&&!jobIdCache.has(job.id))jobIdCache.delete(jobIdCache.keys().next().value!);jobIdCache.set(job.id,result)}
+ return value
+}
 export function scoreSpecialtyFit(profile:PractitionerProfile|null|undefined,job:JobRequirements):SpecialtyFit {
- const candidate=profile||{},candidateRole=canonicalMatchRole(candidate.role||candidate.specialty)
- const jobRoles=[...strings(job.roles),...strings(job.role),...strings(job.specialty)].map(canonicalMatchRole).filter((role):role is string=>Boolean(role))
+ const candidate=candidateDetails(profile||emptyProfile),requirements=jobDetails(job)
+ const candidateRole=candidate.role,jobRoles=requirements.roles
  const specialtyKnown=Boolean(candidateRole&&jobRoles.length),specialtyMatch=specialtyKnown&&jobRoles.includes(candidateRole!)
- const candidatePlaces=locations(candidate),jobPlaces=locations(job)
- const candidateShifts=shifts([...strings(candidate.workTypes),...strings(candidate.shiftPreferences)])
- const jobShifts=shifts([...strings(job.shifts),...strings(job.workTypes),...strings(job.shiftPreferences),...strings(job.schedule)],`${job.title||''}\n${job.description||''}`)
- const candidateSkills=skillMap(strings(candidate.skills),candidate.specialty||'')
- const jobSkills=skillMap([...strings(job.requiredSkills),...strings(job.skills)],`${job.title||''}\n${job.description||''}`)
+ const candidatePlaces=candidate.places,jobPlaces=requirements.places,candidateShifts=candidate.shifts,jobShifts=requirements.shifts
+ const candidateSkills=candidate.skills,jobSkills=requirements.skills
  const matched=[...jobSkills.keys()].filter(key=>candidateSkills.has(key)),missing=[...jobSkills.keys()].filter(key=>!candidateSkills.has(key))
  const hasSkills=jobSkills.size>0&&candidateSkills.size>0
  const shiftMatch=jobShifts.some(shift=>candidateShifts.includes(shift)||(candidateShifts.includes('Shift')&&['Night','Evening','Day'].includes(shift)))
@@ -134,7 +174,8 @@ export function scoreSpecialtyFit(profile:PractitionerProfile|null|undefined,job
 // Location/shift filters require positive evidence when the practitioner selects
 // them. Unspecified job skills remain visible with an honest limited-data score.
 export function isSpecialtyRecommendation(profile:PractitionerProfile,job:JobRequirements,fit=scoreSpecialtyFit(profile,job)):boolean {
- const required=['specialty',...(locations(profile).length?['location']:[]),...(shifts([...strings(profile.workTypes),...strings(profile.shiftPreferences)]).length?['shift']:[])]
+ const candidate=candidateDetails(profile)
+ const required=['specialty',...(candidate.places.length?['location']:[]),...(candidate.shifts.length?['shift']:[])]
  if(required.some(key=>fit.dimensions.find(item=>item.key===key)?.status!=='match'))return false
  return fit.dimensions.find(item=>item.key==='skills')?.status!=='mismatch'
 }

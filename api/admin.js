@@ -1,3 +1,4 @@
+import {ensurePublisher} from '../server/publishers.js'
 import {serverClient,serverAuthClient} from '../server/supabase.js'
 import {isPlatformOffer} from '../config/job-feeds.js'
 import {isSuperAdmin,isOwner,isSuspended,hasConfirmedIdentity} from '../config/access.js'
@@ -16,7 +17,7 @@ export function adminJobRecord(job,catalog){
  if(role&&!catalog.some(c=>c.kind==='role'&&c.id===role)||city&&!catalog.some(c=>c.kind==='location'&&c.id===city))throw new HttpError(400,'يرجى اختيار تصنيف وموقع من القاموس.')
  const phone=job.phone?normalizeIraqiPhone(job.phone):null,telegram=job.telegram?telegramHandle(job.telegram):null
  if(job.phone&&!phone||job.telegram&&!telegram)throw new HttpError(400,'وسائل التواصل غير صالحة.')
- const schedule={'Full-time':'full_time','Part-time':'part_time',Contract:'contract'}[job.schedule]
+ const schedule={'Full-time':'full_time','Part-time':'part_time',Contract:'locum_temp'}[job.schedule]
  if(!schedule)throw new HttpError(400,'نوع الدوام غير صالح.')
  return {title:text(job.title,100),description:text(job.description,12000),role_category:role,location_city:city,salary_range:text(job.salary||'',100,false)||null,employment_type:schedule,source:'manual',status:'active',contact_phone:phone?.local||null,contact_whatsapp:phone?.whatsapp||null,contact_telegram:telegram,contact_info:JSON.stringify({company_name:text(job.company,100),phone:phone?.local||null,whatsapp:phone?.whatsapp||null,telegram,parsing_status:'admin_reviewed',role_category:role,role_categories:role?[role]:[],target_audience:catalog.filter(c=>c.kind==='role'&&c.id===role).map(c=>c.label),categorization:{source:'admin',primary:role||null,roles:role?[role]:[],needsReview:!role},governorate:city,governorates:city?[city]:[],employment_type:schedule})}
 }
@@ -77,7 +78,7 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
    const platform=await readPlatform(db);const record=adminJobRecord(body.job,platform.catalog)
    // New manual records use the current table schema; existing source provenance is retained.
    if(body.id){const id=uuid(body.id);const old=check(await db.from('job_offers').select('contact_info,source').eq('id',id).single());if(old.source==='manual'&&!isPlatformOffer(record))throw new HttpError(400,'إعلانات المنصة تتطلب عنواناً ووصفاً وراتباً ومحافظة ورقم هاتف عراقي.');let meta={};try{meta=JSON.parse(old.contact_info)||{};if(typeof meta!=='object'||Array.isArray(meta))meta={}}catch{};record.contact_info=JSON.stringify({...meta,...JSON.parse(record.contact_info)});delete record.source;delete record.status;const r=await db.from('job_offers').update(record).eq('id',id).select('id').single();check(r)}
-   else {if(!isPlatformOffer(record))throw new HttpError(400,'إعلانات المنصة تتطلب عنواناً ووصفاً وراتباً ومحافظة ورقم هاتف عراقي.');if(!record.role_category||!record.location_city)throw new HttpError(400,'اختر التخصص والمحافظة للإعلان الجديد.');const created=check(await db.from('job_offers').insert({...record,publisher_id:actor.id}).select('id').single());return saved(created.id)}
+   else {if(!isPlatformOffer(record))throw new HttpError(400,'إعلانات المنصة تتطلب عنواناً ووصفاً وراتباً ومحافظة ورقم هاتف عراقي.');if(!record.role_category||!record.location_city)throw new HttpError(400,'اختر التخصص والمحافظة للإعلان الجديد.');await ensurePublisher(db,actor,body.job.company);const created=check(await db.from('job_offers').insert({...record,publisher_id:actor.id}).select('id').single());return saved(created.id)}
    return saved(body.id)
   }
   if(action==='job.status'){
