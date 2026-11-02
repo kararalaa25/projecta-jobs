@@ -1,9 +1,11 @@
+import {notifyPublisherWhatsAppNewApplication} from '../lib/whatsapp.ts'
+import {notifyPublisherNewApplication} from '../lib/telegram.js'
 import {attachResume} from '../server/resumes.js'
 import {serverClient} from '../server/supabase.js'
 import {hasConfirmedIdentity,isSuspended,isSuperAdmin} from '../config/access.js'
 import {readPlatform} from '../server/platform.js'
 import {headers,json,sameOrigin,readBody,authenticate,bearerToken,HttpError,check,uuid,text,errorResponse} from '../server/http.js'
-export function createApplicationsHandler(env=process.env,factory=serverClient){return async(req,res)=>{
+export function createApplicationsHandler(env=process.env,factory=serverClient,notifyWhatsApp=notifyPublisherWhatsAppNewApplication){return async(req,res)=>{
  headers(res)
  if(!['GET','POST'].includes(req.method))return json(res,405,{error:'طريقة الطلب غير مسموحة.'})
  try{
@@ -20,7 +22,17 @@ export function createApplicationsHandler(env=process.env,factory=serverClient){
   const r=await db.from('job_applications').insert({job_id:job.id,applicant_id:user.id,cover_letter:letter,cv_url:null,...(resume?{resume_asset_id:resume}:{})}).select('id').single()
   if(r.error?.code==='23514'&&String(r.error.message).includes('resume_not_ready'))throw new HttpError(409,'تغيّرت حالة السيرة الذاتية. ارفع الملف مجدداً قبل إرسال الطلب.')
   if(r.error?.code==='23505')throw new HttpError(409,'سبق أن قدمت لهذا الإعلان.')
-  return json(res,201,{id:check(r).id})
+  const applicationId=check(r).id
+  // Notification failure never turns a committed application into a failed submission.
+  if(env.TELEGRAM_BOT_TOKEN)try{
+   const offer=check(await db.from('job_offers').select('publisher_id,title').eq('id',job.id).single())
+   if(offer.publisher_id){const publisher=check(await db.from('profiles').select('telegram_chat_id').eq('user_id',offer.publisher_id).maybeSingle());if(publisher?.telegram_chat_id)await notifyPublisherNewApplication(publisher.telegram_chat_id,user.user_metadata?.full_name||'متقدم',offer.title,{env})}
+  }catch{console.warn('Publisher Telegram notification was not delivered')}
+  if(env.WHATSAPP_ACCESS_TOKEN)try{
+   const offer=check(await db.from('job_offers').select('publisher_id,title').eq('id',job.id).single())
+   if(offer.publisher_id){const publisher=check(await db.from('profiles').select('display_name,whatsapp_phone,whatsapp_opt_in').eq('user_id',offer.publisher_id).maybeSingle());if(publisher?.whatsapp_opt_in===true&&publisher.whatsapp_phone)await notifyWhatsApp(publisher.whatsapp_phone,user.user_metadata?.full_name||'متقدم',offer.title,publisher.display_name,{env})}
+  }catch{console.warn('Publisher WhatsApp notification was not confirmed')}
+  return json(res,201,{id:applicationId})
  }catch(error){return errorResponse(res,error)}
 }}
 export default createApplicationsHandler()

@@ -7,7 +7,18 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "lib": ["ES2023", "DOM"]
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/matching_engine.ts"]
+  "include": [
+    "src/matching_engine.ts",
+    "lib/phone.ts",
+    "lib/whatsapp.ts"
+  ]
 }
