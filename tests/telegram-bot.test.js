@@ -44,3 +44,6 @@ test('notification rewrite dispatch retains webhook authentication without addin
   const res=output();await createVerificationsHandler(env,()=>{throw Error('must not run')})(request,res);assert.equal(res.statusCode,401);assert.equal(res.body.error,'Unauthorized')
  }
 })
+test('operational provider setup denies callers without a fresh signature',async()=>{
+ const {createNotificationSetupHandler}=await import('../server/notification-handlers/setup.js');const res=output();await createNotificationSetupHandler(env,null,()=>{throw Error('must not run')})({method:'POST',headers:{},body:{action:'telegram.register'}},res);assert.equal(res.statusCode,401)
+})

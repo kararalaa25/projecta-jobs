@@ -26,12 +26,12 @@ export function createApplicationsHandler(env=process.env,factory=serverClient,n
   // Notification failure never turns a committed application into a failed submission.
   if(env.TELEGRAM_BOT_TOKEN)try{
    const offer=check(await db.from('job_offers').select('publisher_id,title').eq('id',job.id).single())
-   if(offer.publisher_id){const publisher=check(await db.from('profiles').select('telegram_chat_id').eq('user_id',offer.publisher_id).maybeSingle());if(publisher?.telegram_chat_id)await notifyPublisherNewApplication(publisher.telegram_chat_id,user.user_metadata?.full_name||'متقدم',offer.title,{env})}
-  }catch{console.warn('Publisher Telegram notification was not delivered')}
+   if(offer.publisher_id){const publisher=check(await db.from('profiles').select('telegram_chat_id').eq('user_id',offer.publisher_id).maybeSingle());if(publisher?.telegram_chat_id)await notifyPublisherNewApplication(publisher.telegram_chat_id,user.user_metadata?.full_name||'متقدم',offer.title,{env});else console.info('Notification skipped',{provider:'telegram',reason:'publisher_chat_not_linked'})}
+  }catch(error){console.warn('Notification failed',error.diagnostics||{provider:'telegram',reason:'lookup_or_configuration_failed'})}
   if(env.WHATSAPP_ACCESS_TOKEN)try{
    const offer=check(await db.from('job_offers').select('publisher_id,title').eq('id',job.id).single())
-   if(offer.publisher_id){const publisher=check(await db.from('profiles').select('display_name,whatsapp_phone,whatsapp_opt_in').eq('user_id',offer.publisher_id).maybeSingle());if(publisher?.whatsapp_opt_in===true&&publisher.whatsapp_phone)await notifyWhatsApp(publisher.whatsapp_phone,user.user_metadata?.full_name||'متقدم',offer.title,publisher.display_name,{env})}
-  }catch{console.warn('Publisher WhatsApp notification was not confirmed')}
+   if(offer.publisher_id){const publisher=check(await db.from('profiles').select('display_name,whatsapp_phone,whatsapp_opt_in').eq('user_id',offer.publisher_id).maybeSingle());const phone=publisher?.whatsapp_opt_in===true&&publisher.whatsapp_phone?publisher.whatsapp_phone:env.WHATSAPP_NOTIFICATION_PHONE;const recipientName=phone===publisher?.whatsapp_phone?publisher.display_name:env.WHATSAPP_NOTIFICATION_RECIPIENT_NAME;if(phone){console.info('Notification attempt',{provider:'whatsapp',template:'new_job_applicant',recipient:phone===publisher?.whatsapp_phone?'publisher':'configured_admin'});await notifyWhatsApp(phone,user.user_metadata?.full_name||'متقدم',offer.title,recipientName,{env});console.info('Notification accepted',{provider:'whatsapp'})}else console.info('Notification skipped',{provider:'whatsapp',reason:'no_opted_in_publisher_or_admin'})}
+  }catch(error){console.warn('Notification failed',error.diagnostics||{provider:'whatsapp',reason:'lookup_or_configuration_failed'})}
   return json(res,201,{id:applicationId})
  }catch(error){return errorResponse(res,error)}
 }}

@@ -53,3 +53,6 @@ test('token placeholders never cause an outbound WhatsApp request',async()=>{
  await assert.rejects(()=>sendWhatsAppTemplateMessage('07800000000','new_job_applicant','ar',['test'],{env:{...env,WHATSAPP_ACCESS_TOKEN:'<YOUR_META_ACCESS_TOKEN>'},fetcher:async()=>{called=true;throw Error('must not run')}}),/not configured/)
  assert.equal(called,false)
 })
+test('Meta errors preserve actionable codes without exposing raw payloads',async()=>{
+ await assert.rejects(()=>sendWhatsAppTemplateMessage('07800000000','new_job_applicant','ar',['test'],{env,fetcher:async()=>({ok:false,status:400,async json(){return {error:{code:131030,error_subcode:99,message:'secret mock-secret recipient 9647800000000'}}}})}),error=>error.diagnostics.status===400&&error.diagnostics.code===131030&&!JSON.stringify(error).includes('mock-secret')&&!JSON.stringify(error).includes('9647800000000'))
+})
