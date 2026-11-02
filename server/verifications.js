@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto'
 import {profileDraft,profileCompletion,validProfileKind,credentialUrl,credentialKeys,profileKinds,requiresSyndicateDocument,validEvidenceId} from '../config/account-profile.js'
 import {profileTrust} from '../config/profile-trust.js'
 import {isSuspended,hasConfirmedIdentity,isSuperAdmin} from '../config/access.js'
-import {normalizeIraqiPhone} from '../src/contacts.js'
+import {normalizeIraqiPhone,telegramHandle} from '../src/contacts.js'
 import catalog from '../config/iraq.json' with {type:'json'}
 import {HttpError,check,uuid,text} from './http.js'
 const columns='user_id,display_name,specialty,governorate,profile_kind,medical_credentials,verification_status,verified_credentials,cv_asset_id,updated_at'
@@ -11,12 +11,13 @@ export const requestOf=profile=>record(profile).verification_request||null
 const editing=profile=>Date.parse(record(profile).editing?.until||'')>Date.now()
 function busy(profile){if(editing(profile)||['submitting','pending','reviewing','withdrawing'].includes(requestOf(profile)?.status))throw new HttpError(409,'هناك طلب قيد المراجعة أو عملية حفظ جارية. اسحب الطلب المعلّق قبل تعديل الملف، وانتظر اكتمال المراجعة الجارية.')}
 export function validateProfile(body,user,complete=false){
- const value={full_name:text(body.full_name||'',120,false),profession:text(body.profession||'',100,false),profile_kind:text(body.profile_kind||'dentist',40),governorate:text(body.governorate||'',100,false),phone:text(body.phone||'',30,false),license_number:text(body.license_number||'',150,false),license_url:text(body.license_url||'',2000,false),license_asset_id:text(body.license_asset_id||'',36,false)}
+ const value={full_name:text(body.full_name||'',120,false),profession:text(body.profession||'',100,false),profile_kind:text(body.profile_kind||'dentist',40),governorate:text(body.governorate||'',100,false),phone:text(body.phone||'',30,false),license_number:text(body.license_number||'',150,false),license_url:text(body.license_url||'',2000,false),license_asset_id:text(body.license_asset_id||'',36,false),telegram_username:text(body.telegram_username||'',100,false)}
  if(value.profession&&!catalog.roles.some(role=>role.id===value.profession)||!validProfileKind(value))throw new HttpError(400,'اختر نوع حساب وتخصصاً متوافقين.')
  if(value.governorate&&!catalog.governorates.some(city=>city.id===value.governorate))throw new HttpError(400,'اختر محافظة صالحة.')
  if(value.phone&&!normalizeIraqiPhone(value.phone))throw new HttpError(400,'أدخل رقم هاتف عراقياً صالحاً.')
  if(value.license_url&&!credentialUrl(value.license_url))throw new HttpError(400,'مستند الترخيص يحتاج إلى رابط HTTPS صالح دون بيانات دخول.')
  if(value.license_asset_id&&!validEvidenceId(value.license_asset_id))throw new HttpError(400,'معرّف مستند الترخيص غير صالح.')
+ if(value.telegram_username){const handle=telegramHandle(value.telegram_username);if(!handle)throw new HttpError(400,'اسم مستخدم تليجرام غير صالح.');value.telegram_username=handle}
  if(value.phone)value.phone=normalizeIraqiPhone(value.phone).local
  if(complete&&!profileCompletion({...user,user_metadata:value}).complete)throw new HttpError(400,'أكمل جميع متطلبات الملف وأكّد وسيلة الدخول قبل طلب التوثيق.')
  return value

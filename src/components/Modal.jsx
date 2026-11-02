@@ -2,7 +2,7 @@ import {useEffect,useId,useRef} from 'react'
 import {createPortal} from 'react-dom'
 import {acquireOverlayLock} from '../overlay-lock.js'
 import {X} from 'lucide-react'
-export default function Modal({title,children,onClose}){
+export default function Modal({title,children,onClose,className=''}){
  const ref=useRef(null),close=useRef(onClose),titleId=useId();close.current=onClose
  useEffect(()=>{
   const old=document.activeElement,el=ref.current,release=acquireOverlayLock({inertRoot:true})
@@ -19,5 +19,5 @@ export default function Modal({title,children,onClose}){
   document.addEventListener('keydown',key)
   return()=>{document.removeEventListener('keydown',key);release();if(old?.isConnected)old.focus({preventScroll:true})}
  },[])
- return createPortal(<div className="overlay" onMouseDown={event=>event.target===event.currentTarget&&close.current()}><section className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={ref}><div className="modal-heading"><h2 id={titleId}>{title}</h2><button type="button" className="icon-button" aria-label="إغلاق النافذة" onClick={onClose}><X/></button></div>{children}</section></div>,document.body)
+ return createPortal(<div className="overlay" onMouseDown={event=>event.target===event.currentTarget&&close.current()}><section className={`modal ${className}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={ref}><div className="modal-heading"><h2 id={titleId}>{title}</h2><button type="button" className="icon-button" aria-label="إغلاق النافذة" onClick={onClose}><X/></button></div>{children}</section></div>,document.body)
 }

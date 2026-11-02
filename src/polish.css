@@ -322,3 +322,4 @@ button:active{transform:scale(.98)}
 @media(prefers-reduced-motion:reduce){.category-chip,.modal .matching-form label.shift-chip{transition:none}}
 
 .modal:has(.matching-form) .modal-heading h2{font-size:22px;line-height:1.6}.matching-profile-panel .role-badge{font-size:12px;line-height:1.7}
+.mobile-nav>button{min-width:48px;min-height:48px}.mobile-nav>button.mobile-activity-action{color:var(--pc-link);font-weight:700;gap:4px}.mobile-nav>button.mobile-activity-action svg{background:#e5f5fb;border-radius:10px;box-sizing:content-box;padding:5px}.mobile-nav>button.mobile-activity-action span{font-size:11px;line-height:1.7;white-space:normal;text-align:center}

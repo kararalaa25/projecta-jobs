@@ -100,7 +100,7 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
    const s=body.settings;if(!s||typeof s.banner_enabled!=='boolean'||typeof s.maintenance!=='boolean')throw new HttpError(400,'إعدادات غير صالحة.')
    await adminMutation(db,actor,action,{banner_enabled:s.banner_enabled,maintenance:s.maintenance,banner_text:text(s.banner_text,1000,false)});return json(res,200,{ok:true})
   }
-  if(action==='application.status'){if(!['submitted','reviewing','accepted','rejected'].includes(body.status))throw new HttpError(400,'حالة غير صالحة.');await adminMutation(db,actor,action,{id:uuid(body.id),status:body.status});return json(res,200,{ok:true})}
+  if(action==='application.status'){if(!['submitted','reviewing','accepted','rejected'].includes(body.status))throw new HttpError(400,'حالة غير صالحة.');await adminMutation(db,actor,action,{id:uuid(body.id),status:body.status});await broadcastTrust(db);return json(res,200,{ok:true})}
   throw new HttpError(400,'عملية غير مسموحة.')
  }catch(error){return errorResponse(res,error)}
 }}

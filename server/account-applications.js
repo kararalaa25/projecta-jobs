@@ -1,5 +1,6 @@
+import {profileTrust} from '../config/profile-trust.js'
 import {check,HttpError,uuid} from './http.js'
-import {normalizeIraqiPhone} from '../src/contacts.js'
+import {normalizeIraqiPhone,telegramHandle} from '../src/contacts.js'
 import {signedResumeDownload} from './resumes.js'
 const company=job=>{try{return String(JSON.parse(job.contact_info||'{}').company_name||'جهة العمل').slice(0,150)}catch{return 'جهة العمل'}}
 const jobView=job=>({id:job.id,title:job.title||'إعلان غير متاح',company:company(job),status:job.status,created_at:job.created_at})
@@ -25,14 +26,14 @@ export async function accountApplications(db,user,url){
  if(view==='cv'){
   const application=check(await db.from('job_applications').select('applicant_id,resume_asset_id').eq('id',uuid(url.searchParams.get('application_id'))).eq('job_id',job.id).maybeSingle())
   if(!application?.resume_asset_id)throw new HttpError(404,'لا توجد سيرة ذاتية مرفقة.')
-  const asset=check(await db.from('resume_assets').select('id,user_id,object_path,filename,state').eq('id',application.resume_asset_id).eq('user_id',application.applicant_id).eq('state','ready').maybeSingle())
+  const asset=check(await db.from('resume_assets').select('id,user_id,object_path,filename,state,mime_type').eq('id',application.resume_asset_id).eq('user_id',application.applicant_id).eq('state','ready').maybeSingle())
   if(!asset)throw new HttpError(404,'الملف غير متاح.')
-  return signedResumeDownload(db,asset)
+  return {...await signedResumeDownload(db,asset),mimeType:asset.mime_type}
  }
  const result=await db.from('job_applications').select('id,applicant_id,status,created_at,cover_letter,resume_asset_id').eq('job_id',job.id).order('created_at',{ascending:false}).range(offset,offset+19),rows=check(result)
  const applicants=[]
  // Bound identity lookups to one page; do not return Auth claims or private licenses.
  for(const row of rows){const identity=check(await db.auth.admin.getUserById(row.applicant_id)).user,phone=normalizeIraqiPhone(identity?.user_metadata?.phone||identity?.phone)
-  applicants.push({id:row.id,status:row.status,created_at:row.created_at,cover_letter:row.cover_letter,hasCv:Boolean(row.resume_asset_id),name:String(identity?.user_metadata?.full_name||identity?.user_metadata?.name||'متقدم').slice(0,150),phone:phone?.local||null,email:identity?.email_confirmed_at?identity.email:null})}
+  applicants.push({id:row.id,status:row.status,created_at:row.created_at,cover_letter:row.cover_letter,hasCv:Boolean(row.resume_asset_id),verification:profileTrust(identity),specialty:String(identity?.user_metadata?.profession||identity?.app_metadata?.professional_specialty||'').slice(0,100),telegram:telegramHandle(identity?.user_metadata?.telegram||identity?.user_metadata?.telegram_username),name:String(identity?.user_metadata?.full_name||identity?.user_metadata?.name||'متقدم').slice(0,150),phone:phone?.local||null,email:identity?.email_confirmed_at?identity.email:null})}
  return {job:jobView(job),rows:applicants,hasMore:rows.length===20}
 }

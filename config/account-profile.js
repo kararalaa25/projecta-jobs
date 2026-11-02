@@ -1,6 +1,6 @@
 import catalog from './iraq.json' with {type:'json'}
 import {hasConfirmedIdentity} from './access.js'
-import {normalizeIraqiPhone} from '../src/contacts.js'
+import {normalizeIraqiPhone,telegramHandle} from '../src/contacts.js'
 export const profileKinds=[['dentist','طبيب أسنان'],['pharmacist','صيدلي'],['doctor','طبيب عام'],['nurse','تمريض / دعم سريري'],['medical_rep','مندوب طبي'],['clinic_operations','إدارة عيادة'],['clinic','عيادة'],['medical_center','مركز طبي']]
 export const kindRoles={dentist:'Dentists',pharmacist:'Pharmacists',doctor:'General Physicians',nurse:'Assistants & Techs',medical_rep:'Medical Reps',clinic_operations:'Receptionists / Admin'}
 export const credentialKeys=['syndicate_membership','certified_specialist','facility_license']
@@ -10,7 +10,7 @@ export const requiresSyndicateDocument=profile=>!['clinic','medical_center'].inc
 export const validEvidenceId=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 export function profileDraft(user){
  const meta=user?.user_metadata||{},role=meta.profession||user?.app_metadata?.professional_specialty||''
- return {full_name:clean(meta.full_name||meta.name,120),profession:role,profile_kind:meta.profile_kind||Object.keys(kindRoles).find(kind=>kindRoles[kind]===role)||'dentist',governorate:meta.governorate||meta.city||'',phone:clean(meta.phone||user?.phone,30),license_number:clean(meta.license_number,150),license_url:clean(meta.license_url,2000),license_asset_id:clean(meta.license_asset_id,36)}
+ return {full_name:clean(meta.full_name||meta.name,120),profession:role,profile_kind:meta.profile_kind||Object.keys(kindRoles).find(kind=>kindRoles[kind]===role)||'dentist',governorate:meta.governorate||meta.city||'',phone:clean(meta.phone||user?.phone,30),license_number:clean(meta.license_number,150),license_url:clean(meta.license_url,2000),license_asset_id:clean(meta.license_asset_id,36),telegram_username:telegramHandle(meta.telegram_username||meta.telegram)||''}
 }
 export function validProfileKind(profile){return profileKinds.some(([id])=>id===profile.profile_kind)&&(!profile.profession||!kindRoles[profile.profile_kind]||kindRoles[profile.profile_kind]===profile.profession)}
 export function profileCompletion(user){
