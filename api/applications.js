@@ -1,3 +1,4 @@
+import {accountApplications} from '../server/account-applications.js'
 import {notifyPublisherWhatsAppNewApplication} from '../lib/whatsapp.ts'
 import {notifyPublisherNewApplication} from '../lib/telegram.js'
 import {attachResume} from '../server/resumes.js'
@@ -11,7 +12,7 @@ export function createApplicationsHandler(env=process.env,factory=serverClient,n
  try{
   sameOrigin(req,env);bearerToken(req);const db=factory(env),user=await authenticate(db,req)
   if(isSuspended(user)||!hasConfirmedIdentity(user))throw new HttpError(403,'يجب تأكيد الحساب وألّا يكون معلّقاً.')
-  if(req.method==='GET'){const r=await db.from('job_applications').select('id,job_id,status,created_at').eq('applicant_id',user.id).order('created_at',{ascending:false}).limit(100);return json(res,200,{rows:check(r)})}
+  if(req.method==='GET')return json(res,200,await accountApplications(db,user,new URL(req.url||'/','http://localhost')))
   const platform=await readPlatform(db);if(platform.settings.maintenance&&!isSuperAdmin(user))throw new HttpError(503,'المنصة قيد الصيانة حالياً. حاول لاحقاً.')
   const body=await readBody(req)
   if(body.action==='license.submit')throw new HttpError(409,'استخدم الملف الشخصي المكتمل وطلب التوثيق المنظم من قائمة حسابك.');

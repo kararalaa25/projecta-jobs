@@ -289,3 +289,36 @@ button:active{transform:scale(.98)}
 .reference-board .results-heading .filter-button{flex-shrink:0;min-height:44px;min-width:44px}
 .telegram-notify{display:grid;gap:10px;margin:16px 0}.telegram-notify-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:12px 18px;border-radius:20px;background:rgba(15,23,42,.4);backdrop-filter:blur(40px);border:1px solid rgba(6,182,212,.3);color:#0b2535;font-weight:600;font-size:16px;line-height:1.7;box-shadow:0 5px 20px #0b152510}.telegram-notify-button:hover{color:#e6fbff;background:#16394c;border-color:#06b6d4}.telegram-notify-button:disabled{opacity:.6}
 .whatsapp-preferences label{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:16px;line-height:1.8}.whatsapp-preferences input[type=tel]{width:100%;min-width:0;min-height:48px;font-size:16px;padding:10px 14px;border:1px solid var(--pc-border);border-radius:14px;background:#fff}.whatsapp-preferences input[type=checkbox]{width:20px;height:20px;flex-shrink:0;accent-color:var(--pc-cyan)}
+/* Symmetric feed columns and accessible chip controls. */
+.reference-board>.board-intro,.reference-board>.search-bar,.reference-board>.listing-tabs,.reference-board>.feed-source-info,.reference-board>.board-layout{max-width:1320px;margin-inline:auto}
+.reference-board .board-layout{gap:24px}
+.category-chip{position:relative;display:flex;align-items:center;gap:8px;min-height:48px;padding:10px 12px;margin:8px 0;border:1px solid #e7edf4;border-radius:18px;background:#f8fafc;color:#425974;font-size:14px;font-weight:600;line-height:1.8;cursor:pointer;transition:background .2s,border-color .2s,color .2s,box-shadow .2s;min-width:0}
+.category-chip:hover{border-color:#9acfdc;background:#edf8fb}
+.category-chip.is-active{background:var(--pc-link);border-color:var(--pc-cyan);color:#fff;box-shadow:0 4px 12px #0299b51c}
+.category-chip-label{flex:1;min-width:0;overflow-wrap:normal;word-break:normal}
+.category-chip-count{display:grid;place-items:center;min-width:26px;height:26px;padding:0 5px;background:#e9eef5;color:#526b80;border-radius:999px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.category-chip.is-active .category-chip-count{background:#ffffff26;color:#fff}
+.category-chip-input,.modal .matching-form .shift-chip-input{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;padding:0!important;margin:0!important;opacity:0;overflow:hidden;clip-path:inset(50%);border:0!important}
+.category-chip:has(input:focus-visible),.matching-form .shift-chip:has(input:focus-visible){outline:3px solid var(--pc-focus);outline-offset:3px}
+.matching-profile-panel{padding:16px 18px;gap:14px;border-radius:20px;background:linear-gradient(120deg,#fff,#edf8fc);border:1px solid #d6ebf3;box-shadow:0 4px 18px #0b152505}
+.matching-profile-panel .matching-panel-icon{width:44px;height:44px;border-radius:15px;background:#dff3f8;color:var(--pc-cyan)}
+.matching-profile-panel strong{font-size:16px;font-weight:700;line-height:1.7}
+.matching-profile-panel p{font-size:14px;line-height:1.8}
+.matching-profile-actions button.matching-setup-action{background:var(--pc-gradient);color:#fff;border:1px solid #0299b533;border-radius:14px;min-height:44px;padding:10px 16px;font-size:14px;font-weight:700}
+.matching-profile-actions .matching-disable{font-size:13px;min-height:44px}
+.modal .matching-form>label,.modal .matching-form .form-row>label{font-size:16px;line-height:1.8}
+.modal .matching-form .local-note,.modal .matching-form textarea+small{font-size:14px;line-height:1.8}
+.modal .matching-form .matching-shifts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0;border:0;margin:24px 0}
+.modal .matching-form .matching-shifts legend{font-size:16px;line-height:1.8;font-weight:700;padding:0;margin-bottom:12px;color:var(--pc-ink)}
+.modal .matching-form label.shift-chip{position:relative;display:flex;align-items:center;gap:10px;min-height:48px;padding:12px;margin:0;border:1px solid #e2edf4;border-radius:14px;background:#f8fafc;color:#526b80;font-size:15px;line-height:1.7;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
+.modal .matching-form label.shift-chip:hover{background:#edf8fb;border-color:#9acfdc}
+.modal .matching-form label.shift-chip.is-active{background:#e5f5fa;border-color:var(--pc-cyan);color:#087da4;font-weight:700}
+.shift-chip-check{width:20px;height:20px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:#e6edf4}
+.shift-chip.is-active .shift-chip-check{background:var(--pc-cyan);color:#fff}
+@media(min-width:681px){.reference-board .board-layout{display:grid;grid-template-columns:minmax(280px,300px) minmax(0,1fr)}.reference-board .filter-sidebar{min-width:280px}.reference-board .results{min-width:0}}
+@media(min-width:681px) and (max-width:999px){.reference-board .job-grid{grid-template-columns:minmax(0,1fr)}}
+@media(min-width:1000px) and (max-width:1399px){.reference-board .job-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.reference-board .board-layout{gap:20px}.matching-profile-actions{padding-inline-start:0}.matching-profile-actions button.matching-setup-action{flex:1}.modal .matching-form label.shift-chip{padding:10px;font-size:14px}.category-chip{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.category-chip,.modal .matching-form label.shift-chip{transition:none}}
+
+.modal:has(.matching-form) .modal-heading h2{font-size:22px;line-height:1.6}.matching-profile-panel .role-badge{font-size:12px;line-height:1.7}
