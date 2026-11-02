@@ -28,6 +28,12 @@
     },
     "api/directory.js": {
       "maxDuration": 60
+    },
+    "api/verifications.js": {
+      "includeFiles": "lib/*.ts"
+    },
+    "api/applications.js": {
+      "includeFiles": "lib/*.ts"
     }
   },
   "headers": [
