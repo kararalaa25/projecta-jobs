@@ -1,0 +1,19 @@
+/* One transform-driven layer glides between equal RTL touch targets. */
+@media(max-width:680px){
+ .mobile-nav.liquid-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:5px 8px;height:76px;isolation:isolate;overflow:visible}
+ .mobile-nav.liquid-nav>button{position:relative;z-index:1;width:100%;height:64px;min-width:48px;min-height:48px;justify-content:center;gap:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;color:var(--pc-muted);transition:color 300ms ease-in-out}
+ .liquid-nav-indicator{position:absolute;pointer-events:none;z-index:0;right:8px;top:5px;bottom:5px;width:calc((100% - 16px)/5);transform:translate3d(calc(var(--active-index)*-100%),0,0);transition:transform 300ms cubic-bezier(.22,.8,.25,1);will-change:transform}
+ .liquid-nav-indicator i{display:block;position:absolute;inset:1px 3px;border-radius:23px 23px 19px 19px;background:linear-gradient(155deg,#d4f4f8e8,#e8f0ffdb);border:1px solid #a5dce84d;box-shadow:inset 0 1px 1px #fff,0 3px 10px #087da40d}
+ .liquid-nav-indicator i:before{content:'';position:absolute;width:19px;height:4px;top:4px;right:calc(50% - 9.5px);border-radius:50%;background:#ffffffb3}
+ .mobile-nav.liquid-nav>button svg{flex-shrink:0;transform:scale(1);transition:transform 300ms cubic-bezier(.2,.8,.3,1.35),color 300ms ease-in-out}
+ .mobile-nav.liquid-nav>button.active{color:var(--pc-link)}
+ .mobile-nav.liquid-nav>button.active svg{transform:translateY(-2px) scale(1.1)}
+ .mobile-nav.liquid-nav>button:active svg{transform:scale(.94)}
+ .mobile-nav.liquid-nav>button:focus-visible{outline:2px solid var(--pc-link);outline-offset:-3px;border-radius:20px}
+ .mobile-nav.liquid-nav>button.mobile-plus{width:48px;height:48px;min-width:48px;justify-self:center;box-shadow:0 4px 12px #0b81ac2a;border-radius:16px;color:#fff}
+ .mobile-nav.liquid-nav>button.mobile-activity-action{color:var(--pc-muted);font-weight:700}
+ .mobile-nav.liquid-nav>button.mobile-activity-action.active{color:var(--pc-link)}
+ .mobile-nav.liquid-nav>button.mobile-activity-action svg{background:none;padding:0;border-radius:0;box-sizing:border-box}
+ .mobile-nav.liquid-nav>button span{font-size:11px;line-height:1.6;white-space:normal;text-align:center}
+}
+@media(prefers-reduced-motion:reduce){.liquid-nav-indicator,.mobile-nav.liquid-nav>button,.mobile-nav.liquid-nav>button svg{transition:none!important}.mobile-nav.liquid-nav>button.active svg{transform:none}}
