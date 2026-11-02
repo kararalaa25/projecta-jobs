@@ -233,3 +233,57 @@ button:active{transform:scale(.98)}
 .license-upload>button{justify-self:start;display:inline-flex;gap:8px;align-items:center;padding:10px 14px;border-radius:12px;color:var(--pc-link);background:#e6f5fa}
 .license-upload-ready{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#126650;font-size:12px;font-weight:600}
 @media(max-width:680px){.feed-toolbar{flex-wrap:wrap}.feed-source-info{font-size:11px}.license-upload{padding:14px}}
+
+/* Readable mobile-first type; scoped so hero and navigation retain their scale. */
+.reference-board .job-card .job-preview h3{font-size:20px;line-height:1.6;overflow-wrap:anywhere}
+.reference-board .job-card .job-preview.is-compact .preview-description>p{font-size:16px;line-height:1.75;max-height:5.25em}
+.reference-board .job-card .company-name{font-size:14px;line-height:1.75}
+.reference-board .job-card .listing-kind,.reference-board .job-card .listing-time,
+.reference-board .job-card .role-badge,.reference-board .job-card .raw-badge,
+.reference-board .job-card .verification-status,.reference-board .job-card .credential-badge,
+.reference-board .job-card .specialty-fit,.reference-board .job-card .read-full-post{font-size:14px;line-height:1.75}
+.reference-board .job-card .compact-facts>div dt,.reference-board .job-card .compact-facts>div dd{font-size:14px;line-height:1.8;overflow-wrap:anywhere}
+.reference-board .job-card .role-badge{padding:5px 10px}
+.reference-board .job-card .identity-name{min-width:0;flex-wrap:wrap}
+.reference-board .job-card .job-actions{flex-wrap:wrap;gap:10px}
+.reference-board .job-card .contact-icon,.reference-board .job-card .save-button{min-width:44px;min-height:44px}
+.reference-board .job-card .read-full-post{min-height:44px;padding:10px 12px}
+.reference-board .sort-control select,.reference-board .filter-panel select,
+.reference-board .filter-option,.reference-board .filter-option .role-badge,
+.reference-board .listing-tabs .tabs button{font-size:14px;line-height:1.75}
+.reference-board .sort-control select,.reference-board .filter-panel select{min-height:44px;padding:10px 16px;max-width:100%;color-scheme:light}
+.reference-board .filter-option{min-height:44px;padding:10px 12px;gap:10px}
+.reference-board .filter-panel legend,.reference-board .filter-heading h2{font-size:16px;line-height:1.75}
+.reference-board .listing-tabs .tabs{flex-wrap:wrap}
+.reference-board .listing-tabs .tabs button{min-height:44px;padding:10px 16px;white-space:normal}
+.reference-board .search-bar input,.reference-board .search-bar select{font-size:16px;min-height:44px}
+.modal .job-preview:not(.is-compact) h3{font-size:22px;line-height:1.6;overflow-wrap:anywhere}
+.modal .job-preview:not(.is-compact) .preview-description>p{font-size:16px;line-height:1.85;overflow-wrap:anywhere}
+.modal .preview-label,.modal .job-facts dt,.modal .job-facts dd,.modal .detail-trust .verification-status,.modal .detail-trust .credential-badge{font-size:14px;line-height:1.8;overflow-wrap:anywhere}
+.modal .job-facts>div{min-width:0;gap:10px;flex-wrap:wrap}
+.modal form label,.modal .modal-intro,.modal form .local-note,.modal form .resume-label,
+.modal form .resume-dropzone strong,.modal form .resume-dropzone span,.modal form .resume-upload>.local-note,
+.modal form .primary,.modal form .resume-browse{font-size:16px;line-height:1.75}
+.modal form input,.modal form select,.modal form textarea{font-size:16px;line-height:1.75;min-height:48px;max-width:100%}
+.modal form input::placeholder,.modal form textarea::placeholder{font-size:inherit;line-height:inherit}
+.modal form small,.modal form .profile-specialty,.modal form .role-badge,.modal form .credential-badge{font-size:14px;line-height:1.8}
+.modal form .primary,.modal form .resume-browse{min-height:48px;padding:10px 16px}
+.modal .form-row>*{min-width:0}
+@media(min-width:768px){
+ .reference-board .sort-control select,.reference-board .filter-panel select,.reference-board .filter-option,.reference-board .filter-option .role-badge,.reference-board .listing-tabs .tabs button{font-size:16px}
+ .modal .job-preview:not(.is-compact) .preview-description>p,.modal form label,.modal .modal-intro,.modal form .local-note,.modal form .resume-label,.modal form .resume-dropzone strong,.modal form .resume-dropzone span,.modal form .primary,.modal form .resume-browse{font-size:18px}
+ .modal .job-preview:not(.is-compact) h3{font-size:24px}
+}
+@media(min-width:1024px){
+ .reference-board .job-card .job-preview.is-compact .preview-description>p{font-size:18px}
+ .reference-board .job-card .job-preview h3{font-size:21px}
+}
+@media(max-width:680px){.modal .job-facts>div{display:flex;flex-direction:column;align-items:flex-start}.reference-board .sort-control{max-width:100%}}
+/* Let enlarged tab labels wrap before the mobile filter trigger overflows. */
+.reference-board .listing-tabs{flex-wrap:wrap;gap:12px}
+.reference-board .listing-tabs .tabs{min-width:0;max-width:100%;flex:1 1 240px}
+.reference-board .listing-tabs .tabs button{flex:1 1 auto}
+.reference-board .results-heading{flex-wrap:wrap;gap:12px}
+.reference-board .results-heading>div{min-width:0;flex:1 1 180px}
+.reference-board .results-heading .sort-control{min-width:0}
+.reference-board .results-heading .filter-button{flex-shrink:0;min-height:44px;min-width:44px}
