@@ -1,6 +1,6 @@
-import {createWhatsAppPreferencesHandler} from './api/whatsapp/preferences.js'
-import {createTelegramLinkHandler} from './api/telegram/link.js'
-import {createTelegramWebhookHandler} from './api/telegram/webhook.js'
+import {createWhatsAppPreferencesHandler} from './server/notification-handlers/whatsapp-preferences.js'
+import {createTelegramLinkHandler} from './server/notification-handlers/telegram-link.js'
+import {createTelegramWebhookHandler} from './server/notification-handlers/telegram-webhook.js'
 import { defineConfig, loadEnv } from 'vite'
 import deploymentConfig from './vercel.json' with {type:'json'}
 import react from '@vitejs/plugin-react'

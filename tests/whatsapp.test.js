@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {formatIraqiPhoneNumber} from '../lib/phone.ts'
 import {sendWhatsAppTemplateMessage,notifyPublisherWhatsAppNewApplication,notifyApplicantWhatsAppInterviewScheduled} from '../lib/whatsapp.ts'
-import {createWhatsAppPreferencesHandler} from '../api/whatsapp/preferences.js'
+import {createWhatsAppPreferencesHandler} from '../server/notification-handlers/whatsapp-preferences.js'
 const env={WHATSAPP_ACCESS_TOKEN:'mock-secret',WHATSAPP_PHONE_NUMBER_ID:'123456',WHATSAPP_GRAPH_API_VERSION:'v17.0'}
 const result=()=>({setHeader(){},end(raw){this.body=JSON.parse(raw)}})
 test('Iraqi phone formats normalize to the same Meta digits-only recipient',()=>{

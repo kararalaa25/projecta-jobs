@@ -1,6 +1,6 @@
-import {serverClient} from '../../server/supabase.js'
-import {headers,json,readBody,check,errorResponse} from '../../server/http.js'
-import {safeEqual,verifyLink,tokenHash} from '../../server/telegram-link.js'
+import {serverClient} from '../supabase.js'
+import {headers,json,readBody,check,errorResponse} from '../http.js'
+import {safeEqual,verifyLink,tokenHash} from '../telegram-link.js'
 import {sendTelegramMessage} from '../../lib/telegram.js'
 export const confirmation='✅ تم ربط حسابك بنجاح بـ منصة Projecta Jobs!\n\nستصلك كافة الإشعارات والمواعيد وتحديثات الوظائف مباشرة هنا.'
 export function createTelegramWebhookHandler(env=process.env,factory=serverClient,send=sendTelegramMessage){return async(req,res)=>{

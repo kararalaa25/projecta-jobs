@@ -1,8 +1,8 @@
-import {serverClient} from '../../server/supabase.js'
-import {headers,json,sameOrigin,bearerToken,authenticate,check,errorResponse,HttpError} from '../../server/http.js'
-import {getPrivateProfile} from '../../server/verifications.js'
+import {serverClient} from '../supabase.js'
+import {headers,json,sameOrigin,bearerToken,authenticate,check,errorResponse,HttpError} from '../http.js'
+import {getPrivateProfile} from '../verifications.js'
 import {hasConfirmedIdentity,isSuspended} from '../../config/access.js'
-import {issueLink,tokenHash} from '../../server/telegram-link.js'
+import {issueLink,tokenHash} from '../telegram-link.js'
 export function createTelegramLinkHandler(env=process.env,factory=serverClient){return async(req,res)=>{
  headers(res);if(req.method!=='POST')return json(res,405,{error:'طريقة الطلب غير مسموحة.'})
  try{sameOrigin(req,env);bearerToken(req);const db=factory(env),user=await authenticate(db,req)

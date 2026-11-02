@@ -37,3 +37,5 @@ Local tests mock Telegram HTTP and database access; no live bot messages are sen
 ## Production release update
 
 On 2 November 2026, the notification SQL was applied to Supabase project `aqptjxmcclstxzpazbur` through the authenticated connector, with matching migration-history versions committed locally. Earlier local-only/pending statements above describe the preparation stage and are superseded by this release update. Profile data and the linking RPC remain service-role-only. Deployment does not register the Telegram webhook, approve Meta templates, create an interview scheduler, or prove live message delivery.
+
+Notification endpoints retain their public URLs via Vercel rewrites into the existing verifications function. Handler implementations live under `server/notification-handlers/` to stay within the Hobby function limit; notification dispatch retains each handler’s independent authentication checks.

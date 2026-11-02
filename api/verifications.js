@@ -1,9 +1,15 @@
+import {createTelegramLinkHandler} from '../server/notification-handlers/telegram-link.js'
+import {createTelegramWebhookHandler} from '../server/notification-handlers/telegram-webhook.js'
+import {createWhatsAppPreferencesHandler} from '../server/notification-handlers/whatsapp-preferences.js'
 import {serverClient} from '../server/supabase.js'
 import {headers,json,sameOrigin,authenticate,bearerToken,readBody,HttpError,errorResponse,check} from '../server/http.js'
 import {isSuspended} from '../config/access.js'
 import {profileCompletion} from '../config/account-profile.js'
 import {getPrivateProfile,requestOf,saveProfile,submitVerification,withdrawVerification} from '../server/verifications.js'
 export function createVerificationsHandler(env=process.env,factory=serverClient){return async(req,res)=>{
+ const route=req.query?.notification||new URL(req.url||'/','http://localhost').searchParams.get('notification')
+ const routes={'telegram-link':createTelegramLinkHandler,'telegram-webhook':createTelegramWebhookHandler,'whatsapp-preferences':createWhatsAppPreferencesHandler}
+ if(Object.hasOwn(routes,route||''))return routes[route](env,factory)(req,res)
  headers(res)
  if(!['GET','POST'].includes(req.method)){res.setHeader('Allow','GET, POST');return json(res,405,{error:'طريقة الطلب غير مسموحة.'})}
  try{

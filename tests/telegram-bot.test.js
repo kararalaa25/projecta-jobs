@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {issueLink,verifyLink,tokenHash,safeEqual} from '../server/telegram-link.js'
-import {createTelegramWebhookHandler,confirmation} from '../api/telegram/webhook.js'
-import {createTelegramLinkHandler} from '../api/telegram/link.js'
+import {createTelegramWebhookHandler,confirmation} from '../server/notification-handlers/telegram-webhook.js'
+import {createTelegramLinkHandler} from '../server/notification-handlers/telegram-link.js'
 import {notifyPublisherNewApplication,notifyApplicantInterviewScheduled,sendTelegramMessage} from '../lib/telegram.js'
 const env={TELEGRAM_BOT_TOKEN:'test-only',TELEGRAM_WEBHOOK_SECRET:'test-webhook-secret',TELEGRAM_LINK_SECRET:'a'.repeat(40)},id='22222222-2222-4222-8222-222222222222'
 const output=()=>({setHeader(){},end(raw){this.body=JSON.parse(raw)}})
@@ -37,4 +37,10 @@ test('notification helpers send plain Arabic text, never markup or token errors'
  await notifyPublisherNewApplication('12345','د. مثال','<وظيفة>',{env,fetcher});await notifyApplicantInterviewScheduled('12345','عيادة المثال','2026-11-10','10:00',{env,fetcher})
  assert.match(messages[0].text,/<وظيفة>/);assert.equal(messages[0].parse_mode,undefined);assert.match(messages[1].text,/بغداد/)
  await assert.rejects(()=>sendTelegramMessage('12345','test',{env,fetcher:async()=>({ok:false,status:403,async json(){return {ok:false}}})}),error=>!error.message.includes(env.TELEGRAM_BOT_TOKEN))
+})
+test('notification rewrite dispatch retains webhook authentication without adding functions',async()=>{
+ const {createVerificationsHandler}=await import('../api/verifications.js')
+ for(const request of [{method:'POST',url:'/api/verifications?notification=telegram-webhook',headers:{}},{method:'POST',url:'/api/telegram/webhook',query:{notification:'telegram-webhook'},headers:{}}]){
+  const res=output();await createVerificationsHandler(env,()=>{throw Error('must not run')})(request,res);assert.equal(res.statusCode,401);assert.equal(res.body.error,'Unauthorized')
+ }
 })

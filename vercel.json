@@ -5,6 +5,18 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/telegram/link",
+      "destination": "/api/verifications?notification=telegram-link"
+    },
+    {
+      "source": "/api/telegram/webhook",
+      "destination": "/api/verifications?notification=telegram-webhook"
+    },
+    {
+      "source": "/api/whatsapp/preferences",
+      "destination": "/api/verifications?notification=whatsapp-preferences"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
