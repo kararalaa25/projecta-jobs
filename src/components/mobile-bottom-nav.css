@@ -17,3 +17,23 @@
  .mobile-nav.liquid-nav>button span{font-size:11px;line-height:1.6;white-space:normal;text-align:center}
 }
 @media(prefers-reduced-motion:reduce){.liquid-nav-indicator,.mobile-nav.liquid-nav>button,.mobile-nav.liquid-nav>button svg{transition:none!important}.mobile-nav.liquid-nav>button.active svg{transform:none}}
+
+/* Sculpted floating dock with a recessed center and raised posting action. */
+.mobile-nav-surface{display:none}
+@media(max-width:680px){
+ .mobile-nav.liquid-nav{height:82px;padding:6px 8px 4px;border:0;border-radius:0;background:transparent;backdrop-filter:none;box-shadow:none;bottom:calc(12px + env(safe-area-inset-bottom))}
+ .mobile-nav-surface{display:block;position:absolute;inset:0;width:100%;height:100%;z-index:-1;overflow:visible;pointer-events:none;filter:drop-shadow(0 6px 16px #173c6012)}
+ .mobile-nav-surface path{fill:#fff}
+ .mobile-nav.liquid-nav>button{height:72px;gap:7px;justify-content:center;color:#7d9bb0}
+ .mobile-nav.liquid-nav>button.mobile-plus{width:100%;height:72px;min-height:48px;padding-top:34px;background:none;box-shadow:none;border-radius:18px;color:#7d9bb0;display:flex}
+ .mobile-nav.liquid-nav .mobile-post-orb{position:absolute;top:-30px;left:50%;width:58px;height:58px;display:grid;place-items:center;border-radius:50%;background:var(--pc-gradient);color:#fff;box-shadow:0 7px 0 #086b9e0a,0 18px 27px #157aaa30;transform:translateX(-50%);transition:transform 300ms cubic-bezier(.2,.8,.3,1.35),box-shadow 300ms ease}
+ .mobile-nav.liquid-nav>button.mobile-plus:active .mobile-post-orb{transform:translateX(-50%) scale(.94)}
+ .mobile-nav.liquid-nav>button.mobile-plus.active .mobile-post-orb{box-shadow:0 7px 0 #086b9e0a,0 18px 30px #157aaa40}
+ .liquid-nav-indicator{top:9px;bottom:7px;transition:transform 300ms cubic-bezier(.22,.8,.25,1),opacity 180ms ease}
+ .liquid-nav-indicator i{inset:0 3px;border-radius:20px;background:linear-gradient(160deg,#e5f7fa99,#eef4ff80);border:0;box-shadow:none}
+ .liquid-nav-indicator i:before{display:none}
+ .liquid-nav[data-active="2"] .liquid-nav-indicator{opacity:0}
+ .mobile-nav.liquid-nav>button.mobile-plus.active{color:var(--pc-link)}
+ .mobile-nav.liquid-nav>button.mobile-plus.active svg{transform:none}
+}
+@media(prefers-reduced-motion:reduce){.mobile-nav.liquid-nav .mobile-post-orb{transition:none!important}}
