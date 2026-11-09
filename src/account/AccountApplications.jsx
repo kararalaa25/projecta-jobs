@@ -3,12 +3,40 @@ import useTrustSync from '../useTrustSync'
 import {useEffect,useState,useRef} from 'react'
 import {applicationRequest} from './application-client'
 import {exactDate} from '../dates'
-export const applicationStatus={submitted:'قيد المراجعة',reviewing:'تم الاطلاع',accepted:'مقبول',rejected:'غير مقبول'}
+import {Clock3,Eye,Sparkles,CheckCircle2,Archive,XCircle} from 'lucide-react'
+import {applicationStatus as _applicationStatus, applicationStateClass, applicationStatusIcon} from './application-status.js'
+
+export const applicationStatus = _applicationStatus
+
+export function ApplicationStatusBadge({status}) {
+ const normalized = (status || 'submitted').toLowerCase()
+ const label = applicationStatus[normalized] || normalized
+ const iconMap = {
+  submitted: Clock3,
+  pending: Clock3,
+  reviewing: Eye,
+  viewed: Eye,
+  shortlisted: Sparkles,
+  accepted: CheckCircle2,
+  archived: Archive,
+  rejected: XCircle
+ }
+ const Icon = iconMap[normalized] || Clock3
+ const stateClass = `application-state ${applicationStateClass[normalized] || 'state-submitted'}`
+
+ return (
+  <span className={stateClass} role="status" aria-label={`حالة الطلب: ${label}`}>
+   <Icon size={14} aria-hidden="true"/>
+   <span>{label}</span>
+  </span>
+ )
+}
+
 export default function AccountApplications({publisher=false,onExplore}){
  const [selected,setSelected]=useState(null),[rows,setRows]=useState([]),[job,setJob]=useState(null),[offset,setOffset]=useState(0),[more,setMore]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[revision,setRevision]=useState(0)
  const viewKey=useRef('')
  useEffect(()=>{const controller=new AbortController(),key=`${publisher}:${selected}:${offset}`;if(viewKey.current!==key)setLoading(true);setError('');applicationRequest({view:publisher?selected?'applicants':'posted':'mine',offset:String(offset),...(selected?{job_id:selected}:{})},controller.signal).then(body=>{viewKey.current=key;setRows(body.rows);setJob(body.job||null);setMore(body.hasMore)}).catch(failure=>{if(!controller.signal.aborted)setError(failure.message)}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});return()=>controller.abort()},[publisher,selected,offset,revision])
  useTrustSync(()=>setRevision(value=>value+1))
  useEffect(()=>{const refresh=()=>{if(document.visibilityState!=='hidden')setRevision(value=>value+1)};const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[])
- return <section className="account-application-dashboard">{selected&&<button className="dashboard-back" onClick={()=>{setSelected(null);setOffset(0)}}>العودة إلى الوظائف المعلنة</button>}{job&&<h3>{job.title} · {job.company}</h3>}{loading?<p role="status">جارٍ تحميل البيانات…</p>:error?<div role="alert"><p>{error}</p><button onClick={()=>setRevision(value=>value+1)}>إعادة المحاولة</button></div>:!rows.length?<div className="empty-state"><h3>{publisher?selected?'لا توجد طلبات لهذه الوظيفة بعد':'لم تنشر وظائف بعد':'لم ترسل طلبات توظيف بعد'}</h3>{!publisher&&<button className="primary" onClick={onExplore}>استكشف فرص العمل</button>}</div>:<ul>{rows.map(row=><li key={row.id}>{publisher&&selected?<ApplicantCard row={row} jobId={selected} statusLabel={applicationStatus[row.status]||row.status}/>:publisher?<><h3>{row.title}</h3><p>{row.company}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><button className="primary" onClick={()=>{setSelected(row.id);setOffset(0)}}>عرض المتقدمين</button></>:<><h3>{row.job?.title||'إعلان غير متاح'}</h3><p>{row.job?.company||'جهة العمل'}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><span className="application-state">{applicationStatus[row.status]||row.status}</span></>}</li>)}</ul>}{!loading&&!error&&(offset>0||more)&&<nav aria-label="صفحات الطلبات"><button disabled={!offset} onClick={()=>setOffset(value=>Math.max(0,value-20))}>السابق</button><button disabled={!more} onClick={()=>setOffset(value=>value+20)}>التالي</button></nav>}</section>
+ return <section className="account-application-dashboard">{selected&&<button className="dashboard-back" onClick={()=>{setSelected(null);setOffset(0)}}>العودة إلى الوظائف المعلنة</button>}{job&&<h3>{job.title} · {job.company}</h3>}{loading?<p role="status">جارٍ تحميل البيانات…</p>:error?<div role="alert"><p>{error}</p><button onClick={()=>setRevision(value=>value+1)}>إعادة المحاولة</button></div>:!rows.length?<div className="empty-state"><h3>{publisher?selected?'لا توجد طلبات لهذه الوظيفة بعد':'لم تنشر وظائف بعد':'لم ترسل طلبات توظيف بعد'}</h3>{!publisher&&<button className="primary" onClick={onExplore}>استكشف فرص العمل</button>}</div>:<ul>{rows.map(row=><li key={row.id}>{publisher&&selected?<ApplicantCard row={row} jobId={selected} statusLabel={applicationStatus[row.status]||row.status}/>:publisher?<><h3>{row.title}</h3><p>{row.company}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><button className="primary" onClick={()=>{setSelected(row.id);setOffset(0)}}>عرض المتقدمين</button></>:<><h3>{row.job?.title||'إعلان غير متاح'}</h3><p>{row.job?.company||'جهة العمل'}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><ApplicationStatusBadge status={row.status}/></>}</li>)}</ul>}{!loading&&!error&&(offset>0||more)&&<nav aria-label="صفحات الطلبات"><button disabled={!offset} onClick={()=>setOffset(value=>Math.max(0,value-20))}>السابق</button><button disabled={!more} onClick={()=>setOffset(value=>value+20)}>التالي</button></nav>}</section>
 }

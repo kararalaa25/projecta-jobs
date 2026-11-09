@@ -6,6 +6,8 @@ import {readPlatform} from '../server/platform.js'
 import { serverClient } from '../server/supabase.js'
 import catalog from '../config/iraq.json' with { type: 'json' }
 import { normalizeIraqiPhone, telegramHandle } from '../src/contacts.js'
+import { dispatchJobBroadcast } from '../server/broadcast.js'
+
 const roles = new Set(catalog.roles.map(r=>r.id))
 const schedules = {'Full-time':'full_time','Part-time':'part_time','Contract':'locum_temp'}
 const cities = new Set(catalog.governorates.map(g=>g.id))
@@ -24,7 +26,7 @@ export function validateJob(body,custom) {
   return {title,role_category:primary,employment_type:schedules[body.schedule],location_city:body.city,salary_range:salary,description,
     contact_info:JSON.stringify({phone:phone.local,whatsapp:phone.whatsapp,telegram,company_name:company,role_category:primary,role_categories:categorization.roles.length?categorization.roles:[primary],target_audience:categorization.targetAudience,categorization,employment_type:body.schedule}),source:'manual',status:'active'}
 }
-export function createPublishHandler(env=process.env, clientFactory=serverClient) {
+export function createPublishHandler(env=process.env, clientFactory=serverClient, broadcastDispatcher=dispatchJobBroadcast) {
   return async(req,res)=>{
     res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store')
     const send=(status,error)=>{res.statusCode=status;res.end(JSON.stringify({error}))}
@@ -60,6 +62,12 @@ export function createPublishHandler(env=process.env, clientFactory=serverClient
       // Ownership, source, status and all accepted columns are assigned by the server.
       const {data,error}=await db.from('job_offers').insert({...record,publisher_id:user.id}).select('id').single()
       if(error)throw error
+
+      // Non-blocking automated social alert broadcast
+      if (broadcastDispatcher) {
+        broadcastDispatcher(db, {...record, id: data.id}, user, env).catch(() => {})
+      }
+
       res.statusCode=201;return res.end(JSON.stringify({id:data.id}))
     }catch(error){console.error('Job publishing failed:',safeBackendCode(error));return send(502,'تعذر حفظ الإعلان. لم يتم تأكيد النشر؛ يرجى المحاولة لاحقاً.')}
   }

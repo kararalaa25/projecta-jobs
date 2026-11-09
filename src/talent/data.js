@@ -44,11 +44,12 @@ export function validateTalent(form){
  if(!profile)throw Error('تعذر قراءة بيانات الملف.')
  return profile
 }
-export function talentMatches(profile,{query='',city='',role='',availability='',workType=''}={}){
+export function talentMatches(profile,{query='',city='',role='',availability='',workType='',onlyVerified=false}={}){
  if(city&&profile.city!==talentCity(city))return false
  if(role&&profile.role!==canonicalRole(role))return false
  if(availability&&profile.availability!==availability)return false
  if(workType&&!profile.workTypes.includes(workType))return false
+ if(onlyVerified&&!(profile.verification?.status==='verified'||profile.verification?.credentials?.length>0))return false
  return matchesSearch(profile.searchText||talentSearchText(profile),query)
 }
 export function talentSearchText(profile){

@@ -1,9 +1,10 @@
 import ActivityCenter from './account/ActivityCenter'
 import MobileBottomNav from './components/MobileBottomNav'
 import CategoryChip from './components/CategoryChip'
+import ToggleSwitch from './components/ToggleSwitch'
 import React,{useEffect,useState,useMemo,useRef,lazy,Suspense} from 'react'
 import {createRoot} from 'react-dom/client'
-import {HeartPulse,Plus,Search,MapPin,Bookmark,Users,BriefcaseBusiness,SlidersHorizontal,ChevronDown,House,LogOut,ShieldCheck,X,ArrowUpLeft,Send,UserRound,Menu} from 'lucide-react'
+import {HeartPulse,Plus,Search,MapPin,Bookmark,Users,BriefcaseBusiness,SlidersHorizontal,ChevronDown,House,LogOut,ShieldCheck,X,ArrowUpLeft,Send,UserRound,Menu,BadgeCheck} from 'lucide-react'
 import {supabase} from './supabase'
 import {startJobFeed} from './job-realtime.js'
 import {belongsToFeed} from '../config/job-feeds.js'
@@ -20,7 +21,7 @@ import DeferredTraining from './components/DeferredTraining'
 import AsyncContent from './components/AsyncContent'
 import JobGridSkeleton from './components/JobGridSkeleton'
 import './matching/matching.css'
-import useJobTrust,{listingVerification} from './useJobTrust'
+import useJobTrust,{listingVerification,eligibleForTrust} from './useJobTrust'
 import {VerificationStatus} from './components/VerifiedBadge'
 import CredentialBadges from './components/CredentialBadges'
 import CareerHero from './components/CareerHero'
@@ -31,11 +32,14 @@ import TelegramSyncStatus from './components/TelegramSyncStatus'
 import {specialtyClass,jobSearchText,matchesSearch} from './job-ui.js'
 import ProjectaLogo from './components/ProjectaLogo'
 import JobPreview from './components/JobPreview'
+import {isJobExpired} from './dates.js'
 import './style.css'
 import './premium.css'
 import './reference.css'
 import './polish.css'
 import './performance.css'
+import './design-tokens.css'
+import './ui-polish.css'
 
 const PostJobForm=lazy(()=>import('./components/PostJobForm'))
 const AuthPanel=lazy(()=>import('./components/AuthPanel'))
@@ -53,13 +57,13 @@ const TalentDirectory=lazy(()=>import('./talent/TalentDirectory'))
 const TrainingHub=lazy(()=>import('./training/TrainingHub'))
 
 const samples=[
- {id:'c1',type:'candidates',title:'طبيبة أسنان عامة',company:'د. نور أحمد',city:'Baghdad',role:'Dentists',salary:'١٬٥٠٠٬٠٠٠ د.ع. — الراتب المتوقع',schedule:'Full-time',description:'خبرة ثلاث سنوات في طب الأسنان الترميمي والوقائي. أبحث عن فريق طبي يتيح التطور المهني وتقديم رعاية متميزة.',logo:'ن',color:'pink',time:'نموذج توضيحي',sample:true},
- {id:'c2',type:'candidates',title:'مساعدة طبيب أسنان',company:'سارة علي',city:'Erbil',role:'Assistants & Techs',salary:'٧٠٠٬٠٠٠ د.ع. — الراتب المتوقع',schedule:'Full-time',description:'خبرة في المساعدة السريرية والتعقيم ورعاية المرضى. متاحة للانضمام إلى فريق طبي في أربيل.',logo:'س',color:'mint',time:'نموذج توضيحي',sample:true},
- {id:'c3',type:'candidates',title:'مندوب طبي',company:'عمر حسن',city:'Basra',role:'Medical Reps',salary:'١٬٢٠٠٬٠٠٠ د.ع. — الراتب المتوقع',schedule:'Full-time',description:'خبرة سنتين في التواصل مع المؤسسات الصحية وتطوير العلاقات المهنية في جنوب العراق.',logo:'ع',color:'peach',time:'نموذج توضيحي',sample:true},
+ {id:'c1',type:'candidates',title:'طبيبة أسنان عامة',company:'د. نور أحمد',city:'Baghdad',role:'Dentists',salary:'١٬٥٠٠٬٠٠٠ د.ع. — الراتب المتوقع',schedule:'Full-time',description:'خبرة ثلاث سنوات في طب الأسنان الترميمي والوقائي. أبحث عن فريق طبي يتيح التطور المهني وتقديم رعاية متميزة.',logo:'ن',color:'pink',time:'نموذج توضيحي',sample:true,createdAt:new Date(Date.now()-2*86400000).toISOString(),verification:{status:'verified',kind:'dentist',credentials:['syndicate_membership']}},
+ {id:'c2',type:'candidates',title:'مساعدة طبيب أسنان',company:'سارة علي',city:'Erbil',role:'Assistants & Techs',salary:'٧٠٠٬٠٠٠ د.ع. — الراتب المتوقع',schedule:'Full-time',description:'خبرة في المساعدة السريرية والتعقيم ورعاية المرضى. متاحة للانضمام إلى فريق طبي في أربيل.',logo:'س',color:'mint',time:'نموذج توضيحي',sample:true,createdAt:new Date(Date.now()-5*86400000).toISOString(),verification:{status:'verified',kind:'professional',credentials:['syndicate_membership']}},
+ {id:'c3',type:'candidates',title:'مندوب طبي',company:'عمر حسن',city:'Basra',role:'Medical Reps',salary:'١٬٢٠٠٬٠٠٠ د.ع. — الراتب المتوقع',schedule:'Full-time',description:'خبرة سنتين في التواصل مع المؤسسات الصحية وتطوير العلاقات المهنية في جنوب العراق.',logo:'ع',color:'peach',time:'نموذج توضيحي',sample:true,createdAt:new Date(Date.now()-12*86400000).toISOString(),verification:{status:'unverified',kind:'medical_rep',credentials:[]}},
 ]
 function stored(key){try{const v=JSON.parse(localStorage.getItem(key));return Array.isArray(v)?v:[]}catch{return []}}
 function App(){
- const [tab,setTab]=useState('jobs'),[role,setRole]=useState('All roles'),[city,setCity]=useState('All cities'),[query,setQuery]=useState(''),[schedule,setSchedule]=useState('Any schedule'),[sort,setSort]=useState('newest'),[showFilters,setShowFilters]=useState(false),[onlySaved,setOnlySaved]=useState(false)
+ const [tab,setTab]=useState('jobs'),[role,setRole]=useState('All roles'),[city,setCity]=useState('All cities'),[query,setQuery]=useState(''),[schedule,setSchedule]=useState('Any schedule'),[sort,setSort]=useState('newest'),[showFilters,setShowFilters]=useState(false),[onlySaved,setOnlySaved]=useState(false),[onlyVerified,setOnlyVerified]=useState(false)
  const accountTrigger=useRef(null)
  function openAccount(trigger){accountTrigger.current=trigger||(document.activeElement?.closest('.mobile-drawer')?document.querySelector('.menu-toggle'):document.activeElement);setMenuOpen(false);setModal(user?'account':'auth')}
  function accountAction(option){if(option==='saved'){setModal(null);openSaved()}else if(option==='training')window.location.assign('/training');else setModal(option)}
@@ -91,7 +95,7 @@ function App(){
  function selectTab(next){if(next!=='telegram'){if(role==='Unsorted')setRole('All roles');if(city==='City not specified')setCity('All cities');if(schedule==='Schedule not specified')setSchedule('Any schedule')}setTab(next)}
  function browseFeed(next,specialty){selectTab(next);if(specialty)setRole(specialty);setOnlySaved(false);requestAnimationFrame(()=>{document.getElementById('job-board')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});document.getElementById('results-heading')?.focus({preventScroll:true})})}
  function openSaved(){reset();browseFeed(tab==='candidates'?'jobs':tab);setOnlySaved(true)}
- function reset(){matching.setFiltering(false);setRole('All roles');setCity('All cities');setQuery('');setSchedule('Any schedule');setOnlySaved(false)}
+ function reset(){matching.setFiltering(false);setRole('All roles');setCity('All cities');setQuery('');setSchedule('Any schedule');setOnlySaved(false);setOnlyVerified(false)}
  async function signOut(){const {error}=await supabase.auth.signOut();if(error){setMessage('تعذر تسجيل الخروج. حاول مجدداً.');return false}setUser(null);setModal(null);setMessage('تم تسجيل الخروج بأمان.');return true}
  async function post(e){
   e.preventDefault();if(!user||!isVerifiedProfessional(user)){openPost();return}setPosting(true);setPostError('');const form=Object.fromEntries(new FormData(e.currentTarget))
@@ -117,19 +121,40 @@ function App(){
  const indexedJobs=useMemo(()=>[...local,...live,...samples].map(indexJob),[local,live,indexJob])
  useEffect(()=>setVisibleCount(24),[matching.profile,matching.filtering])
  const fits=useMemo(()=>new Map(matching.profile?indexedJobs.filter(job=>job.type==='jobs').map(job=>[job.id,scoreSpecialtyFit(matching.profile,job)]):[]),[indexedJobs,matching.profile])
- const filteredJobs=useMemo(()=>indexedJobs.filter(j=>(role==='All roles'||j.role===role||j.roles?.includes(role))&&(city==='All cities'||j.city===city||j.governorates?.includes(city))&&(schedule==='Any schedule'||j.schedule===schedule)&&(!onlySaved||saved.includes(j.id))&&matchesSearch(j.searchText,query)&&(!matching.filtering||j.type!=='jobs'||isSpecialtyRecommendation(matching.profile,j,fits.get(j.id)))),[indexedJobs,role,city,schedule,onlySaved,saved,query,matching.filtering,matching.profile,fits])
+ const jobTrust=useJobTrust(indexedJobs.filter(eligibleForTrust))
+ const verifiedCount=useMemo(()=>indexedJobs.filter(j=>belongsToFeed(j,tab)&&!isJobExpired(j)&&(j.type==='candidates'?(j.verification?.status==='verified'||j.verification?.credentials?.length>0):j.source==='manual')).length,[indexedJobs,tab])
+ const filteredJobs=useMemo(()=>indexedJobs.filter(j=>{
+  if(role!=='All roles'&&j.role!==role&&!j.roles?.includes(role))return false
+  if(city!=='All cities'&&j.city!==city&&!j.governorates?.includes(city))return false
+  if(schedule!=='Any schedule'&&j.schedule!==schedule)return false
+  if(onlySaved&&!saved.includes(j.id))return false
+  if(!matchesSearch(j.searchText,query))return false
+  if(matching.filtering&&j.type!=='jobs'&&!isSpecialtyRecommendation(matching.profile,j,fits.get(j.id)))return false
+  if(!onlySaved&&isJobExpired(j))return false
+  if(onlyVerified){
+   if(j.type==='candidates'){
+    const verified=j.verification?.status==='verified'||(j.verification?.credentials?.length>0)
+    if(!verified)return false
+   }else{
+    if(j.source==='telegram')return false
+    const trust=jobTrust[j.id]?.status
+    const verified=j.source==='manual'&&(trust==='verified'||(!trust&&j.official))
+    if(!verified)return false
+   }
+  }
+  return true
+ }),[indexedJobs,role,city,schedule,onlySaved,saved,query,matching.filtering,matching.profile,fits,onlyVerified,jobTrust])
  const categoryCounts=useMemo(()=>{
   const counts=new Map(feedRoles.map(value=>[value,0]))
   for(const job of indexedJobs){
-   if(!belongsToFeed(job,tab)||city!=='All cities'&&job.city!==city&&!job.governorates?.includes(city)||schedule!=='Any schedule'&&job.schedule!==schedule||onlySaved&&!saved.includes(job.id)||!matchesSearch(job.searchText,query)||matching.filtering&&job.type==='jobs'&&!isSpecialtyRecommendation(matching.profile,job,fits.get(job.id)))continue
+   if(!belongsToFeed(job,tab)||city!=='All cities'&&job.city!==city&&!job.governorates?.includes(city)||schedule!=='Any schedule'&&job.schedule!==schedule||onlySaved&&!saved.includes(job.id)||!matchesSearch(job.searchText,query)||matching.filtering&&job.type==='jobs'&&!isSpecialtyRecommendation(matching.profile,job,fits.get(job.id))||(!onlySaved&&isJobExpired(job))||(onlyVerified&&(job.type==='candidates'?!job.verification?.status==='verified'&&!job.verification?.credentials?.length:job.source==='telegram'||!(jobTrust[job.id]?.status==='verified'||(!jobTrust[job.id]&&job.official)))))continue
    counts.set('All roles',(counts.get('All roles')||0)+1)
    for(const category of new Set([job.role,...(job.roles||[])]))if(counts.has(category))counts.set(category,counts.get(category)+1)
   }
   return counts
- },[indexedJobs,tab,city,schedule,onlySaved,saved,query,matching.filtering,matching.profile,fits,platform])
+ },[indexedJobs,tab,city,schedule,onlySaved,saved,query,matching.filtering,matching.profile,fits,platform,onlyVerified,jobTrust])
  const feedMatches=next=>number(filteredJobs.filter(j=>belongsToFeed(j,next)).length)
  const listings=filteredJobs.filter(j=>onlySaved||belongsToFeed(j,tab)).sort((a,b)=>sort==='match'&&matching.profile&&tab!=='candidates'?((fits.get(b.id)?.score??-1)-(fits.get(a.id)?.score??-1))||(Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0):sort==='title'?a.title.localeCompare(b.title,'ar'):sort==='salary'?salaryValue(b)-salaryValue(a):Number(Boolean(b.featured))-Number(Boolean(a.featured))||(Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0))
- const jobTrust=useJobTrust(listings.slice(0,visibleCount))
  if(platform?.settings?.maintenance&&!isSuperAdmin(user))return <div className="maintenance-page"><a href="/" className="brand"><ProjectaLogo/></a><h1>نعتني بتجربتك المهنية</h1><p>المنصة قيد الصيانة حالياً. نعود إليك قريباً.</p><a href="/admin">دخول الإدارة</a></div>
  return <>
  {platform?.settings?.banner_enabled&&platform.settings.banner_text&&<div className="platform-banner" role="status">{platform.settings.banner_text}</div>}
@@ -139,7 +164,7 @@ function App(){
  <main className="marketplace reference-page"><CareerHero onBrowse={browseFeed}/><section className="reference-board" id="opportunities" aria-label="لوحة فرص العمل"><div className="board-intro"><h2>ابحث عن المكان الذي يناسبك.</h2></div><form className="search-bar" onSubmit={e=>{e.preventDefault();document.getElementById('results-heading')?.scrollIntoView({block:'start'})}}><label className="search-field"><Search size={18}/><input type="search" aria-describedby="search-help" aria-controls="job-results" aria-label="البحث في الإعلانات" placeholder="المسمّى الوظيفي أو المؤسسة أو كلمة مفتاحية" value={query} onChange={e=>setQuery(e.target.value)}/></label><label className="search-field city-field"><MapPin size={18}/><select aria-label="تصفية حسب المحافظة" value={city} onChange={e=>setCity(e.target.value)}>{feedCities.map(v=><option key={v} value={v}>{ar(v)}</option>)}</select></label><button className="primary search-submit"><Search size={16}/> بحث</button></form><p className="search-help" id="search-help">تظهر النتائج فور الكتابة في وظائف المنصة ووظائف التليجرام. بدّل بين القسمين لاستعراض المطابقات.</p>
  <div className="listing-tabs" id="job-board"><div className="tabs" role="tablist" aria-label="نوع الإعلانات"><button role="tab" aria-selected={tab==='jobs'} className={tab==='jobs'?'selected':''} onClick={()=>selectTab('jobs')}><BriefcaseBusiness size={17}/> وظائف المنصة{query.trim()&&<span className="count">{feedMatches('jobs')}</span>}</button><button role="tab" aria-selected={tab==='telegram'} className={tab==='telegram'?'selected':''} onClick={()=>selectTab('telegram')}><Send size={17}/> وظائف التليجرام{query.trim()&&<span className="count">{feedMatches('telegram')}</span>}</button><button role="tab" aria-selected={tab==='candidates'} className={tab==='candidates'?'selected':''} onClick={()=>selectTab('candidates')}><Users size={17}/> الباحثون عن عمل</button></div><span className="verified-note"><ShieldCheck size={15}/> نربط الكفاءات بالفرص في القطاع الصحي العراقي</span></div>
  {tab==='telegram'&&<div className="feed-source-info"><p>منشورات من المجتمع الطبي؛ تحقّق من التفاصيل مع جهة الإعلان.</p><TelegramSyncStatus compact/></div>}
- <div className="board-layout"><aside className={`filter-sidebar ${showFilters?'is-open':''}`} aria-label="تصفية الإعلانات"><div className="filter-heading"><h2>التصفية</h2><button onClick={reset}>مسح الكل</button></div><div className="filter-panel"><fieldset><legend>التخصص الطبي <ChevronDown size={14}/></legend>{feedRoles.map(v=><CategoryChip key={v} value={v} selected={role===v} count={categoryCounts.get(v)||0} onChange={()=>setRole(v)}/>)}</fieldset><fieldset><legend>نوع الدوام <ChevronDown size={14}/></legend>{feedSchedules.map(v=><label className="filter-option" key={v}><input type="radio" name="schedule-filter" checked={schedule===v} onChange={()=>setSchedule(v)}/><span>{ar(v)}</span></label>)}</fieldset><fieldset><legend>الموقع <MapPin size={14}/></legend><select aria-label="المحافظة في قائمة التصفية" value={city} onChange={e=>setCity(e.target.value)}>{feedCities.map(v=><option key={v} value={v}>{ar(v)}</option>)}</select></fieldset><fieldset><legend>تفضيلاتك <Bookmark size={14}/></legend><label className="filter-option"><input type="checkbox" checked={onlySaved} onChange={e=>setOnlySaved(e.target.checked)}/><span>المحفوظة فقط</span><span className="count">{number(saved.length)}</span></label></fieldset></div></aside>
+ <div className="board-layout"><aside className={`filter-sidebar ${showFilters?'is-open':''}`} aria-label="تصفية الإعلانات"><div className="filter-heading"><h2>التصفية</h2><button onClick={reset}>مسح الكل</button></div><div className="filter-panel"><fieldset><legend>التخصص الطبي <ChevronDown size={14}/></legend>{feedRoles.map(v=><CategoryChip key={v} value={v} selected={role===v} count={categoryCounts.get(v)||0} onChange={()=>setRole(v)}/>)}</fieldset><fieldset><legend>نوع الدوام <ChevronDown size={14}/></legend>{feedSchedules.map(v=><label className="filter-option" key={v}><input type="radio" name="schedule-filter" checked={schedule===v} onChange={()=>setSchedule(v)}/><span>{ar(v)}</span></label>)}</fieldset><fieldset><legend>الموقع <MapPin size={14}/></legend><select aria-label="المحافظة في قائمة التصفية" value={city} onChange={e=>setCity(e.target.value)}>{feedCities.map(v=><option key={v} value={v}>{ar(v)}</option>)}</select></fieldset><fieldset><legend>خيارات الاعتماد والتوثيق <ShieldCheck size={14}/></legend><label className="filter-verified-option" id="verified-toggle-label"><span id="verified-toggle-text"><BadgeCheck size={14} className="verified-filter-icon" aria-hidden="true"/> عضوية موثقة فقط</span><span className="count verified-count">{number(verifiedCount)}</span><ToggleSwitch checked={onlyVerified} onChange={setOnlyVerified} id="verified-toggle" aria-labelledby="verified-toggle-text"/></label></fieldset><fieldset><legend>تفضيلاتك <Bookmark size={14}/></legend><label className="filter-option"><input type="checkbox" checked={onlySaved} onChange={e=>setOnlySaved(e.target.checked)}/><span>المحفوظة فقط</span><span className="count">{number(saved.length)}</span></label></fieldset></div></aside>
  <section className="results" aria-label="إعلانات القطاع الصحي"><div className="results-heading"><div><h2 id="results-heading" tabIndex={-1}>{onlySaved?'إعلاناتك المحفوظة':role!=='All roles'?ar(role):tab==='jobs'?'وظائف المنصة':tab==='telegram'?'وظائف التليجرام':'تعرّف إلى كفاءاتنا'} <span role="status" aria-live="polite" aria-atomic="true">{number(listings.length)} {tab==='candidates'?'ملفاً مهنياً':'إعلاناً'}</span></h2></div><label className="sort-control"><span className="sr-only">ترتيب الإعلانات</span><select value={sort} onChange={e=>setSort(e.target.value)}>{matching.profile&&<option value="match">الأكثر توافقاً مع ملفي</option>}<option value="newest">الأحدث أولاً</option><option value="title">المسمّى الوظيفي</option><option value="salary">الأعلى راتباً</option></select></label><button className="filter-button" aria-label="إظهار خيارات التصفية" aria-expanded={showFilters} onClick={()=>setShowFilters(!showFilters)}><SlidersHorizontal size={18}/></button></div>
  {tab!=='candidates'&&<div className="feed-toolbar"><p className={`feed-connection ${feedConnection}`} role="status">{feedConnection==='live'?'● مباشر':'◌ تحديث تلقائي'}</p><div className="feed-status feed-status-compact" role="status"><span className={feedStatus==='ready'?'sr-only':''}>{feedStatus==='loading'?'جارٍ تحميل الفرص…':feedStatus==='error'?'تعذر تحميل الفرص. أعد المحاولة.':'تم تحميل الفرص.'}</span>{feedStatus!=='loading'&&<button onClick={()=>setFeedVersion(v=>v+1)} aria-label="تحديث فرص العمل">{feedStatus==='error'?'إعادة المحاولة':'تحديث'}</button>}</div></div>}{message&&<div className="notice" role="status">{message}<button aria-label="إغلاق التنبيه" onClick={()=>setMessage('')}><X size={16}/></button></div>}
  {tab!=='candidates'&&<MatchingProfilePanel profile={matching.profile} draftProfile={matching.draftProfile} filtering={matching.filtering} onFilteringChange={value=>{matching.setFiltering(value);if(value)setSort('match')}} onSave={value=>{matching.save(value);setRole('All roles');setCity('All cities');setSchedule('Any schedule');setSort('match');setVisibleCount(24)}} onDisable={()=>{matching.disable();if(sort==='match')setSort('newest')}}/>}<div className="job-grid" id="job-results" aria-busy={feedStatus==='loading'}>{!listings.length&&tab!=='candidates'&&feedStatus==='loading'&&<JobGridSkeleton/>}{listings.slice(0,visibleCount).map(j=><JobCard key={j.id} job={j} fit={fits.get(j.id)||null} verification={listingVerification(j,jobTrust)} saved={saved.includes(j.id)} onApply={()=>{setSelectedJob(j);if(!user){setMessage('سجّل الدخول لإرسال طلب التوظيف.');setModal('auth')}else setModal('application')}} onSave={()=>setSaved(v=>v.includes(j.id)?v.filter(x=>x!==j.id):[...v,j.id])} onRead={()=>{setSelectedJob(j);setModal('details')}}/>)}{!listings.length&&(tab==='candidates'||feedStatus!=='loading')&&<div className="empty-state"><div className="empty-state-icon" aria-hidden="true">{onlySaved?<Bookmark size={32}/>:<Search size={32}/>}</div><h3>{onlySaved?(saved.length?'لا توجد محفوظات تطابق بحثك':'فرصك المفضلة تبدأ من هنا'):query||matching.filtering||role!=='All roles'||city!=='All cities'||schedule!=='Any schedule'?'لم نعثر على نتائج مطابقة':tab==='jobs'?'لا توجد فرص مباشرة منشورة حالياً':'لا توجد إعلانات حالياً'}</h3><p>{onlySaved?(saved.length?'جرّب مسح عوامل التصفية لرؤية إعلاناتك المحفوظة.':'اضغط على علامة الحفظ في أي إعلان لتجده هنا لاحقاً، على هذا الجهاز.'):matching.filtering?'لا توجد فرص توافق ملفك وعوامل التصفية الحالية. عدّل معاييرك أو امسح التصفية لعرض كل الفرص.':query?'جرّب كلمة أقصر أو محافظة أخرى. يمكنك أيضاً مسح عوامل التصفية والبدء من جديد.':tab==='jobs'?'تظهر فرص العيادات والمستخدمين هنا. يمكنك الآن استكشاف المنشورات المستوردة في وظائف التليجرام.':'تتجدد الفرص باستمرار. جرّب توسيع نطاق البحث أو العودة لاحقاً.'}</p><button className="primary" onClick={reset}>{onlySaved&&!saved.length?'استكشف جميع الفرص':'مسح عوامل التصفية'}</button>{tab==='jobs'&&!onlySaved&&<button className="telegram-switch" onClick={()=>{reset();selectTab('telegram')}}><Send size={16}/> استعراض وظائف التليجرام</button>}</div>}</div>{visibleCount<listings.length&&<button className="load-more" onClick={()=>setVisibleCount(v=>v+24)}>عرض المزيد من الإعلانات</button>}</section></div></section><ProjectaPaths onBrowse={browseFeed} onPost={openPost} onAccount={()=>openAccount()}/><DeferredTraining/><ProjectaConnect onAccount={()=>openAccount()} onSaved={openSaved} onBrowse={browseFeed}/></main>
@@ -157,7 +182,7 @@ function App(){
  {modal==='auth'&&<Modal title={user?'حسابك المهني':'مرحباً بك في بروجكتا'} onClose={()=>setModal(null)}><AsyncContent><AuthPanel initialMessage={authFeedback} user={user} onSuccess={next=>{setUser(next);setAuthFeedback('');setModal(null);setMessage('تم تأكيد حسابك وتسجيل الدخول بنجاح.')}} onSignOut={signOut}/></AsyncContent></Modal>}
  {modal==='eligibility'&&<Modal title="اعتماد الحساب المهني" onClose={()=>setModal(null)}><p className="modal-intro">نشر فرص العمل متاح للمهنيين الطبيين المعتمدين فقط. تم تسجيل دخولك، لكن حسابك يحتاج إلى اعتماد مهني من إدارة بروجكتا قبل النشر.</p><p className="local-note">لا يمنح اختيار تخصص أو تأكيد البريد صلاحية الاعتماد المهني تلقائياً.</p><button className="primary full" onClick={()=>setModal('profile')}>العودة إلى ملفي</button></Modal>}
  {modal==='post'&&user&&isVerifiedProfessional(user)&&<Modal title="إضافة فرصة مهنية" onClose={()=>!posting&&setModal(null)}><AsyncContent><PostJobForm postType={postType} setPostType={setPostType} posting={posting} postError={postError} onSubmit={post}/></AsyncContent></Modal>}
- {modal==='details'&&selectedJob&&<Modal title={selectedJob.type==='candidates'?'الملف المهني الكامل':selectedJob.raw?'منشور من المجتمع الطبي':'تفاصيل فرصة العمل'} onClose={()=>setModal(null)}>{selectedJob.source==='telegram'&&<p className="local-note">نُقل هذا المنشور من تليغرام ولم تُتحقق تفاصيله بعد. يرجى التأكد من المعلومات قبل التواصل.</p>}<div className="detail-trust"><VerificationStatus verification={listingVerification(selectedJob,jobTrust)} context={selectedJob.sample?'sample':!selectedJob.live?'local':selectedJob.source==='telegram'?'telegram':'profile'}/><CredentialBadges verification={listingVerification(selectedJob,jobTrust)}/></div><JobPreview job={selectedJob}/>{selectedJob.sourceUrl&&<a className="primary full" href={selectedJob.sourceUrl} target="_blank" rel="noopener noreferrer">فتح المنشور الأصلي في تليغرام <ArrowUpLeft size={16}/></a>}</Modal>}
+ {modal==='details'&&selectedJob&&<Modal title={selectedJob.type==='candidates'?'الملف المهني الكامل':selectedJob.raw?'منشور من المجتمع الطبي':'تفاصيل فرصة العمل'} onClose={()=>setModal(null)}>{selectedJob.source==='telegram'&&<p className="local-note">نُقل هذا المنشور من تليغرام ولم تُتحقق تفاصيله بعد. يرجى التأكد من المعلومات قبل التواصل.</p>}<div className="detail-trust"><VerificationStatus verification={listingVerification(selectedJob,jobTrust)} context={selectedJob.sample?'sample':!selectedJob.live?'local':selectedJob.source==='telegram'?'telegram':'profile'}/><CredentialBadges verification={listingVerification(selectedJob,jobTrust)} subject={selectedJob.type==='candidates'?'profile':'facility'}/></div><JobPreview job={selectedJob}/>{selectedJob.sourceUrl&&<a className="primary full" href={selectedJob.sourceUrl} target="_blank" rel="noopener noreferrer">فتح المنشور الأصلي في تليغرام <ArrowUpLeft size={16}/></a>}</Modal>}
  </>
 }
 const path=window.location.pathname.replace(/\/+$/,'')||'/'

@@ -6,15 +6,32 @@ import WhatsAppIcon from '../components/WhatsAppIcon'
 import {specialtyClass} from '../job-ui.js'
 import {ar,number} from '../i18n.js'
 import {availabilityOptions,workOptions,talentContacts} from './data.js'
+import {jobTimestamp,exactDate} from '../dates.js'
 
 export default function TalentCard({profile,onPreview,onDetails,onEdit,onDelete}){
  const contacts=talentContacts(profile),demo=profile.source==='demo'
  const availability=availabilityOptions.find(option=>option.id===profile.availability)
  const cvAvailable=demo||Boolean(profile.cv)
+ const timestamp=profile.updatedAt||profile.createdAt
+
  return <article className={`talent-card ${specialtyClass(profile.role)}`} aria-label={`الملف المهني: ${profile.name}`}>
-  <div className="talent-card-top"><div className="talent-avatar" aria-hidden="true">{profile.name.replace(/^د\.\s*/,'').split(/\s+/).slice(0,2).map(part=>part.charAt(0)).join('')}</div><div className="talent-name"><h2>{profile.name}</h2><p>{profile.headline||ar(profile.role)}</p></div><span className={`talent-availability availability-${profile.availability}`}><span aria-hidden="true"/>{availability.label}</span></div>
-  <div className="talent-identity-tags"><SpecialtyBadge role={profile.role}/><VerificationStatus verification={profile.verification} context={demo?'sample':profile.source==='platform'?'profile':'local'}/><CredentialBadges verification={profile.source==='platform'?profile.verification:null}/></div>
-  <div className="talent-meta"><span><MapPin size={14} aria-hidden="true"/>{ar(profile.city)}</span><span><BriefcaseMedical size={14} aria-hidden="true"/>{profile.experience===null?'الخبرة غير مذكورة':`${number(profile.experience)} سنوات خبرة`}</span></div>
+  <div className="talent-card-top">
+   <div className="talent-avatar" aria-hidden="true">{profile.name.replace(/^د\.\s*/,'').split(/\s+/).slice(0,2).map(part=>part.charAt(0)).join('')}</div>
+   <div className="talent-name"><h2>{profile.name}</h2><p>{profile.headline||ar(profile.role)}</p></div>
+   <div className="talent-top-badges">
+    <span className={`talent-availability availability-${profile.availability}`}><span aria-hidden="true"/>{availability.label}</span>
+    {timestamp&&<time className="talent-relative-time" dateTime={timestamp} title={exactDate(timestamp)}><Clock3 size={11} aria-hidden="true"/> {`نُشر ${jobTimestamp(timestamp)}`}</time>}
+   </div>
+  </div>
+  <div className="talent-identity-tags">
+   <SpecialtyBadge role={profile.role}/>
+   <VerificationStatus verification={profile.verification} context={demo?'sample':profile.source==='platform'?'profile':'local'}/>
+   <CredentialBadges verification={profile.source==='platform'?profile.verification:null} subject="profile"/>
+  </div>
+  <div className="talent-meta">
+   <span><MapPin size={14} aria-hidden="true"/>{ar(profile.city)}</span>
+   <span><BriefcaseMedical size={14} aria-hidden="true"/>{profile.experience===null?'الخبرة غير مذكورة':`${number(profile.experience)} سنوات خبرة`}</span>
+  </div>
   <p className="talent-qualification"><GraduationCap size={17} aria-hidden="true"/><span>{profile.qualification||'المؤهل غير مضاف'}<small>مؤهل معلن من صاحب الملف</small></span></p>
   <div className="talent-expertise"><h3>مجالات الخبرة</h3>{profile.skills.length?<ul>{profile.skills.slice(0,3).map(skill=><li key={skill}>{skill}</li>)}{profile.skills.length>3&&<li>+{number(profile.skills.length-3)}</li>}</ul>:<p>لم تُضف مجالات خبرة بعد.</p>}</div>
   <div className="talent-work-types" aria-label="أنواع الدوام المفضلة"><Clock3 size={14} aria-hidden="true"/>{profile.workTypes.length?profile.workTypes.map(type=><span key={type}>{workOptions.find(option=>option.id===type).label}</span>):<span>الدوام غير محدد</span>}</div>

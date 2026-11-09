@@ -1,0 +1,98 @@
+/* ============================================================
+   Projecta Jobs — Design Tokens & Elevated Design System
+   Pattern sources: LinkedIn sidebar accordion, Toptal candidate cards,
+   Linear filter toggle rows, Indeed mobile bottom-sheet filters.
+   ============================================================ */
+
+/* ── Core Palette (extends design-system.css :root) ── */
+:root {
+  /* Neutrals */
+  --ds-ink-900: #0b1525;
+  --ds-ink-700: #243750;
+  --ds-ink-500: #526b8b;
+  --ds-ink-300: #8095ae;
+  --ds-ink-100: #e2edf7;
+  --ds-surface:  #ffffff;
+  --ds-page:     #f7f9fc;
+
+  /* Brand Blue */
+  --ds-blue-900: #0a3680;
+  --ds-blue-700: #1c4ee2;
+  --ds-blue-500: #3b7cff;
+  --ds-blue-100: #edf3ff;
+  --ds-blue-50:  #f5f8ff;
+
+  /* Brand Cyan (primary accent) */
+  --ds-cyan-800: #087da4;
+  --ds-cyan-600: #0299b5;
+  --ds-cyan-400: #2bbdce;
+  --ds-cyan-100: #dff4f8;
+  --ds-cyan-50:  #f0fafc;
+
+  /* Syndicate Green (candidate credential) */
+  --ds-syndi-800: #0369a1;
+  --ds-syndi-600: #0284c7;
+  --ds-syndi-200: #bae0fd;
+  --ds-syndi-50:  #f0f7ff;
+
+  /* Facility Mint (employer license) */
+  --ds-facil-800: #047857;
+  --ds-facil-600: #059669;
+  --ds-facil-200: #a7f3d0;
+  --ds-facil-50:  #ecfdf5;
+
+  /* Status / Pipeline */
+  --ds-warn-600:  #b45309;
+  --ds-warn-100:  #fffbeb;
+  --ds-warn-200:  #fef3c7;
+  --ds-err-600:   #c0392b;
+  --ds-ok-600:    #087f62;
+  --ds-ok-50:     #e9f8f1;
+
+  /* Shadows */
+  --ds-shadow-card: 0 4px 20px rgba(39,128,169,0.07), 0 1px 4px rgba(11,21,37,0.04);
+  --ds-shadow-card-hover: 0 10px 32px rgba(39,128,169,0.13), 0 2px 8px rgba(11,21,37,0.06);
+  --ds-shadow-sidebar: 0 2px 14px rgba(39,128,169,0.06);
+
+  /* Radii */
+  --ds-r-card:    22px;
+  --ds-r-control: 13px;
+  --ds-r-badge:   8px;
+  --ds-r-pill:    999px;
+
+  /* Transitions */
+  --ds-t-fast:  0.15s ease;
+  --ds-t-base:  0.22s ease;
+  --ds-t-slow:  0.35s ease;
+
+  /* Typography scale */
+  --ds-text-xs:   10px;
+  --ds-text-sm:   12px;
+  --ds-text-base: 13px;
+  --ds-text-md:   15px;
+  --ds-text-lg:   18px;
+  --ds-text-xl:   22px;
+}
+
+/* ── Dark mode support ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ds-ink-900: #e8f0f9;
+    --ds-ink-700: #c4d4e8;
+    --ds-ink-500: #8099b8;
+    --ds-ink-300: #516887;
+    --ds-ink-100: #1e2f44;
+    --ds-surface:  #121f30;
+    --ds-page:     #0d1824;
+    --ds-shadow-card: 0 4px 20px rgba(0,0,0,0.3);
+    --ds-shadow-card-hover: 0 10px 32px rgba(0,0,0,0.45);
+    --ds-shadow-sidebar: 0 2px 14px rgba(0,0,0,0.25);
+    --ds-blue-50:  #0f1e36;
+    --ds-blue-100: #142340;
+    --ds-cyan-50:  #0a1e28;
+    --ds-cyan-100: #0d2535;
+    --ds-syndi-50:  #0a1e30;
+    --ds-facil-50:  #0a1e18;
+    --ds-warn-100:  #1e1200;
+  }
+}

@@ -9,3 +9,55 @@
 .account-application-dashboard{min-width:0}.account-application-dashboard ul{list-style:none;padding:0;display:grid;gap:16px}.account-application-dashboard li{padding:20px;border:1px solid var(--pc-border);border-radius:20px;background:#f8fbff;display:grid;gap:12px;min-width:0}.account-application-dashboard h3{font-size:20px;line-height:1.7;overflow-wrap:anywhere}.account-application-dashboard p,.account-application-dashboard time,.account-application-dashboard a{font-size:16px;line-height:1.8;overflow-wrap:anywhere}.application-state{justify-self:start;padding:5px 12px;border-radius:999px;background:#e7f5fa;color:#087da4;font-size:14px;font-weight:600}.account-application-dashboard button{min-height:44px;padding:10px 16px}.applicant-contacts{display:flex;flex-wrap:wrap;gap:12px}.applicant-letter{white-space:pre-wrap}.account-application-dashboard nav{display:flex;justify-content:space-between;margin-top:18px}.dashboard-back{color:var(--pc-link);margin-bottom:16px}
 .activity-center>p{font-size:16px;line-height:1.8;color:var(--pc-muted);margin-bottom:20px}.activity-options{display:grid;gap:16px}.activity-options>button{display:flex;align-items:center;gap:16px;text-align:start;padding:20px;border:1px solid #cce6f1;border-radius:22px;background:linear-gradient(120deg,#f5fbff,#eaf6fc);min-height:88px;color:var(--pc-link)}.activity-options strong{display:block;font-size:18px;line-height:1.8}.activity-options small{display:block;font-size:14px;line-height:1.8;color:var(--pc-muted)}.modal.application-management-modal{width:min(1024px,100%);max-width:1024px;--dialog-padding:32px}.rich-applicant-card{min-width:0;display:grid;gap:20px}.rich-applicant-card>header{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}.applicant-contact-grid{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:16px;background:#eef7fc;border-radius:16px}.applicant-contact-grid>div,.applicant-contact-grid a{display:flex;align-items:center;gap:10px;min-width:0;overflow-wrap:anywhere}.applicant-contact-grid button,.applicant-contact-grid a{min-height:48px}.applicant-contact-grid button{min-width:48px}.applicant-note{padding:16px;border:1px solid var(--pc-border);border-radius:16px}.applicant-note h4{font-size:16px;margin:0 0 10px}.applicant-note p{white-space:pre-wrap;overflow-wrap:anywhere}.applicant-cv{min-width:0;max-width:100%;display:grid;gap:16px}.applicant-cv .cv-download{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;font-size:16px}.applicant-cv .talent-pdf-reader{min-width:0;max-width:100%;background:#eef3f7;border-radius:16px}.applicant-cv .talent-pdf-canvas{max-width:100%;overflow:auto}.applicant-cv .talent-pdf-toolbar{flex-wrap:wrap}.applicant-cv .talent-pdf-toolbar button{min-width:44px;min-height:44px}.account-application-dashboard li{padding:24px}.account-application-dashboard .rich-applicant-card .primary{min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 @media(max-width:680px){.modal.application-management-modal{--dialog-padding:16px;border-radius:24px;width:100%}.account-application-dashboard li{padding:16px}.modal.activity-sheet{align-self:flex-end;border-radius:24px;--dialog-padding:20px}.activity-options>button{padding:16px}.activity-options strong{font-size:16px}.applicant-contact-grid{padding:12px;gap:8px}.applicant-contact-grid>div{flex-wrap:wrap}}
+
+/* Enhanced real-time application tracking badges */
+.application-state {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ justify-self: start;
+ padding: 6px 14px;
+ border-radius: 999px;
+ background: #f1f5f9;
+ border: 1px solid #cbd5e1;
+ color: #475569;
+ font-size: 13px;
+ font-weight: 700;
+ line-height: 1.6;
+}
+.application-state svg {
+ flex-shrink: 0;
+}
+.application-state.state-submitted,
+.application-state.state-pending {
+ background: #f8fafc;
+ border-color: #cbd5e1;
+ color: #475569;
+}
+.application-state.state-viewed,
+.application-state.state-reviewing {
+ background: #f0f9ff;
+ border-color: #bae6fd;
+ color: #0284c7;
+}
+.application-state.state-shortlisted {
+ background: #ecfdf5;
+ border-color: #a7f3d0;
+ color: #047857;
+ box-shadow: 0 1px 6px #10b9811a;
+}
+.application-state.state-accepted {
+ background: #f0fdf4;
+ border-color: #86efac;
+ color: #15803d;
+}
+.application-state.state-archived {
+ background: #f4f4f5;
+ border-color: #e4e4e7;
+ color: #71717a;
+}
+.application-state.state-rejected {
+ background: #fff1f2;
+ border-color: #fecdd3;
+ color: #be123c;
+}

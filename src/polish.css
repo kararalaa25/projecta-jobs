@@ -323,3 +323,165 @@ button:active{transform:scale(.98)}
 
 .modal:has(.matching-form) .modal-heading h2{font-size:22px;line-height:1.6}.matching-profile-panel .role-badge{font-size:12px;line-height:1.7}
 .mobile-nav>button{min-width:48px;min-height:48px}.mobile-nav>button.mobile-activity-action{color:var(--pc-link);font-weight:700;gap:4px}.mobile-nav>button.mobile-activity-action svg{background:#e5f5fb;border-radius:10px;box-sizing:content-box;padding:5px}.mobile-nav>button.mobile-activity-action span{font-size:11px;line-height:1.7;white-space:normal;text-align:center}
+
+/* Distinction between Candidate Syndicate Credentials and Employer Facility License */
+.credential-badge.syndicate-badge {
+ background: #f0f7ff;
+ border: 1px solid #bae0fd;
+ color: #0369a1;
+}
+.credential-badge.syndicate-badge svg {
+ color: #0284c7;
+}
+.credential-badge.facility-badge {
+ background: #ecfdf5;
+ border: 1px solid #a7f3d0;
+ color: #047857;
+ font-weight: 700;
+}
+.credential-badge.facility-badge svg {
+ color: #059669;
+}
+.verified-badge.is-facility-badge {
+ color: #065f46;
+}
+.verified-badge.is-facility-badge svg {
+ fill: #10b981;
+}
+
+/* Sidebar filter: verified credentials toggle option */
+.filter-verified-option {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ gap: 8px;
+ padding: 8px 12px;
+ margin-top: 8px;
+ border-radius: 12px;
+ background: #f0fdf9;
+ border: 1px solid #ccfbf1;
+ cursor: pointer;
+ transition: background .2s, border-color .2s;
+}
+.filter-verified-option:hover {
+ background: #e6fcf5;
+ border-color: #99f6e4;
+}
+.filter-verified-option span {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ font-size: 13px;
+ font-weight: 700;
+ color: #0f766e;
+}
+.filter-verified-option .verified-filter-icon {
+ color: #0d9488;
+}
+.filter-verified-option .count.verified-count {
+ background: #ccfbf1;
+ color: #115e59;
+ font-weight: 800;
+}
+
+/* Mobile-first 1-tap quick apply bar (< 768px) */
+.mobile-quick-apply-bar {
+ display: none;
+}
+@media (max-width: 767px) {
+ .mobile-quick-apply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+ }
+ .quick-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  transition: transform .15s ease, background .15s ease;
+ }
+ .quick-apply-btn:active {
+  transform: scale(0.98);
+ }
+ .quick-apply-whatsapp {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 2px 8px #10b98126;
+ }
+ .quick-apply-whatsapp:hover {
+  background: #059669;
+ }
+ .quick-apply-telegram {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0369a1;
+  box-shadow: 0 2px 8px #0284c726;
+ }
+ .quick-apply-telegram:hover {
+  background: #0369a1;
+ }
+ .quick-apply-platform {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
+ }
+ .quick-apply-platform:hover {
+  background: #dcfce7;
+ }
+}
+
+/* Automated expiry badge */
+.role-badge.expired-badge {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ background: #fffbeb;
+ border: 1px solid #fef3c7;
+ color: #b45309;
+ font-size: 11px;
+ font-weight: 600;
+}
+.job-card.is-expired {
+ opacity: 0.88;
+ border-color: #f3f4f6;
+}
+
+/* Candidate card relative timestamp & verified filter */
+.talent-top-badges {
+ display: flex;
+ flex-direction: column;
+ align-items: flex-end;
+ gap: 4px;
+}
+.talent-relative-time {
+ display: inline-flex;
+ align-items: center;
+ gap: 4px;
+ font-size: 11px;
+ color: #64748b;
+ font-weight: 500;
+ white-space: nowrap;
+}
+.talent-verified-filter {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+ font-size: 13px;
+ color: #0f766e;
+ font-weight: 600;
+ cursor: pointer;
+}

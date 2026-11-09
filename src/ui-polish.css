@@ -1,0 +1,1044 @@
+/* ============================================================
+   Projecta Jobs — ui-polish.css
+   Elevated UI system for Filter Sidebar, Job Cards, Talent Cards.
+   RTL-first. Patterns inspired by:
+     • LinkedIn's accordion filter sidebar (grouped sections w/ chevron,
+       toggle rows, active state highlight)
+     • Toptal's candidate cards (dense identity row, verification pill
+       separate from action buttons, skill chip grid)
+     • Indeed's mobile filter drawer (full-width sheet, 2-column grid,
+       large touch targets)
+     • Linear's toggle switch (smooth pill with state ring)
+   ============================================================ */
+
+/* ══════════════════════════════════════════════════════════════
+   1. FILTER SIDEBAR — Polished accordion-style (LinkedIn pattern)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Sidebar wrapper */
+.filter-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Panel shell */
+.filter-panel {
+  background: var(--ds-surface, #fff);
+  border: 1.5px solid var(--ds-ink-100, #e2edf7);
+  border-radius: var(--ds-r-card, 22px);
+  padding: 6px 0;
+  box-shadow: var(--ds-shadow-sidebar);
+  overflow: hidden;
+}
+
+/* Each section = a fieldset accordion item */
+.filter-panel fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--ds-ink-100, #e2edf7);
+  min-width: 0;
+}
+.filter-panel fieldset:last-child {
+  border-bottom: 0;
+}
+
+/* Legend = section header (LinkedIn-style: bold label + chevron) */
+.filter-panel legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  float: none;
+  padding: 13px 18px;
+  font-size: var(--ds-text-sm, 12px);
+  font-weight: 800;
+  color: var(--ds-ink-700, #243750);
+  letter-spacing: .01em;
+  cursor: default;
+  background: transparent;
+  border: 0;
+}
+.filter-panel legend svg {
+  color: var(--ds-ink-300, #8095ae);
+  flex-shrink: 0;
+  transition: transform var(--ds-t-fast);
+}
+
+/* Filter options container: a scroll-limited column of rows */
+.filter-panel fieldset > .filter-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 10px 12px;
+}
+/* CategoryChip chips use their own container; keep legacy compatibility */
+.filter-panel fieldset > label,
+.filter-panel fieldset > .filter-options-list > label {
+  display: flex;
+}
+
+/* Filter option row (LinkedIn row style: hover highlight, checked accent) */
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 7px 10px;
+  border-radius: 11px;
+  font-size: var(--ds-text-sm, 12px);
+  font-weight: 500;
+  color: var(--ds-ink-500, #526b8b);
+  line-height: 1.6;
+  cursor: pointer;
+  transition:
+    background var(--ds-t-fast),
+    color var(--ds-t-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-option input[type="radio"],
+.filter-option input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--ds-cyan-600, #0299b5);
+  cursor: pointer;
+}
+.filter-option input:focus-visible {
+  outline: 2px solid var(--ds-cyan-400);
+  outline-offset: 3px;
+}
+/* Active state: mint-tinted background + stronger text */
+.filter-option:has(input:checked) {
+  background: var(--ds-cyan-50, #f0fafc);
+  color: var(--ds-cyan-800, #087da4);
+  font-weight: 700;
+}
+@media (hover: hover) {
+  .filter-option:hover {
+    background: var(--ds-page, #f7f9fc);
+    color: var(--ds-ink-700, #243750);
+  }
+  .filter-option:has(input:checked):hover {
+    background: var(--ds-cyan-100, #dff4f8);
+  }
+}
+/* Count pill */
+.filter-option .count {
+  margin-inline-start: auto;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--ds-r-pill);
+  background: var(--ds-ink-100, #e2edf7);
+  color: var(--ds-ink-500, #526b8b);
+  flex-shrink: 0;
+  min-width: 20px;
+  text-align: center;
+}
+.filter-option:has(input:checked) .count {
+  background: var(--ds-cyan-100, #dff4f8);
+  color: var(--ds-cyan-800, #087da4);
+}
+
+/* Filter heading */
+.filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  min-height: 44px;
+  padding: 0 4px;
+}
+.filter-heading h2 {
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--ds-ink-900, #0b1525);
+  letter-spacing: -.02em;
+}
+.filter-heading button {
+  font-size: 11px;
+  color: var(--ds-ink-300, #8095ae);
+  padding: 5px 9px;
+  border-radius: 8px;
+  min-height: 32px;
+  transition: color var(--ds-t-fast), background var(--ds-t-fast);
+}
+.filter-heading button:hover {
+  color: var(--ds-cyan-600, #0299b5);
+  background: var(--ds-cyan-50, #f0fafc);
+}
+
+/* ── Verified Credentials Toggle (Linear-style pill toggle) ── */
+.filter-verified-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 2px 10px 10px;
+  border-radius: 13px;
+  background: var(--ds-facil-50, #ecfdf5);
+  border: 1.5px solid var(--ds-facil-200, #a7f3d0);
+  cursor: pointer;
+  transition:
+    background var(--ds-t-fast),
+    border-color var(--ds-t-fast),
+    box-shadow var(--ds-t-fast);
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-verified-option:has(input:checked) {
+  background: #d1fae5;
+  border-color: var(--ds-facil-600, #059669);
+  box-shadow: 0 0 0 3px rgba(5,150,105,0.12);
+}
+@media (hover: hover) {
+  .filter-verified-option:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+  }
+}
+/* Inner label text */
+.filter-verified-option > span:first-of-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ds-text-sm, 12px);
+  font-weight: 700;
+  color: var(--ds-facil-800, #047857);
+}
+.filter-verified-option .verified-filter-icon {
+  color: var(--ds-facil-600, #059669);
+  flex-shrink: 0;
+}
+/* Count pill override */
+.filter-verified-option .count.verified-count {
+  background: #bbf7d0;
+  color: #065f46;
+  font-weight: 800;
+}
+
+/* ── Toggle switch (Linear-style) replaces native checkbox ── */
+.toggle-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+}
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.toggle-switch-track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--ds-r-pill);
+  background: var(--ds-ink-100, #e2edf7);
+  transition: background var(--ds-t-base);
+}
+.toggle-switch input:checked + .toggle-switch-track {
+  background: var(--ds-facil-600, #059669);
+}
+.toggle-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transition: inset-inline-start var(--ds-t-base);
+}
+.toggle-switch input:checked ~ .toggle-switch-track::after,
+.toggle-switch:has(input:checked) .toggle-switch-track::after {
+  inset-inline-start: 18px;
+}
+.toggle-switch input:focus-visible + .toggle-switch-track {
+  outline: 2px solid var(--ds-facil-600);
+  outline-offset: 2px;
+}
+
+/* City select */
+.filter-panel fieldset select {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 0 10px 12px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--ds-ink-100, #e2edf7);
+  border-radius: var(--ds-r-control, 13px);
+  background: var(--ds-page, #f7f9fc);
+  color: var(--ds-ink-700, #243750);
+  font-size: var(--ds-text-sm, 12px);
+  font-weight: 500;
+  line-height: 1.8;
+  cursor: pointer;
+  transition: border-color var(--ds-t-fast), box-shadow var(--ds-t-fast);
+  color-scheme: light;
+}
+.filter-panel fieldset select:focus-visible {
+  outline: 0;
+  border-color: var(--ds-cyan-400, #2bbdce);
+  box-shadow: 0 0 0 3px rgba(2,153,181,0.1);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   2. JOB CARD — Elevated surface (Toptal card pattern)
+   ══════════════════════════════════════════════════════════════ */
+
+.job-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--ds-surface, #fff);
+  border: 1.5px solid var(--ds-ink-100, #e2edf7);
+  border-radius: var(--ds-r-card, 22px);
+  padding: 20px;
+  box-shadow: var(--ds-shadow-card);
+  transition:
+    transform var(--ds-t-base),
+    box-shadow var(--ds-t-base),
+    border-color var(--ds-t-base);
+  position: relative;
+}
+@media (hover: hover) {
+  .job-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ds-shadow-card-hover);
+    border-color: #b2cfe8;
+  }
+}
+.job-card.is-expired {
+  opacity: 0.82;
+  border-color: #edf0f4;
+}
+.job-card.is-expired:hover {
+  transform: none;
+  box-shadow: var(--ds-shadow-card);
+}
+
+/* Card top: logo + identity + bookmark */
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin-bottom: 10px;
+}
+.company-logo {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  background: var(--ds-cyan-50, #f0fafc);
+  border: 1.5px solid var(--ds-cyan-100, #dff4f8);
+  display: grid;
+  place-items: center;
+  color: var(--ds-cyan-800, #087da4);
+}
+.candidate-card .company-logo {
+  background: var(--ds-blue-50, #f5f8ff);
+  border-color: var(--ds-blue-100, #edf3ff);
+  color: var(--ds-blue-700, #1c4ee2);
+}
+/* Avatar initial for candidate cards */
+.candidate-initial {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ds-blue-700, #1c4ee2);
+  font-family: var(--pc-font);
+}
+.card-identity {
+  flex: 1;
+  min-width: 0;
+}
+.identity-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.company-name {
+  font-size: var(--ds-text-base, 13px);
+  font-weight: 800;
+  color: var(--ds-ink-900, #0b1525);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.listing-kind {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ds-ink-300, #8095ae);
+  margin-top: 1px;
+  display: block;
+}
+/* Save bookmark button */
+.save-button {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--ds-ink-300, #8095ae);
+  margin-inline-start: auto;
+  transition:
+    color var(--ds-t-fast),
+    background var(--ds-t-fast),
+    transform var(--ds-t-fast);
+}
+.save-button:hover {
+  color: var(--ds-blue-700, #1c4ee2);
+  background: var(--ds-blue-50, #f5f8ff);
+  transform: scale(1.1);
+}
+.save-button.is-saved {
+  color: var(--ds-blue-700, #1c4ee2);
+}
+
+/* Trust / credential row */
+.card-trust {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  min-height: 0;
+}
+
+/* Role badge chips */
+.role-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0 6px;
+}
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--ds-r-badge, 8px);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.8;
+  border: 1px solid transparent;
+  background: var(--ds-page, #f7f9fc);
+  color: var(--ds-ink-500, #526b8b);
+  border-color: var(--ds-ink-100, #e2edf7);
+}
+.role-badge.featured-badge {
+  background: #fff9e6;
+  color: #92610a;
+  border-color: #f9e0a2;
+}
+.role-badge.expired-badge {
+  background: var(--ds-warn-100, #fffbeb);
+  color: var(--ds-warn-600, #b45309);
+  border-color: var(--ds-warn-200, #fef3c7);
+}
+
+/* Card bottom: timestamp */
+.card-bottom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+.listing-time {
+  font-size: 10px;
+  color: var(--ds-ink-300, #8095ae);
+  line-height: 1.8;
+  white-space: normal;
+  text-align: end;
+  flex-shrink: 0;
+  max-width: 50%;
+}
+
+/* Card footer: action buttons */
+.card-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ds-ink-100, #e2edf7);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   3. CREDENTIAL BADGES — Distinct visual treatment
+   ══════════════════════════════════════════════════════════════ */
+
+.credential-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+/* Base badge */
+.credential-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--ds-r-badge, 8px);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.8;
+  border: 1px solid transparent;
+  transition: box-shadow var(--ds-t-fast);
+}
+/* Syndicate (candidate union member) — Blue */
+.credential-badge.syndicate-badge {
+  background: var(--ds-syndi-50, #f0f7ff);
+  border-color: var(--ds-syndi-200, #bae0fd);
+  color: var(--ds-syndi-800, #0369a1);
+}
+.credential-badge.syndicate-badge svg {
+  color: var(--ds-syndi-600, #0284c7);
+}
+/* Facility (licensed clinic / hospital) — Mint Green */
+.credential-badge.facility-badge {
+  background: var(--ds-facil-50, #ecfdf5);
+  border-color: var(--ds-facil-200, #a7f3d0);
+  color: var(--ds-facil-800, #047857);
+  font-weight: 700;
+}
+.credential-badge.facility-badge svg {
+  color: var(--ds-facil-600, #059669);
+}
+/* Verified badge (VerifiedBadge component) overrides */
+.verified-badge.is-facility-badge {
+  color: #065f46;
+}
+.verified-badge.is-facility-badge svg {
+  fill: #10b981;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   4. TALENT / CANDIDATE CARD — Toptal-inspired dense layout
+   ══════════════════════════════════════════════════════════════ */
+
+.talent-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--ds-surface, #fff);
+  border: 1.5px solid var(--ds-ink-100, #e2edf7);
+  border-radius: var(--ds-r-card, 22px);
+  padding: 20px;
+  box-shadow: var(--ds-shadow-card);
+  transition:
+    transform var(--ds-t-base),
+    box-shadow var(--ds-t-base),
+    border-color var(--ds-t-base);
+}
+@media (hover: hover) {
+  .talent-card:hover {
+    transform: translateY(-3px);
+    border-color: #aad4e2;
+    box-shadow: var(--ds-shadow-card-hover);
+  }
+}
+
+/* Top row: avatar + name + badges */
+.talent-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin-bottom: 12px;
+}
+.talent-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ds-cyan-100, #dff4f8), var(--ds-blue-100, #edf3ff));
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ds-cyan-800, #087da4);
+  letter-spacing: -.02em;
+  user-select: none;
+}
+.talent-name {
+  flex: 1;
+  min-width: 0;
+}
+.talent-name h2 {
+  font-size: var(--ds-text-base, 13px);
+  font-weight: 800;
+  color: var(--ds-ink-900, #0b1525);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.talent-name p {
+  font-size: 11px;
+  color: var(--ds-ink-500, #526b8b);
+  margin-top: 2px;
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Availability + timestamp column */
+.talent-top-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+/* Relative timestamp */
+.talent-relative-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--ds-ink-300, #8095ae);
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* Identity tags row (specialty + verification status) */
+.talent-identity-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 11px;
+}
+/* Meta row (city + experience) */
+.talent-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--ds-ink-500, #526b8b);
+  margin-bottom: 10px;
+}
+.talent-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* Qualification */
+.talent-qualification {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--ds-ink-500, #526b8b);
+  line-height: 1.8;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--ds-page, #f7f9fc);
+  border-radius: 10px;
+  border: 1px solid var(--ds-ink-100, #e2edf7);
+}
+.talent-qualification svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ds-cyan-800, #087da4);
+}
+.talent-qualification small {
+  display: block;
+  font-size: 9px;
+  color: var(--ds-ink-300, #8095ae);
+  margin-top: 1px;
+}
+/* Skills grid */
+.talent-expertise {
+  margin-bottom: 10px;
+}
+.talent-expertise h3 {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ds-ink-300, #8095ae);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 6px;
+}
+.talent-expertise ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.talent-expertise li {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--ds-r-pill);
+  background: var(--ds-blue-50, #f5f8ff);
+  color: var(--ds-blue-900, #0a3680);
+  border: 1px solid var(--ds-blue-100, #edf3ff);
+}
+/* Work types */
+.talent-work-types {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--ds-ink-500, #526b8b);
+  margin-bottom: 10px;
+}
+.talent-work-types svg {
+  color: var(--ds-ink-300, #8095ae);
+  flex-shrink: 0;
+}
+.talent-work-types span {
+  padding: 1px 8px;
+  border-radius: var(--ds-r-pill);
+  background: var(--ds-page, #f7f9fc);
+  border: 1px solid var(--ds-ink-100, #e2edf7);
+}
+/* CV summary row */
+.talent-cv-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--ds-ink-500, #526b8b);
+  margin-bottom: 14px;
+  padding: 6px 0;
+  border-top: 1px solid var(--ds-ink-100, #e2edf7);
+}
+.talent-cv-summary svg {
+  color: var(--ds-ink-300, #8095ae);
+  flex-shrink: 0;
+}
+/* Action buttons row */
+.talent-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+.talent-preview-button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--ds-r-control, 13px);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--ds-cyan-50, #f0fafc);
+  color: var(--ds-cyan-800, #087da4);
+  border: 1.5px solid var(--ds-cyan-100, #dff4f8);
+  transition:
+    background var(--ds-t-fast),
+    border-color var(--ds-t-fast),
+    transform var(--ds-t-fast);
+}
+.talent-preview-button:hover:not(:disabled) {
+  background: var(--ds-cyan-100, #dff4f8);
+  border-color: var(--ds-cyan-400, #2bbdce);
+  transform: translateY(-1px);
+}
+.talent-preview-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* WhatsApp / Phone icon buttons */
+.talent-contact-actions {
+  display: flex;
+  gap: 7px;
+}
+.talent-contact {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  color: var(--ds-ink-500, #526b8b);
+  background: var(--ds-page, #f7f9fc);
+  border: 1.5px solid var(--ds-ink-100, #e2edf7);
+  transition:
+    color var(--ds-t-fast),
+    background var(--ds-t-fast),
+    border-color var(--ds-t-fast),
+    transform var(--ds-t-fast);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.talent-contact:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.talent-contact.whatsapp-contact {
+  color: #059669;
+  background: var(--ds-facil-50, #ecfdf5);
+  border-color: var(--ds-facil-200, #a7f3d0);
+}
+.talent-contact.phone-contact {
+  color: var(--ds-cyan-800, #087da4);
+  background: var(--ds-cyan-50, #f0fafc);
+  border-color: var(--ds-cyan-100, #dff4f8);
+}
+@media (hover: hover) {
+  .talent-contact:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(11,21,37,0.08);
+  }
+  .talent-contact.whatsapp-contact:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+  }
+  .talent-contact.phone-contact:hover {
+    background: var(--ds-cyan-100, #dff4f8);
+    border-color: var(--ds-cyan-400, #2bbdce);
+  }
+}
+/* Footer row: view full profile */
+.talent-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ds-ink-100, #e2edf7);
+}
+.talent-card-footer > button:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-cyan-800, #087da4);
+  transition: gap var(--ds-t-fast), color var(--ds-t-fast);
+}
+.talent-card-footer > button:first-child:hover {
+  gap: 8px;
+  color: var(--ds-blue-700, #1c4ee2);
+}
+/* Local edit/delete buttons */
+.talent-card-footer > div {
+  display: flex;
+  gap: 6px;
+}
+.talent-card-footer > div > button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  color: var(--ds-ink-300, #8095ae);
+  transition: color var(--ds-t-fast), background var(--ds-t-fast);
+}
+.talent-card-footer > div > button:hover {
+  background: var(--ds-page, #f7f9fc);
+  color: var(--ds-ink-700, #243750);
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   5. QUICK APPLY BAR — Mobile-first (< 768px)
+      Visible bar at bottom of card, full-width, 44px+ touch targets
+   ══════════════════════════════════════════════════════════════ */
+
+.mobile-quick-apply-bar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-quick-apply-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .quick-apply-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1;
+    min-height: 44px;
+    padding: 9px 10px;
+    border-radius: var(--ds-r-control, 13px);
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    border: 1.5px solid transparent;
+    transition:
+      transform var(--ds-t-fast),
+      box-shadow var(--ds-t-fast),
+      background var(--ds-t-fast);
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  .quick-apply-btn:active {
+    transform: scale(0.97);
+  }
+
+  .quick-apply-whatsapp {
+    background: #10b981;
+    color: #ffffff;
+    border-color: #059669;
+    box-shadow: 0 2px 10px rgba(16,185,129,0.22);
+  }
+  .quick-apply-whatsapp:hover {
+    background: #059669;
+    box-shadow: 0 4px 14px rgba(16,185,129,0.3);
+  }
+
+  .quick-apply-telegram {
+    background: var(--ds-syndi-600, #0284c7);
+    color: #ffffff;
+    border-color: var(--ds-syndi-800, #0369a1);
+    box-shadow: 0 2px 10px rgba(2,132,199,0.22);
+  }
+  .quick-apply-telegram:hover {
+    background: var(--ds-syndi-800, #0369a1);
+    box-shadow: 0 4px 14px rgba(2,132,199,0.3);
+  }
+
+  .quick-apply-platform {
+    background: var(--ds-facil-50, #ecfdf5);
+    color: #166534;
+    border-color: var(--ds-facil-200, #a7f3d0);
+  }
+  .quick-apply-platform:hover {
+    background: #d1fae5;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   6. APPLICATION PIPELINE STATUS BADGES
+   ══════════════════════════════════════════════════════════════ */
+
+.application-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--ds-r-pill);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.8;
+  border: 1px solid transparent;
+}
+.state-submitted  { background: var(--ds-page, #f7f9fc);    color: var(--ds-ink-500, #526b8b); border-color: var(--ds-ink-100); }
+.state-viewed     { background: var(--ds-blue-50, #f5f8ff);  color: var(--ds-blue-900, #0a3680); border-color: var(--ds-blue-100); }
+.state-shortlisted{ background: #fff9e6;                     color: #92610a;  border-color: #f9e0a2; }
+.state-accepted   { background: var(--ds-ok-50, #e9f8f1);   color: var(--ds-ok-600, #087f62); border-color: #a3e6cc; }
+.state-archived   { background: #f8f9fa;                     color: #6b7280;  border-color: #e5e7eb; }
+.state-rejected   { background: #fef2f2;                     color: #991b1b;  border-color: #fca5a5; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   7. RESPONSIVE MOBILE FILTER DRAWER
+      (Indeed bottom-sheet pattern adapted as a side-drawer for RTL)
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 680px) {
+  /* When filter-sidebar is open on mobile, render as a 2-col grid */
+  .filter-sidebar.is-open {
+    display: block;
+    margin-bottom: 18px;
+  }
+  .filter-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    padding: 0;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .filter-panel fieldset {
+    border-bottom: 1px solid var(--ds-ink-100);
+    border-inline-end: 1px solid var(--ds-ink-100);
+  }
+  .filter-panel fieldset:nth-child(even) {
+    border-inline-end: 0;
+  }
+  .filter-panel fieldset:nth-last-child(-n+2) {
+    border-bottom: 0;
+  }
+  .filter-panel legend {
+    padding: 10px 13px;
+    font-size: 11px;
+  }
+  .filter-option {
+    min-height: 44px;
+    padding: 7px 8px;
+    font-size: 11px;
+    gap: 7px;
+  }
+  .filter-panel fieldset select {
+    width: calc(100% - 16px);
+    margin: 0 8px 10px;
+    font-size: 11px;
+    min-height: 40px;
+  }
+  .filter-verified-option {
+    grid-column: 1 / -1;
+    margin: 4px 10px 10px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   8. FOCUS-VISIBLE GLOBAL STANDARD
+   ══════════════════════════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid var(--ds-cyan-600, #0299b5);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ds-cyan-600, #0299b5);
+  outline-offset: 3px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   9. REDUCED MOTION SAFETY
+   ══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .job-card,
+  .talent-card,
+  .filter-option,
+  .filter-verified-option,
+  .toggle-switch-track,
+  .toggle-switch-track::after,
+  .talent-preview-button,
+  .talent-contact,
+  .quick-apply-btn,
+  .save-button {
+    transition: none;
+  }
+  .job-card:hover,
+  .talent-card:hover {
+    transform: none;
+  }
+}
