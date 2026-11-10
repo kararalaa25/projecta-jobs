@@ -1,3 +1,4 @@
+import {JOB_LIFETIME_MS} from '../config/job-lifecycle.js'
 import {publicJobOffer} from '../server/public-jobs.js'
 import {isPlatformOffer} from '../config/job-feeds.js'
 import {normalizeSupabaseUrl} from '../config/supabase-url.js'
@@ -39,14 +40,16 @@ export function createJobsHandler(env = process.env, clientFactory = createClien
       })
       // Active marketplace posts only. Never expose user/account IDs or other tables.
       const fields = 'id,title,role_category,employment_type,location_city,salary_range,description,contact_info,source,created_at'
-      const query = columns => {
+      const query = (columns,lifecycle=true) => {
         let q=db.from('job_offers').select(columns,!ids&&offset===0?{count:'exact'}:undefined).eq('status','active')
+        q=q.gt(lifecycle?'expires_at':'created_at',new Date(Date.now()-(lifecycle?0:JOB_LIFETIME_MS)).toISOString())
         if(feed!=='all')q=q.eq('source',feed==='telegram'?'telegram':'manual')
         if(ids)q=q.in('id',[...new Set(ids)])
         return q.order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+199).abortSignal(AbortSignal.timeout(15000))
       }
-      let result = await query(fields + ',contact_phone,contact_telegram,contact_whatsapp')
-      if (['42703','PGRST204'].includes(result.error?.code)) result = await query(fields)
+      let result = await query(fields + ',renewed_at,expires_at,contact_phone,contact_telegram,contact_whatsapp')
+      if (['42703','PGRST204'].includes(result.error?.code)) result = await query(fields + ',renewed_at,expires_at')
+      if (['42703','PGRST204'].includes(result.error?.code)) result = await query(fields,false)
       const { data, error, status, count } = result
       upstreamStatus = status
       if (error) throw error

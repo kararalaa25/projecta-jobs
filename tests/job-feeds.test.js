@@ -36,7 +36,7 @@ test('Telegram raw posts receive usable specialty, province and schedule filters
 test('API feed filters are applied before pagination and reject invalid feed parameters',async()=>{
  for(const [feed,source] of [['platform','manual'],['telegram','telegram']]){
   const filters=[];let range
-  const q={select(){return this},eq(k,v){filters.push([k,v]);return this},order(){return this},range(...v){range=v;return this},async abortSignal(){return {data:[{...offer,source},{...offer,id:'incomplete',source,salary_range:null}]}}}
+  const q={select(){return this},eq(k,v){filters.push([k,v]);return this},gt(){return this},order(){return this},range(...v){range=v;return this},async abortSignal(){return {data:[{...offer,source},{...offer,id:'incomplete',source,salary_range:null}]}}}
   const res={setHeader(){},end(raw){this.body=JSON.parse(raw)}}
   await createJobsHandler({SUPABASE_URL:'https://test.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'test'},()=>({from(){return q}}))({method:'GET',url:'/api/jobs?feed='+feed+'&offset=200'},res)
   assert.equal(res.statusCode,200);assert.ok(filters.some(([k,v])=>k==='source'&&v===source));assert.deepEqual(range,[200,399])

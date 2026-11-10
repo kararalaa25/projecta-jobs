@@ -1,0 +1,42 @@
+/* Shared feed additions; logical properties preserve Arabic RTL and LTR fields. */
+.verified-filter{padding:16px 0;border-block-end:1px solid #dce7ef;color:#334155;text-align:start}
+.verified-filter>label{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;cursor:pointer;font-size:14px;font-weight:700}
+.verified-filter input{position:absolute;inset-inline-end:0;width:48px;height:44px;margin:0;opacity:0;cursor:pointer;z-index:1}
+.verified-switch{position:relative;flex-shrink:0;width:46px;height:26px;border-radius:20px;background:#cbd5e1;border:1px solid #94a3b8;pointer-events:none}
+.verified-switch:after{content:'';position:absolute;width:18px;height:18px;inset-block-start:3px;inset-inline-start:3px;border-radius:50%;background:white;box-shadow:0 1px 3px #33415544;transition:transform .15s}
+.verified-filter input:checked+.verified-switch{background:#087f72;border-color:#087f72}
+.verified-filter input:checked+.verified-switch:after{inset-inline-start:auto;inset-inline-end:3px}
+.verified-filter input:focus-visible+.verified-switch{outline:3px solid #0284c7;outline-offset:4px}
+.verified-filter small{display:block;color:#526477;font-size:12px;line-height:1.8;margin-block-start:6px;max-width:38ch}
+.credential-wrap{position:relative;display:inline-flex;max-width:100%}
+.credential-badges{display:flex;gap:6px;flex-wrap:wrap;overflow:visible}
+.credential-wrap .credential-badge{display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:6px 10px;border:1px solid #a9d7f0;border-radius:10px;background:#edf7ff;color:#155e86;font:inherit;font-size:12px;font-weight:600;text-align:start;cursor:pointer;white-space:normal}
+.credential-wrap .credential-facility_license{color:#065f46;background:#e7f8ef;border-color:#a7dfc3}
+.credential-wrap .credential-certified_specialist{background:#f0f4ff;color:#373c88;border-color:#cbd2f1}
+.credential-badge:focus-visible,.quick-apply:focus-visible,.application-status-control select:focus-visible{outline:3px solid #0284c7;outline-offset:3px}
+.credential-tooltip{position:fixed;z-index:200;max-width:calc(100vw - 24px);background:#173247;color:white;border-radius:10px;padding:12px;font-size:12px;line-height:1.8;box-shadow:0 6px 20px #17324733;text-align:start}
+.candidate-freshness{font-size:12px;color:#526477;line-height:1.8;margin-block:12px}
+.quick-apply{display:none}
+.application-state.status-viewed,.application-state.status-reviewing{background:#e0f2fe;color:#075985}
+.application-state.status-shortlisted,.application-state.status-accepted{background:#dcfce7;color:#166534}
+.application-state.status-archived,.application-state.status-rejected{background:#e8edf2;color:#475569}
+.application-status-control{display:grid;gap:8px;font-size:14px;color:#334155}
+.application-status-control select{min-height:44px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 12px;background:white;color:#334155;font:inherit}
+.job-renewal{display:grid;gap:8px;font-size:13px;color:#526477}.job-renewal button{justify-self:start}
+.full-apply-label{display:none}
+@media(max-width:767px){
+ .job-actions{flex-wrap:wrap}
+ .job-actions .quick-apply{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;background:#e4f7ec;color:#09613d;border:1px solid #b0dbc2;border-radius:10px;padding:10px;font-size:13px;font-weight:700;text-align:center;text-decoration:none;line-height:1.7}
+ .job-actions .quick-apply-telegram{background:#e7f4ff;color:#075985;border-color:#b9daf2}
+ .job-actions .contact-buttons{flex-wrap:wrap}
+ .contact-buttons .apply-icon{width:auto;min-height:44px;padding-inline:12px;gap:6px}
+ .full-apply-label{display:inline;font-size:12px}
+ .contact-buttons .contact-icon{min-width:44px;min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){.verified-switch:after{transition:none}}
+
+.filter-panel>.verified-filter{grid-column:1/-1;margin-block-end:16px}
+@media(max-width:767px){.job-actions .contact-buttons .contact-icon.apply-icon{flex:0 1 auto;width:auto;max-width:100%;padding-inline:12px;gap:6px}.full-apply-label{white-space:nowrap}}
+
+.credential-wrap .verified-badge{min-width:44px;min-height:44px;justify-content:center;cursor:pointer}
+.credential-wrap .verified-badge:focus-visible{outline:3px solid #0284c7;outline-offset:3px}

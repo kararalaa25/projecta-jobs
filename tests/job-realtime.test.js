@@ -34,7 +34,7 @@ test('reconnect reconciles missed events and cleanup aborts in-flight requests',
 })
 test('API targeted reads validate IDs, exclude internal fields, and disable CDN caching',async()=>{
  const filters=[]
- const q={select(){return this},eq(){return this},in(column,ids){filters.push([column,ids]);return this},order(){return this},range(){return this},async abortSignal(){return {data:[{id,publisher_id:'private',contact_info:'{"moderator":"private","company_name":"Public"}'}]}}}
+ const q={select(){return this},eq(){return this},in(column,ids){filters.push([column,ids]);return this},gt(){return this},order(){return this},range(){return this},async abortSignal(){return {data:[{id,publisher_id:'private',contact_info:'{"moderator":"private","company_name":"Public"}'}]}}}
  const handler=createJobsHandler({SUPABASE_URL:'https://test.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'secret'},()=>({from(){return q}}))
  const res={headers:{},setHeader(k,v){this.headers[k]=v},end(body){this.body=JSON.parse(body)}}
  await handler({method:'GET',url:'/api/jobs?ids='+id},res)

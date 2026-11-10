@@ -1,4 +1,4 @@
-const fields=['id','title','role_category','employment_type','location_city','salary_range','description','contact_info','source','created_at','contact_phone','contact_telegram','contact_whatsapp']
+const fields=['id','title','role_category','employment_type','location_city','salary_range','description','contact_info','source','created_at','renewed_at','expires_at','contact_phone','contact_telegram','contact_whatsapp']
 const metaScalars=['phone','telegram','whatsapp','company_name','source_url','parsing_status','role_category','governorate','employment_type','source_posted_at','featured']
 const metaArrays=['role_categories','governorates','target_audience']
 export function publicJobOffer(row){

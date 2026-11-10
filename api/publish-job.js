@@ -1,3 +1,4 @@
+import {dispatchJobBroadcasts} from '../server/job-broadcasts.js'
 import {ensurePublisher} from '../server/publishers.js'
 import {safeBackendCode} from '../server/backend-errors.js'
 import {classifyJob} from '../config/job-targeting.js'
@@ -60,6 +61,9 @@ export function createPublishHandler(env=process.env, clientFactory=serverClient
       // Ownership, source, status and all accepted columns are assigned by the server.
       const {data,error}=await db.from('job_offers').insert({...record,publisher_id:user.id}).select('id').single()
       if(error)throw error
+      // The insert trigger persists the outbox in the same transaction as the job.
+      // A delivery failure cannot turn a committed publication into an error.
+      try{await dispatchJobBroadcasts(db,env,{jobId:data.id})}catch{console.warn('Job broadcast deferred; queued delivery will retry.')}
       res.statusCode=201;return res.end(JSON.stringify({id:data.id}))
     }catch(error){console.error('Job publishing failed:',safeBackendCode(error));return send(502,'تعذر حفظ الإعلان. لم يتم تأكيد النشر؛ يرجى المحاولة لاحقاً.')}
   }

@@ -1,3 +1,7 @@
+import {isJobFresh} from '../config/job-lifecycle.js'
+import {employerApplicationStatuses} from '../config/application-status.js'
+import {broadcastTrust} from '../server/verifications.js'
+import {canPublish} from '../config/access.js'
 import {accountApplications} from '../server/account-applications.js'
 import {notifyPublisherWhatsAppNewApplication} from '../lib/whatsapp.ts'
 import {notifyPublisherNewApplication} from '../lib/telegram.js'
@@ -15,12 +19,25 @@ export function createApplicationsHandler(env=process.env,factory=serverClient,n
   if(req.method==='GET')return json(res,200,await accountApplications(db,user,new URL(req.url||'/','http://localhost')))
   const platform=await readPlatform(db);if(platform.settings.maintenance&&!isSuperAdmin(user))throw new HttpError(503,'المنصة قيد الصيانة حالياً. حاول لاحقاً.')
   const body=await readBody(req)
+  if(body.action==='application.status'){
+   if(!employerApplicationStatuses.includes(body.status))throw new HttpError(400,'حالة الطلب غير صالحة.')
+   const result=check(await db.rpc('projecta_application_status',{p_actor:user.id,p_job:uuid(body.job_id),p_application:uuid(body.application_id),p_status:body.status}))
+   if(!result)throw new HttpError(404,'الطلب غير موجود أو لا تملك صلاحية تعديله.')
+   return json(res,200,{...result,warning:await broadcastTrust(db)})
+  }
+  if(body.action==='job.renew'){
+   if(!canPublish(user))throw new HttpError(403,'تجديد الإعلان يتطلب حساباً مهنياً معتمداً.')
+   const result=check(await db.rpc('projecta_renew_job',{p_actor:user.id,p_job:uuid(body.job_id)}))
+   if(!result)throw new HttpError(404,'الإعلان غير موجود أو غير متاح للتجديد.')
+   return json(res,200,result)
+  }
   if(body.action==='license.submit')throw new HttpError(409,'استخدم الملف الشخصي المكتمل وطلب التوثيق المنظم من قائمة حسابك.');
-  const job=check(await db.from('job_offers').select('id,status').eq('id',uuid(body.job_id)).single());if(job.status!=='active')throw new HttpError(400,'الإعلان غير متاح للتقديم.')
+  const job=check(await db.from('job_offers').select('id,status,created_at,renewed_at,expires_at').eq('id',uuid(body.job_id)).single());if(job.status!=='active'||!isJobFresh(job))throw new HttpError(400,'الإعلان غير متاح للتقديم.')
   if(body.cv_url)throw new HttpError(400,'ارفع ملف السيرة الذاتية بدلاً من إدخال رابط خارجي.')
   const resume=body.resume_asset_id?await attachResume(db,uuid(body.resume_asset_id),user.id):null
   const letter=text(body.cover_letter,4000);if(letter.length<10)throw new HttpError(400,'اكتب نبذة لا تقل عن 10 أحرف.')
   const r=await db.from('job_applications').insert({job_id:job.id,applicant_id:user.id,cover_letter:letter,cv_url:null,...(resume?{resume_asset_id:resume}:{})}).select('id').single()
+  if(r.error?.code==='23514'&&String(r.error.message).includes('job_not_available'))throw new HttpError(409,'انتهت صلاحية الإعلان أو أُغلق قبل إرسال الطلب.')
   if(r.error?.code==='23514'&&String(r.error.message).includes('resume_not_ready'))throw new HttpError(409,'تغيّرت حالة السيرة الذاتية. ارفع الملف مجدداً قبل إرسال الطلب.')
   if(r.error?.code==='23505')throw new HttpError(409,'سبق أن قدمت لهذا الإعلان.')
   const applicationId=check(r).id

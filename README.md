@@ -195,3 +195,11 @@ The production feed now supports Supabase Realtime identity notifications with
 sanitized, uncached API reads. Supabase Cron invokes the Vercel fallback every
 five minutes; the optional `telegram_scraper.py --listen` mode supports a
 persistent Telethon worker. See [setup, recovery, monitoring and verification](docs/realtime-pipeline.md).
+
+## Feed trust, quick apply and hiring pipeline
+
+Reviewed facility badges, verified-only filters, mobile quick apply, employer-managed
+application stages, 30-day expiry/renewal and a signed broadcast outbox are covered
+in [activation and verification instructions](docs/feed-trust-and-pipeline.md).
+Apply the new migration and configure receivers/scheduling before claiming these
+backend features are active in production.

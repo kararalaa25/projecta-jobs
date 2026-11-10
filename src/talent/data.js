@@ -1,3 +1,4 @@
+import {hasVerifiedCredentials} from '../../config/profile-trust.js'
 import catalog from '../../config/iraq.json' with {type:'json'}
 import {canonicalRole,ar} from '../i18n.js'
 import {normalizeSearch,matchesSearch} from '../job-ui.js'
@@ -44,7 +45,8 @@ export function validateTalent(form){
  if(!profile)throw Error('تعذر قراءة بيانات الملف.')
  return profile
 }
-export function talentMatches(profile,{query='',city='',role='',availability='',workType=''}={}){
+export function talentMatches(profile,{query='',city='',role='',availability='',workType='',verifiedOnly=false}={}){
+ if(verifiedOnly&&(profile.source!=='platform'||!hasVerifiedCredentials(profile.verification)))return false
  if(city&&profile.city!==talentCity(city))return false
  if(role&&profile.role!==canonicalRole(role))return false
  if(availability&&profile.availability!==availability)return false

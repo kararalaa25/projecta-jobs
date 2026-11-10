@@ -9,7 +9,9 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test --test-isolation=none tests/*.test.js",
     "test:staging:local": "python3 scripts/staging/run.py",
-    "typecheck": "tsc --project tsconfig.matching.json"
+    "typecheck": "tsc --project tsconfig.matching.json",
+    "test:db:pipeline": "node tests/integration/job-pipeline.mjs",
+    "test:ui:feeds": "node tests/integration/feed-ui.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.0",
@@ -22,9 +24,11 @@
     "yauzl": "^3.4.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "24.10.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "playwright-core": "1.65.0",
     "tailwindcss": "^4.0.0",
     "typescript": "7.0.2",
     "vite": "^6.1.0"

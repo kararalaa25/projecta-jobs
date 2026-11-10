@@ -30,7 +30,7 @@ export default function JobCard({job,saved,onSave,onRead,onApply,verification,fi
    {job.raw&&<span className="raw-badge">منشور غير موثّق</span>}
   </div>
   {job.type==='jobs'&&<SpecialtyFitBadge fit={fit}/>}
-  <div className="card-bottom"><time className="listing-time" dateTime={validDate(job.createdAt)?.toISOString()} title={job.createdAt?exactDate(job.createdAt):undefined}>{job.createdAt?`${job.type==='candidates'?'أُضيف':'نُشر'} ${jobTimestamp(job.createdAt)}`:job.sample?ar(job.time):'تاريخ النشر غير متاح'}</time></div>
+  <div className="card-bottom"><time className="listing-time" dateTime={validDate(job.createdAt)?.toISOString()} title={job.createdAt?exactDate(job.createdAt):undefined}>{job.createdAt?`نُشر ${jobTimestamp(job.createdAt)}`:job.sample?ar(job.time):'تاريخ النشر غير متاح'}</time></div>
   <div className="card-footer"><JobContactActions job={job} onRead={onRead} onApply={job.live&&job.source==='manual'&&job.official?onApply:undefined}/></div>
  </article>
 }

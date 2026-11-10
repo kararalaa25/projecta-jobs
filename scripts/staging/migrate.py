@@ -1,4 +1,4 @@
-"""Apply approved 007/008/009 only to the labelled local fixture, never a remote DB."""
+"""Apply the local fixture migrations only to the labelled local fixture, never a remote DB."""
 import sys,time
 from start import docker,ROOT,PREFIX
 for _ in range(60):
@@ -19,7 +19,7 @@ alter table public.job_offers enable row level security;
 grant select on public.job_offers to anon,authenticated;
 grant all on public.job_offers to service_role;
 """
-sql=native+'\n'+ '\n'.join((ROOT/'supabase/migrations'/name).read_text() for name in ['202610300007_super_admin.sql','202610300008_private_resumes.sql','202610300009_general_physicians.sql'])+"\nnotify pgrst,'reload schema';"
+sql=native+'\n'+ '\n'.join((ROOT/'supabase/migrations'/name).read_text() for name in ['202610300007_super_admin.sql','202610300008_private_resumes.sql','202610300009_general_physicians.sql','20261110170414_job_trust_pipeline_distribution.sql'])+"\nnotify pgrst,'reload schema';"
 result=docker('exec','-i',PREFIX+'db','psql','-U','postgres','-v','ON_ERROR_STOP=1',input=sql,check=False)
 if result.returncode:print(result.stderr[-2000:]);sys.exit(1)
-print('Local migrations 007/008/009 applied. Migration 010 was not applied.')
+print('Local migrations 007/008/009 and job lifecycle/pipeline/outbox applied. Migration 010 was not applied.')
