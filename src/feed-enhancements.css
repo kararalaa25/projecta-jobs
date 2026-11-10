@@ -40,3 +40,56 @@
 
 .credential-wrap .verified-badge{min-width:44px;min-height:44px;justify-content:center;cursor:pointer}
 .credential-wrap .verified-badge:focus-visible{outline:3px solid #0284c7;outline-offset:3px}
+
+/* Reuse the existing switch above the feed; filters retain a single state. */
+.feed-quick-filters{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-block:0 20px;padding:12px 16px;background:#f1faf8;border:1px solid #c7e5df;border-radius:14px}
+.feed-quick-filters .verified-filter{padding:0;border:0;flex:1;max-width:460px}
+.feed-quick-filters .verified-filter small{max-width:none}
+.feed-reset,.filter-clear{min-height:44px;padding:8px 12px;color:#116879;font-size:13px;font-weight:700;border-radius:10px}
+.feed-reset:disabled,.filter-clear:disabled,.filter-heading button:disabled{opacity:.5;cursor:default}
+.filter-button-label{font-size:13px;font-weight:700}
+.filter-active-count{display:inline-grid;place-items:center;min-width:22px;min-height:22px;padding:1px 5px;border-radius:20px;background:#087f72;color:white;font-size:12px}
+.reference-board .job-card .job-preview .compact-facts{margin-block:12px;color:#334155}
+.reference-board .job-card .job-preview .compact-facts dd{color:#334155;font-size:13px;font-weight:600;line-height:1.8}
+.reference-board .job-card .listing-time{color:#526477;font-size:12px;max-width:100%}
+.reference-board .job-card .preview-description p{color:#526477}
+.reference-board :is(button,a,input,select):focus-visible,.filter-sheet :is(button,input,select):focus-visible{outline:3px solid #0284c7;outline-offset:3px}
+.reference-board :is(button,a),.filter-sheet :is(button,select){transition:background-color .16s,color .16s,box-shadow .16s,transform .16s}
+.reference-board :is(button,a):active:not(:disabled),.filter-sheet button:active:not(:disabled){transform:scale(.98);filter:brightness(.96)}
+.credential-tooltip:not([hidden]){animation:trust-tooltip-in .14s ease-out}
+@keyframes trust-tooltip-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+@media(hover:hover){.feed-reset:hover,.filter-clear:hover:not(:disabled){background:#dcefeb}.reference-board .filter-button:hover{background:#e7f2f9}}
+@media(min-width:768px){.reference-board .filter-sidebar{display:block}.reference-board .results-heading .filter-button{display:none}}
+@media(max-width:767px){
+ .reference-board .board-layout{grid-template-columns:minmax(0,1fr)}
+ .reference-board .results-heading{flex-wrap:wrap;gap:10px}
+ .reference-board .results-heading>div{flex-basis:100%}
+ .reference-board .results-heading .filter-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 12px;border:1px solid #cadce8;border-radius:10px;background:white;color:#334155}
+ .feed-quick-filters{padding:12px;align-items:flex-start}
+ .feed-quick-filters .verified-filter>label{font-size:14px}
+ .feed-quick-filters .verified-filter small{font-size:11px}
+ .feed-reset{font-size:12px;padding-inline:6px}
+ .job-actions .quick-apply{background:#087f5b;color:white;border-color:#087f5b;font-size:14px;box-shadow:0 3px 9px #087f5b22}
+ .job-actions .quick-apply-telegram{background:#086ca0;color:white;border-color:#086ca0}
+ .overlay:has(.filter-sheet){padding:0;align-items:flex-end;z-index:150}
+ .modal.filter-sheet{padding:0;width:100%;max-width:100%;max-height:90dvh;border-radius:24px 24px 0 0;overflow:hidden;display:flex;flex-direction:column;animation:filter-sheet-in .2s ease-out}
+ .filter-sheet .modal-heading{flex-shrink:0;padding:20px 20px 12px;margin:0;border-block-end:1px solid #e2e8f0}
+ .filter-sheet .modal-heading h2{font-size:20px}
+ .filter-sheet .icon-button{min-width:44px;min-height:44px}
+ .filter-sheet-help{font-size:13px;color:#526477;padding:12px 20px;margin:0;flex-shrink:0}
+ .filter-sheet-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 20px 12px}
+ .filter-sheet .filter-panel{display:block;padding:0;border:0;box-shadow:none;border-radius:0;background:white}
+ .filter-sheet .filter-panel fieldset{border:0;border-block-end:1px solid #e2e8f0;margin:0;padding:16px 0;min-width:0}
+ .filter-sheet .filter-panel legend{float:none;font-size:15px;font-weight:700;color:#334155;margin:0 0 12px;display:flex;justify-content:space-between;width:100%}
+ .filter-sheet .filter-panel fieldset:first-child{display:flex;flex-wrap:wrap;gap:8px}
+ .filter-sheet .category-chip{min-height:44px;flex:1 1 44%;margin:0}
+ .filter-sheet .filter-option{min-height:44px;font-size:15px;display:flex;align-items:center;gap:10px}
+ .filter-sheet .filter-option input{width:20px;height:20px;accent-color:#087f72;flex-shrink:0}
+ .filter-sheet .filter-panel select{width:100%;min-height:48px;font-size:16px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#334155}
+ .filter-sheet-actions{display:flex;align-items:center;gap:12px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));background:white;border-block-start:1px solid #e2e8f0;flex-shrink:0;box-shadow:0 -4px 16px #33415508}
+ .filter-sheet-actions .primary{flex:1;min-height:48px;font-size:14px;white-space:normal}
+ @keyframes filter-sheet-in{from{transform:translateY(32px);opacity:0}to{transform:translateY(0);opacity:1}}
+}
+@media(prefers-reduced-motion:reduce){.reference-board :is(button,a,input,select),.filter-sheet :is(button,select){transition:none}.modal.filter-sheet,.credential-tooltip:not([hidden]){animation:none}.reference-board :is(button,a):active:not(:disabled),.filter-sheet button:active:not(:disabled){transform:none}}
+/* The sheet footer already shows totals; keep long Arabic category labels clear. */
+@media(max-width:767px){.filter-sheet .category-chip-count,.filter-sheet .category-chip>svg:last-child{display:none}}
