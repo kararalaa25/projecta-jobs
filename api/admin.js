@@ -1,3 +1,5 @@
+import {dispatchJobBroadcasts} from '../server/job-broadcasts.js'
+import {applicationStatuses} from '../config/application-status.js'
 import {ensurePublisher} from '../server/publishers.js'
 import {serverClient,serverAuthClient} from '../server/supabase.js'
 import {isPlatformOffer} from '../config/job-feeds.js'
@@ -53,7 +55,7 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
    return json(res,200,{rows:check(r),hasMore:start+30<r.count,total:r.count})
   }
   const body=await readBody(req),action=body.action
-  async function saved(target){const audit=await db.from('admin_audit_log').insert({actor_id:actor.id,operation:action,target_id:target||null});return json(res,200,{ok:true,warning:audit.error?'تم الحفظ، لكن سجل التدقيق غير متاح؛ طبّق ترحيل 007.':null})}
+  async function saved(target){const audit=await db.from('admin_audit_log').insert({actor_id:actor.id,operation:action,target_id:target||null});if(['job.save','job.status'].includes(action))try{await dispatchJobBroadcasts(db,env,{jobId:target})}catch{console.warn('Job broadcast deferred; queued delivery will retry.')}return json(res,200,{ok:true,warning:audit.error?'تم الحفظ، لكن سجل التدقيق غير متاح؛ طبّق ترحيل 007.':null})}
   if(action==='verification.review')return json(res,200,await reviewVerification(db,actor,body))
   if(action==='user.update'){
    if(body.verified!==undefined||body.verification_status!==undefined)throw new HttpError(400,'راجع الطلب من لوحة طلبات التوثيق لمنح الشارة أو رفضها.');
@@ -100,7 +102,7 @@ export function createAdminHandler(env=process.env,factory=serverClient,verifier
    const s=body.settings;if(!s||typeof s.banner_enabled!=='boolean'||typeof s.maintenance!=='boolean')throw new HttpError(400,'إعدادات غير صالحة.')
    await adminMutation(db,actor,action,{banner_enabled:s.banner_enabled,maintenance:s.maintenance,banner_text:text(s.banner_text,1000,false)});return json(res,200,{ok:true})
   }
-  if(action==='application.status'){if(!['submitted','reviewing','accepted','rejected'].includes(body.status))throw new HttpError(400,'حالة غير صالحة.');await adminMutation(db,actor,action,{id:uuid(body.id),status:body.status});await broadcastTrust(db);return json(res,200,{ok:true})}
+  if(action==='application.status'){if(!applicationStatuses.includes(body.status))throw new HttpError(400,'حالة غير صالحة.');await adminMutation(db,actor,action,{id:uuid(body.id),status:body.status});await broadcastTrust(db);return json(res,200,{ok:true})}
   throw new HttpError(400,'عملية غير مسموحة.')
  }catch(error){return errorResponse(res,error)}
 }}

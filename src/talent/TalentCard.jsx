@@ -1,3 +1,4 @@
+import {jobTimestamp,exactDate,validDate} from '../dates.js'
 import {MapPin,Clock3,GraduationCap,BriefcaseMedical,FileText,Phone,ArrowUpLeft,Pencil,Trash2} from 'lucide-react'
 import CredentialBadges from '../components/CredentialBadges'
 import SpecialtyBadge from '../components/SpecialtyBadge'
@@ -6,7 +7,6 @@ import WhatsAppIcon from '../components/WhatsAppIcon'
 import {specialtyClass} from '../job-ui.js'
 import {ar,number} from '../i18n.js'
 import {availabilityOptions,workOptions,talentContacts} from './data.js'
-import {jobTimestamp,exactDate} from '../dates.js'
 
 export default function TalentCard({profile,onPreview,onDetails,onEdit,onDelete}){
  const contacts=talentContacts(profile),demo=profile.source==='demo'
@@ -20,7 +20,7 @@ export default function TalentCard({profile,onPreview,onDetails,onEdit,onDelete}
    <div className="talent-name"><h2>{profile.name}</h2><p>{profile.headline||ar(profile.role)}</p></div>
    <div className="talent-top-badges">
     <span className={`talent-availability availability-${profile.availability}`}><span aria-hidden="true"/>{availability.label}</span>
-    {timestamp&&<time className="talent-relative-time" dateTime={timestamp} title={exactDate(timestamp)}><Clock3 size={11} aria-hidden="true"/> {`نُشر ${jobTimestamp(timestamp)}`}</time>}
+    {timestamp&&<time className="talent-relative-time candidate-freshness" dateTime={validDate(timestamp)?.toISOString()} title={exactDate(timestamp)}><Clock3 size={11} aria-hidden="true"/> {`نُشر ${jobTimestamp(timestamp)}`}</time>}
    </div>
   </div>
   <div className="talent-identity-tags">
@@ -40,6 +40,6 @@ export default function TalentCard({profile,onPreview,onDetails,onEdit,onDelete}
    {contacts.whatsapp?<a className="talent-contact whatsapp-contact" href={contacts.whatsapp} target="_blank" rel="noopener noreferrer" aria-label={`واتساب ${profile.name}`} title="تواصل مباشر عبر واتساب"><WhatsAppIcon size={19}/></a>:<button className="talent-contact" disabled aria-label={`واتساب غير متاح: ${profile.name}`} title="واتساب غير مضاف لهذا الملف"><WhatsAppIcon size={19}/></button>}
    {contacts.phone?<a className="talent-contact phone-contact" href={contacts.phone} aria-label={`اتصال هاتفي مع ${profile.name}`} title="اتصال مباشر"><Phone size={18} aria-hidden="true"/></a>:<button className="talent-contact" disabled aria-label={`الاتصال غير متاح: ${profile.name}`} title="بيانات توضيحية؛ لا يوجد رقم اتصال فعلي"><Phone size={18} aria-hidden="true"/></button>}
   </div></div>
-  <div className="talent-card-footer"><button onClick={()=>onDetails(profile)}>عرض الملف السريري <ArrowUpLeft size={14} aria-hidden="true"/></button>{profile.source==='local'&&<div><button onClick={()=>onEdit(profile)} aria-label={`تعديل ملف ${profile.name}`} title="تعديل الملف المحلي"><Pencil size={15} aria-hidden="true"/></button><button onClick={()=>onDelete(profile)} aria-label={`حذف ملف ${profile.name}`} title="حذف الملف المحلي"><Trash2 size={15} aria-hidden="true"/></button></div>}</div>
+  {!timestamp&&<div className="candidate-freshness">{demo?'ملف توضيحي · بلا تاريخ نشر فعلي':'تاريخ النشر غير متاح'}</div>}<div className="talent-card-footer"><button onClick={()=>onDetails(profile)}>عرض الملف السريري <ArrowUpLeft size={14} aria-hidden="true"/></button>{profile.source==='local'&&<div><button onClick={()=>onEdit(profile)} aria-label={`تعديل ملف ${profile.name}`} title="تعديل الملف المحلي"><Pencil size={15} aria-hidden="true"/></button><button onClick={()=>onDelete(profile)} aria-label={`حذف ملف ${profile.name}`} title="حذف الملف المحلي"><Trash2 size={15} aria-hidden="true"/></button></div>}</div>
  </article>
 }

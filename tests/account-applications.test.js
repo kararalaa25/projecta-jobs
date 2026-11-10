@@ -25,3 +25,12 @@ test('owned job applicants expose only requested contact data and authorize CV t
 test('invalid pagination and unknown views cannot request unbounded candidate data',async()=>{
  for(const params of [{view:'applicants',offset:'-1'},{view:'unknown'},{view:'mine',offset:'100001'}])await assert.rejects(()=>accountApplications(database(),{id:owner},url(params)),error=>error.status===400)
 })
+
+test('account history falls back on missing lifecycle columns while preserving ownership filters',async()=>{
+ const {accountJobQuery}=await import('../server/account-applications.js')
+ const calls=[]
+ const db={from(table){assert.equal(table,'job_offers');let fields;return {select(value){fields=value;return this},eq(column,value){calls.push([fields,column,value]);return this},async maybeSingle(){return fields.includes('expires_at')?{error:{code:'42703'}}:{data:{id:job,publisher_id:owner}}}}}}
+ const result=await accountJobQuery(db,q=>q.eq('publisher_id',owner).maybeSingle())
+ assert.equal(result.id,job);assert.equal(calls.length,2)
+ for(const [,column,value] of calls){assert.equal(column,'publisher_id');assert.equal(value,owner)}
+})

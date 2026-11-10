@@ -54,7 +54,7 @@ export function toJob(row) {
     schedule: inferredSchedule||(!raw?schedule:null)||'Schedule not specified',
     description: text, logo: row.source === 'telegram' ? '↗' : company.slice(0, 2).toUpperCase(), color: 'mint',
     time: jobTimestamp(meta.source_posted_at || row.created_at),
-    createdAt: meta.source_posted_at || row.created_at || '', sourceUrl, phone, whatsapp,
+    createdAt: meta.source_posted_at || row.renewed_at || row.created_at || '', publishedAt:row.created_at, renewedAt:row.renewed_at, expiresAt:row.expires_at, sourceUrl, phone, whatsapp,
     telegram: username,
     targetAudience:meta.target_audience||inferred.targetAudience,
     live: true, raw, featured:meta.featured===true,

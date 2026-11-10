@@ -36,3 +36,8 @@ export function publicProfileTrust(user){
  // Other members' application/rejection states and license details stay private.
  return trust.status==='verified'?trust:{...unverifiedProfile(),kind:trust.kind}
 }
+
+export function hasVerifiedCredentials(value){
+ const trust=normalizeProfileTrust(value)
+ return trust.status==='verified'&&trust.credentials.some(key=>key==='syndicate_membership'||key==='facility_license')
+}

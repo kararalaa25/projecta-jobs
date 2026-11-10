@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {isJobExpired, jobTimestamp} from '../src/dates.js'
 import {buildBroadcastPayload, dispatchJobBroadcast} from '../server/broadcast.js'
-import {applicationStatus} from '../src/account/AccountApplications.jsx'
+import {applicationStatus} from '../config/application-status.js'
 
 test('automated 30-day expiry marks jobs older than 30 days unless renewed', () => {
  const now = Date.now()
@@ -113,6 +113,6 @@ test('application tracking statuses support all transparent pipeline stages', ()
  assert.equal(applicationStatus.reviewing, 'تمت المشاهدة')
  assert.equal(applicationStatus.shortlisted, 'مُرشَّح للقائمة القصيرة')
  assert.equal(applicationStatus.accepted, 'مقبول')
- assert.equal(applicationStatus.archived, 'تم الأرشفتة')
+ assert.equal(applicationStatus.archived, 'تمت الأرشفة')
  assert.equal(applicationStatus.rejected, 'غير مقبول')
 })

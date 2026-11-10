@@ -27,7 +27,7 @@ test('service-role clients normalize API URLs while retaining auth settings and 
  assert.equal(captured[0],'https://project.supabase.co');assert.equal(captured[1],'test-private-key');assert.equal(captured[2].auth.persistSession,false)
 })
 test('jobs feed normalizes the base URL and keeps legacy optional-contact compatibility',async()=>{
- let url,calls=0;const query={select(){return this},eq(){return this},order(){return this},range(){return this},async abortSignal(){calls++;return calls===1?{error:{code:'42703'}}:{data:[{id:'active-job'}],error:null}}}
+ let url,calls=0;const query={select(){return this},eq(){return this},gt(){return this},order(){return this},range(){return this},async abortSignal(){calls++;return calls===1?{error:{code:'42703'}}:{data:[{id:'active-job'}],error:null}}}
  const res={setHeader(){},end(raw){this.body=JSON.parse(raw)}}
  await createJobsHandler({SUPABASE_URL:'https://project.supabase.co/rest/v1',SUPABASE_SERVICE_ROLE_KEY:'test-private-key'},value=>{url=value;return {from(){return query}}})({method:'GET',url:'/'},res)
  assert.equal(url,'https://project.supabase.co');assert.equal(res.statusCode,200);assert.equal(calls,2);assert.equal(res.body.jobs[0].id,'active-job')

@@ -3,6 +3,7 @@ import {normalizeProfileTrust,unverifiedProfile} from '../config/profile-trust.j
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const eligibleForTrust=job=>job.live===true&&job.source==='manual'&&!job.sample&&UUID.test(job.id)
 export function listingVerification(job,summaries){
+ if(job.type==='candidates'&&job.source==='platform'&&job.live===true&&!job.sample)return normalizeProfileTrust(job.verification)
  if(!eligibleForTrust(job))return unverifiedProfile()
  return normalizeProfileTrust(summaries[job.id]||{status:'checking'})
 }

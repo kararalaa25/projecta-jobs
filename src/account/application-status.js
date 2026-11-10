@@ -6,16 +6,8 @@
  */
 
 /** Human-readable Arabic labels for each application pipeline stage */
-export const applicationStatus = {
- submitted:   'قيد المراجعة',
- pending:     'قيد المراجعة',
- reviewing:   'تمت المشاهدة',
- viewed:      'تمت المشاهدة',
- shortlisted: 'مُرشَّح للقائمة القصيرة',
- accepted:    'مقبول',
- archived:    'تم الأرشفتة',
- rejected:    'غير مقبول'
-}
+import {applicationStatus as pipelineStatus} from '../../config/application-status.js'
+export const applicationStatus = {...pipelineStatus,pending:pipelineStatus.submitted}
 
 /** CSS state class suffix for each pipeline stage */
 export const applicationStateClass = {
