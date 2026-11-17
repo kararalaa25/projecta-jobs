@@ -1,5 +1,5 @@
 /* One transform-driven layer glides between equal RTL touch targets. */
-@media(max-width:680px){
+@media(max-width:767px){
  .mobile-nav.liquid-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:5px 8px;height:76px;isolation:isolate;overflow:visible}
  .mobile-nav.liquid-nav>button{position:relative;z-index:1;width:100%;height:64px;min-width:48px;min-height:48px;justify-content:center;gap:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;color:var(--pc-muted);transition:color 300ms ease-in-out}
  .liquid-nav-indicator{position:absolute;pointer-events:none;z-index:0;right:8px;top:5px;bottom:5px;width:calc((100% - 16px)/5);transform:translate3d(calc(var(--active-index)*-100%),0,0);transition:transform 300ms cubic-bezier(.22,.8,.25,1);will-change:transform}
@@ -20,7 +20,7 @@
 
 /* Sculpted floating dock with a recessed center and raised posting action. */
 .mobile-nav-surface{display:none}
-@media(max-width:680px){
+@media(max-width:767px){
  .mobile-nav.liquid-nav{height:82px;padding:6px 8px 4px;border:0;border-radius:0;background:transparent;backdrop-filter:none;box-shadow:none;bottom:calc(12px + env(safe-area-inset-bottom))}
  .mobile-nav-surface{display:block;position:absolute;inset:0;width:100%;height:100%;z-index:-1;overflow:visible;pointer-events:none;filter:drop-shadow(0 6px 16px #173c6012)}
  .mobile-nav-surface path{fill:#fff}
@@ -37,3 +37,18 @@
  .mobile-nav.liquid-nav>button.mobile-plus.active svg{transform:none}
 }
 @media(prefers-reduced-motion:reduce){.mobile-nav.liquid-nav .mobile-post-orb{transition:none!important}}
+
+/* One module per screen on phones: the dock selects the visible panel, desktop stays stacked. */
+@media(max-width:767px){
+ .marketplace.reference-page[data-mobile-view]{padding-bottom:calc(118px + env(safe-area-inset-bottom))}
+ .marketplace .mobile-view-panel{display:none}
+ .marketplace[data-mobile-view="jobs"] .mobile-view-panel[data-panel="feed"],
+ .marketplace[data-mobile-view="telegram"] .mobile-view-panel[data-panel="feed"],
+ .marketplace[data-mobile-view="candidates"] .mobile-view-panel[data-panel="feed"],
+ .marketplace[data-mobile-view="activity"] .mobile-view-panel[data-panel="activity"]{display:block}
+ .marketplace .career-hero{display:none}
+ .app-footer{display:none}
+ .mobile-activity-panel{padding:22px 4px 8px}
+ .mobile-activity-panel h2{font-size:22px;margin-bottom:16px}
+ .mobile-activity-panel .activity-options>button{min-height:64px}
+}
