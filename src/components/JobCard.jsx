@@ -23,13 +23,13 @@ export default function JobCard({job,saved,onSave,onRead,onApply,verification,fi
   </div>
   <div className="card-trust">{trust.status!=='verified'&&<VerificationStatus verification={trust} context={context}/>}<CredentialBadges verification={trust}/></div>
   <JobPreview job={job} compact/>
+  {job.type==='jobs'&&<SpecialtyFitBadge fit={fit}/>}
   <div className="role-badges">
    {categories.length?categories.slice(0,2).map(role=><SpecialtyBadge key={role} role={role}/>):<span className="role-badge neutral">التخصص غير محدد</span>}
    {categories.length>2&&<span className="role-badge neutral" title={categories.map(ar).join('، ')}>+{number(categories.length-2)}</span>}
    {job.featured&&<span className="role-badge featured-badge">فرصة مميزة ★</span>}
    {job.raw&&<span className="raw-badge">منشور غير موثّق</span>}
   </div>
-  {job.type==='jobs'&&<SpecialtyFitBadge fit={fit}/>}
   <div className="card-bottom"><time className="listing-time" dateTime={validDate(job.createdAt)?.toISOString()} title={job.createdAt?exactDate(job.createdAt):undefined}>{job.createdAt?`نُشر ${jobTimestamp(job.createdAt)}`:job.sample?ar(job.time):'تاريخ النشر غير متاح'}</time></div>
   <div className="card-footer"><JobContactActions job={job} onRead={onRead} onApply={job.live&&job.source==='manual'&&job.official?onApply:undefined}/></div>
  </article>

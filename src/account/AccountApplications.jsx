@@ -1,15 +1,14 @@
-import ApplicationStatusBadge from './ApplicationStatusBadge'
-export {default as ApplicationStatusBadge} from './ApplicationStatusBadge'
+import ApplicationTimeline from './ApplicationTimeline'
 import ApplicantCard from './ApplicantCard'
 import useTrustSync from '../useTrustSync'
 import {useEffect,useState,useRef} from 'react'
 import {applicationRequest} from './application-client'
 import {exactDate} from '../dates'
 import {applicationMutation} from './application-client'
-import {applicationStatus} from '../../config/application-status.js'
+import {applicationStatus} from './application-status.js'
 import '../feed-enhancements.css'
-export {applicationStatus} from '../../config/application-status.js'
-export default function AccountApplications({publisher=false,onExplore}){
+
+export default function AccountApplications({publisher=false,onExplore,onSelect}){
  const [selected,setSelected]=useState(null),[rows,setRows]=useState([]),[job,setJob]=useState(null),[offset,setOffset]=useState(0),[more,setMore]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[revision,setRevision]=useState(0)
  const [renewing,setRenewing]=useState(null),[pipelineAvailable,setPipelineAvailable]=useState(true)
  const viewKey=useRef('')
@@ -25,5 +24,19 @@ export default function AccountApplications({publisher=false,onExplore}){
   setRenewing(row.id)
   try{await applicationMutation({action:'job.renew',job_id:row.id});setRevision(value=>value+1)}catch(failure){setError(failure.message)}finally{setRenewing(null)}
  }
- return <section className="account-application-dashboard">{selected&&<button className="dashboard-back" onClick={()=>{setSelected(null);setOffset(0)}}>العودة إلى الوظائف المعلنة</button>}{job&&<h3>{job.title} · {job.company}</h3>}{loading?<p role="status">جارٍ تحميل البيانات…</p>:error?<div role="alert"><p>{error}</p><button onClick={()=>setRevision(value=>value+1)}>إعادة المحاولة</button></div>:!rows.length?<div className="empty-state"><h3>{publisher?selected?'لا توجد طلبات لهذه الوظيفة بعد':'لم تنشر وظائف بعد':'لم ترسل طلبات توظيف بعد'}</h3>{!publisher&&<button className="primary" onClick={onExplore}>استكشف فرص العمل</button>}</div>:<ul>{rows.map(row=><li key={row.id}>{publisher&&selected?<ApplicantCard row={row} jobId={selected} statusLabel={applicationStatus[row.status]||'قيد المراجعة'} onStatusChange={pipelineAvailable?status=>updateStatus(row,status):undefined}/>:publisher?<><h3>{row.title}</h3><p>{row.company}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><button className="primary" onClick={()=>{setSelected(row.id);setOffset(0)}}>عرض المتقدمين</button><div className="job-renewal"><span>{row.expires_at?`متاح حتى ${exactDate(row.expires_at)}`:'مدة ظهور الإعلان ٣٠ يوماً'}</span>{row.expires_at&&(row.status==='active'||row.archive_reason==='expired')&&<button disabled={Boolean(renewing)} onClick={()=>renew(row)}>{renewing===row.id?'جارٍ التجديد…':'تجديد الإعلان لمدة ٣٠ يوماً'}</button>}</div></>:<><h3>{row.job?.title||'إعلان غير متاح'}</h3><p>{row.job?.company||'جهة العمل'}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><ApplicationStatusBadge status={row.status}/></>}</li>)}</ul>}{!loading&&!error&&(offset>0||more)&&<nav aria-label="صفحات الطلبات"><button disabled={!offset} onClick={()=>setOffset(value=>Math.max(0,value-20))}>السابق</button><button disabled={!more} onClick={()=>setOffset(value=>value+20)}>التالي</button></nav>}</section>
+ return <section className="account-application-dashboard">
+  {selected&&<button className="dashboard-back" onClick={()=>{setSelected(null);setOffset(0)}}>العودة إلى الوظائف المعلنة</button>}
+  {job&&<h3>{job.title} · {job.company}</h3>}
+  {loading?<p role="status">جارٍ تحميل البيانات…</p>:error?<div role="alert"><p>{error}</p><button onClick={()=>setRevision(value=>value+1)}>إعادة المحاولة</button></div>:!rows.length?<div className="empty-state"><h3>{publisher?selected?'لا توجد طلبات لهذه الوظيفة بعد':'لم تنشر وظائف بعد':'لم ترسل طلبات توظيف بعد'}</h3>{!publisher&&<button className="primary" onClick={onExplore}>استكشف فرص العمل</button>}</div>:
+  <ul className="pipeline-grid">{rows.map(row=><li key={row.id} className="pipeline-card">
+   {publisher&&selected?<ApplicantCard row={row} jobId={selected} statusLabel={applicationStatus[row.status]||'قيد المراجعة'} onStatusChange={pipelineAvailable?status=>updateStatus(row,status):undefined}/>:publisher?<><h3>{row.title}</h3><p>{row.company}</p><time dateTime={row.created_at}>{exactDate(row.created_at)}</time><button className="primary" onClick={()=>{setSelected(row.id);setOffset(0)}}>عرض المتقدمين</button><div className="job-renewal"><span>{row.expires_at?`متاح حتى ${exactDate(row.expires_at)}`:'مدة ظهور الإعلان ٣٠ يوماً'}</span>{row.expires_at&&(row.status==='active'||row.archive_reason==='expired')&&<button disabled={Boolean(renewing)} onClick={()=>renew(row)}>{renewing===row.id?'جارٍ التجديد…':'تجديد الإعلان لمدة ٣٠ يوماً'}</button>}</div></>:<>
+    <div className="pipeline-header">
+     <div><h3>{row.job?.title||'إعلان غير متاح'}</h3><p>{row.job?.company||'جهة العمل'}</p></div>
+     <time dateTime={row.created_at} className="pipeline-date">{exactDate(row.created_at)}</time>
+    </div>
+    <ApplicationTimeline row={row} updatedAt={row.updated_at}/>
+   </>}
+  </li>)}</ul>}
+  {!loading&&!error&&(offset>0||more)&&<nav aria-label="صفحات الطلبات"><button disabled={!offset} onClick={()=>setOffset(value=>Math.max(0,value-20))}>السابق</button><button disabled={!more} onClick={()=>setOffset(value=>value+20)}>التالي</button></nav>}
+ </section>
 }
