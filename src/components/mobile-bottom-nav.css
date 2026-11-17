@@ -49,6 +49,6 @@
  .marketplace .career-hero{display:none}
  .app-footer{display:none}
  .mobile-activity-panel{padding:22px 4px 8px}
- .mobile-activity-panel h2{font-size:22px;margin-bottom:16px}
+ .mobile-activity-panel h2{font-size:22px;font-weight:800;color:#0b1525;margin-bottom:16px;letter-spacing:-.02em}
  .mobile-activity-panel .activity-options>button{min-height:64px}
 }
