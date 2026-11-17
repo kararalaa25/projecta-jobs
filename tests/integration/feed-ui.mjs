@@ -139,10 +139,10 @@ await page.getByRole('combobox',{name:'حالة طلب طبيب اختبار'}).
 await page.getByText('مُرشَّح للقائمة القصيرة',{exact:true}).first().waitFor()
 assert.equal(pipelineStatus,'shortlisted')
 await page.goto('http://localhost:5173/work/feed-test',{waitUntil:'networkidle'})
-assert.equal(await page.locator('.application-state').innerText(),'مُرشَّح للقائمة القصيرة')
+assert.equal(await page.locator('.app-timeline-state').innerText(),'مُرشَّح للقائمة القصيرة')
 pipelineStatus='archived'
 await page.evaluate(()=>window.refreshApplications())
-await page.getByText('تمت الأرشفة',{exact:true}).waitFor()
+await page.waitForFunction(()=>document.querySelector('.app-timeline-state')?.textContent?.trim()==='تمت الأرشفة')
 assert.deepEqual(errors,[])
 await browser.close()
 console.log('PASS: mobile quick apply + full application, touch/keyboard tooltip, verified job/candidate filters, timestamps, desktop visibility, RTL, 375/767/768/1280px layouts, filter sheet keyboard/resize/reset/apply, skeletons, empty recovery, reduced motion, employer stages and realtime updates')
