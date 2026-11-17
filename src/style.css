@@ -24,3 +24,17 @@
 .modal{--dialog-padding:30px;padding:var(--dialog-padding);overscroll-behavior:contain}
 .modal-heading{position:sticky;top:0;z-index:4;background:#fff;margin:calc(-1 * var(--dialog-padding)) calc(-1 * var(--dialog-padding)) 20px;padding:16px var(--dialog-padding);border-bottom:1px solid var(--pc-border)}
 @media(max-width:680px){.modal{--dialog-padding:24px}}
+
+/* Manual light/dark switch — Sun/Moon cross-fade with the resolved root theme. */
+.theme-toggle{display:inline-grid;place-items:center;position:relative;flex-shrink:0;width:38px;height:38px;padding:0;border:1px solid var(--pc-border);border-radius:50%;background:var(--pc-soft);color:var(--pc-muted);cursor:pointer;transition:background .2s,color .2s,border-color .2s,transform .2s}
+.theme-toggle svg{grid-area:1/1;transition:opacity .22s ease,transform .22s ease}
+.theme-toggle .theme-toggle-sun{opacity:0;transform:rotate(-90deg) scale(.55)}
+.theme-toggle .theme-toggle-moon{opacity:1;transform:rotate(0) scale(1)}
+.theme-toggle:hover{background:var(--pc-brand-soft);color:var(--pc-link)}
+.theme-toggle:active{transform:scale(.94)}
+.theme-toggle:focus-visible{outline:2px solid var(--pc-focus);outline-offset:2px}
+:root[data-theme="dark"] .theme-toggle{color:var(--pc-link)}
+:root[data-theme="dark"] .theme-toggle .theme-toggle-sun{opacity:1;transform:rotate(0) scale(1)}
+:root[data-theme="dark"] .theme-toggle .theme-toggle-moon{opacity:0;transform:rotate(90deg) scale(.55)}
+.drawer-theme-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 16px;padding:10px 12px;border:1px solid var(--pc-border);border-radius:14px;background:var(--pc-soft)}
+.drawer-theme-label{font-size:12px;font-weight:700;color:var(--pc-ink)}

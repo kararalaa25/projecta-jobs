@@ -2,8 +2,9 @@ import {useEffect,useRef} from 'react'
 import {acquireOverlayLock} from '../overlay-lock.js'
 import {createPortal} from 'react-dom'
 import {X,Plus,ShieldCheck,Bookmark,ArrowUpLeft,Users,GraduationCap} from 'lucide-react'
+import ThemeToggle from './ThemeToggle'
 
-export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onInformation,isAdmin}){
+export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onInformation,isAdmin,theme,onToggleTheme}){
  const ref=useRef(null),close=useRef(onClose)
  close.current=onClose
  useEffect(()=>{
@@ -25,6 +26,7 @@ export default function MobileDrawer({open,onClose,onAccount,onPost,onSaved,onIn
  return createPortal(<div className={`drawer-overlay ${open?'is-open':''}`} onClick={e=>e.target===e.currentTarget&&onClose()} inert={!open} aria-hidden={!open}>
   <section id="mobile-menu" className="mobile-drawer" role="dialog" aria-modal={open?true:undefined} aria-labelledby="drawer-title" tabIndex={-1} ref={ref}>
    <div className="drawer-heading"><h2 id="drawer-title">مرحباً بك في بروجكتا</h2><button className="icon-button" aria-label="إغلاق القائمة" onClick={onClose}><X/></button></div>
+   <div className="drawer-theme-row"><span className="drawer-theme-label">{theme==='dark'?'الوضع الداكن':'الوضع الفاتح'}</span><ThemeToggle theme={theme} onToggle={onToggleTheme}/></div>
    <p>خطوتك القادمة في الرعاية الصحية.</p>
    <nav aria-label="قائمة الهاتف">
     <a href="#job-board" onClick={onClose}>استكشف فرص العمل <ArrowUpLeft size={18}/></a>

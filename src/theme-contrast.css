@@ -18,7 +18,7 @@
   color: #047857;
 }
 
-@media (prefers-color-scheme: dark) {
+:root[data-theme="dark"] {
   /* ── Page + card surfaces ───────────────────────────────────── */
   body {
     background-color: var(--pc-page);
