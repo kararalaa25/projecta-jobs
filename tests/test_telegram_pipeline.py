@@ -253,6 +253,28 @@ class OptionBPipelineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(commit.call_args.kwargs['initial_status'], 'pending')
         self.assertTrue(result['needs_review'])
 
+    async def test_clean_single_job_uses_active_commit_without_pending_status(self):
+        text = 'مطلوب طبيب أسنان للعمل في عيادة ببغداد'
+        parsed = scraper.ParsedPost(jobs=[offer(text)], classification='job_offer',
+            needs_review=False, review_reasons=[])
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), receipt(text), 'native')
+        self.assertEqual(len(commit.call_args.args[2]), 1)
+        self.assertIsNone(commit.call_args.kwargs.get('initial_status'))
+        self.assertNotEqual(result.get('reason'), 'held')
+
+    async def test_ambiguous_non_mixed_announcement_routes_to_pending(self):
+        text = 'فرصة عمل طبية في بغداد — التفاصيل غير واضحة'
+        parsed = scraper.ParsedPost(jobs=[offer(text)], classification='job_offer',
+            needs_review=True, review_reasons=['unknown_specialty'])
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), receipt(text), 'native')
+        self.assertEqual(len(commit.call_args.args[2]), 1)
+        self.assertEqual(commit.call_args.kwargs['initial_status'], 'pending')
+        self.assertTrue(result['needs_review'])
+
     def test_commit_jobs_routes_pending_without_downgrading_to_old_rpc(self):
         db, row = MagicMock(), receipt('synthetic')
         pipeline.commit_jobs(db, row, [{'id': 'x'}], initial_status='pending')
