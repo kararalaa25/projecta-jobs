@@ -62,6 +62,21 @@ def fallback_post(text):
                 end = marker.start()
                 shared.append(text[end:].strip())
                 break
+    if len(starts) > 1 and end == len(text):
+        # A single unlabeled contact footer after the final offer may be shared,
+        # but a contact on the role heading itself stays section-local.
+        lines = text[starts[-1]:].splitlines()
+        for offset, line in enumerate(lines[1:], start=1):
+            stripped = line.strip()
+            if not stripped or scraper.hiring_marker_present(stripped) or scraper.classify_roles(stripped):
+                continue
+            contacts = scraper.extract_contacts(stripped)
+            if any(contacts.values()):
+                cut = starts[-1] + sum(len(part) + 1 for part in lines[:offset])
+                if cut < len(text):
+                    end = cut
+                    shared.append(text[end:].strip())
+                break
     sections = [text[a:b].strip() for a,b in zip(starts, starts[1:] + [end])] if len(starts) > 1 else [text.strip()]
     jobs = []
     for section in sections:
@@ -71,7 +86,12 @@ def fallback_post(text):
             job = scraper.regex_job('مطلوب للعمل\n' + section)
         if job:
             jobs.append(scraper.ExtractedJob(**job.model_dump(),source_text=section))
-    return scraper.ParsedPost(jobs=jobs, shared_context=shared)
+    parsed = scraper.ParsedPost(jobs=jobs, shared_context=shared)
+    kept, ambiguous = scraper.validate_shared_context(text, parsed.jobs, parsed.shared_context)
+    parsed.shared_context = kept
+    if ambiguous:
+        scraper.add_review_reason(parsed, 'ambiguous_shared_contact')
+    return parsed
 
 
 def job_records(parsed, message, chat_id, channel, storage, fallback=False):
@@ -80,16 +100,23 @@ def job_records(parsed, message, chat_id, channel, storage, fallback=False):
     channel = str(channel).strip().lstrip('@').lower()
     common = '\n'.join(parsed.shared_context)
     common_contacts = scraper.extract_contacts(common)
-    for job in sorted(parsed.jobs, key=lambda j: (message.raw_text.find(j.source_text), j.role_category or "", j.title or "")):
-        if not job.is_job_offer:
+    ordered = sorted(parsed.jobs, key=lambda j: (message.raw_text.find(j.source_text), j.role_category or "", j.title or ""))
+    local_contacts = [scraper.extract_contacts(job.source_text.strip()) for job in ordered]
+    # A "shared" value that also appears as one section's local contact is not
+    # shared at all; inheriting it would leak one role's contact to its siblings.
+    local_values = {key: {item[key] for item in local_contacts if item.get(key)} for key in common_contacts}
+    shared_contacts = {key: (value if value and value not in local_values[key] else None)
+                       for key, value in common_contacts.items()}
+    for job, local in zip(ordered, local_contacts):
+        if not job.is_job_offer or job.disposition in ('marketplace_item', 'ignore'):
             continue
         section = job.source_text.strip()
         scope = section + '\n' + common
-        local = scraper.extract_contacts(section)
-        contacts = {key: local[key] or common_contacts[key] for key in local}
+        contacts = {key: local[key] or shared_contacts[key] for key in local}
         roles = scraper.classify_roles(job.title or '')
         role = roles[0] if len(roles)==1 else job.role_category
         if not role or not job.title or not job.title.strip():
+            scraper.add_review_reason(parsed, 'unknown_specialty')
             continue
         places = scraper.locations(section) or scraper.locations(common)
         city = places[0] if places else (job.city if job.city in [g['id'] for g in scraper.GOVERNORATES] else '')
@@ -110,7 +137,10 @@ def job_records(parsed, message, chat_id, channel, storage, fallback=False):
                 'telegram_message_id':scraper.message_key(chat_id,channel,message.id),'source_message_key':scraper.message_key(chat_id,channel,message.id),
                 'source_text_hash':scraper.text_hash(message.raw_text),'source_posted_at':message.date.isoformat(),
                 'role_category':role,'role_categories':[role],'governorate':city or None,'governorates':places or ([city] if city else []),
-                'employment_type':schedule,'parsing_status':'retry' if fallback else 'parsed','parser_version':PARSER_VERSION,'job_index':index+1}
+                'employment_type':schedule,'parsing_status':'retry' if fallback else 'parsed','parser_version':PARSER_VERSION,'job_index':index+1,
+                'classification':getattr(parsed,'classification',None),'disposition':job.disposition,
+                'needs_review':bool(getattr(parsed,'needs_review',False) or fallback),
+                'review_reasons':list(getattr(parsed,'review_reasons',[]) or [])}
         records.append({'id':identity,'title':job.title.strip(),'description':description,'role_category':role,
                         'location_city':city or '', 'salary_range':job.salary_text if job.salary_text and job.salary_text in scope else None,'employment_type':native_schedule,
                         'source':'telegram','created_at':message.date.isoformat(),'contact_info':json.dumps(meta,ensure_ascii=False),
@@ -118,16 +148,86 @@ def job_records(parsed, message, chat_id, channel, storage, fallback=False):
     return records
 
 
-def commit_jobs(db, receipt, records, retry=False, error=None):
-    return db.rpc('commit_telegram_jobs', {'p_message_key':receipt['message_key'],
+PENDING_RPC = 'commit_telegram_jobs_initial_status'
+REVIEW_PREFIX = 'review:'
+
+
+def pending_rpc_unavailable(exc):
+    """True only for a missing/unsupported additive RPC, never for data errors."""
+    code = str(getattr(exc, 'code', ''))
+    message = str(exc).lower()
+    return (code in {'PGRST202', '42883'} or PENDING_RPC in message
+            or ('function' in message and 'does not exist' in message))
+
+
+def commit_jobs(db, receipt, records, retry=False, error=None, *, initial_status=None):
+    """Route uncertain records to the pending RPC; never downgrade to active."""
+    params = {'p_message_key':receipt['message_key'],
         'p_source_hash':receipt['source_hash'],'p_records':records,'p_parser_version':PARSER_VERSION,
         'p_retry':retry,'p_error_type':error,
-        'p_legacy_id':scraper.native_id(receipt['chat_id'],receipt['channel'],receipt['message_id'])}).execute().data
+        'p_legacy_id':scraper.native_id(receipt['chat_id'],receipt['channel'],receipt['message_id'])}
+    if initial_status == 'pending':
+        params['p_initial_status'] = 'pending'
+        return db.rpc(PENDING_RPC, params).execute().data
+    return db.rpc('commit_telegram_jobs', params).execute().data
+
+
+def published_source_hashes(db, receipt):
+    """Read only the hash metadata of previously published children."""
+    ids = receipt.get('job_ids') or []
+    if not ids:
+        return set()
+    try:
+        rows = db.table('job_offers').select('contact_info').in_('id', ids).execute().data or []
+    except Exception:
+        return set()
+    hashes = set()
+    for row in rows:
+        try:
+            value = json.loads(row.get('contact_info') or '{}').get('source_text_hash')
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if value:
+            hashes.add(value)
+    return hashes
+
+
+def hold_receipt(db, receipt, reason):
+    """Park a receipt for review without writing jobs or publishing anything."""
+    now = datetime.now(timezone.utc).isoformat()
+    return db.table('telegram_ingestion_messages').update({
+        'state':'retry','error_type':(REVIEW_PREFIX+reason)[:100],
+        'next_attempt_at':now,'updated_at':now,
+    }).eq('message_key',receipt['message_key']).execute().data
+
+
+def deletion_decision(db, receipt, text, records):
+    """Return 'delete' only for a verified whole-post closure, else 'hold'."""
+    prior = receipt.get('job_ids') or []
+    if not prior or records:
+        return 'normal'
+    if scraper.hiring_marker_present(text) or scraper.explicit_job_sections(text):
+        return 'hold'
+    if not scraper.explicit_closure(text):
+        return 'hold'
+    hashes = published_source_hashes(db, receipt)
+    if not hashes or receipt.get('source_hash') in hashes:
+        return 'hold'  # unchanged text is a reclassification, not a publisher edit
+    if len(prior) > 1 and not scraper.all_positions_signal(text):
+        return 'hold'  # one closed vacancy must not remove its siblings
+    return 'delete'
 
 
 async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
     message = SimpleNamespace(id=receipt['message_id'],raw_text=receipt['raw_text'],date=datetime.fromisoformat(receipt['posted_at'].replace('Z','+00:00')))
     records, fallback, error = [], False, None
+    classification, needs_review, review_reasons = None, False, []
+    prior_ids = receipt.get('job_ids') or []
+
+    def held(reason):
+        hold_receipt(db, receipt, reason)
+        return {'outcome':'held','jobs':0,'retry':True,'held':True,'reason':reason}
+
     # A course in one section must not suppress an entire multi-offer compilation.
     if message.raw_text.strip() and len(message.raw_text.strip())>=20:
         try:
@@ -141,18 +241,41 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
             records = job_records(parsed,message,receipt['chat_id'],receipt['channel'],storage,fallback)
             if any(j.is_job_offer for j in parsed.jobs) and not records:
                 raise ValueError('No valid grounded offerings')
+            classification = getattr(parsed,'classification',None)
+            needs_review = bool(getattr(parsed,'needs_review',False))
+            review_reasons = list(getattr(parsed,'review_reasons',[]) or [])
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             fallback,error = True,type(exc).__name__
-            records = job_records(fallback_post(message.raw_text),message,receipt['chat_id'],receipt['channel'],storage,True)
+            parsed = fallback_post(message.raw_text)
+            records = job_records(parsed,message,receipt['chat_id'],receipt['channel'],storage,True)
             # Keep the original readable while AI is unavailable, without marking complete.
             if not records and scraper.raw_job_allowed(message.raw_text):
-                record = scraper.raw_record(message,receipt['chat_id'],receipt['channel'],storage)
-                records=[record]
+                records=[scraper.raw_record(message,receipt['chat_id'],receipt['channel'],storage)]
+            needs_review = True
+            review_reasons = list(getattr(parsed,'review_reasons',[]) or [])
             LOG.warning('AI extraction pending retry (%s)',error)
-    result = await retry_io(lambda:commit_jobs(db,receipt,records,fallback,error))
-    return {'outcome':result,'jobs':len(records) if result not in {'unchanged','superseded'} else 0,'retry':fallback}
+
+    if prior_ids and records and len(records) < len(prior_ids):
+        return held('partial_group_change')
+    if prior_ids and not records and deletion_decision(db, receipt, message.raw_text, records) == 'hold':
+        return held('nonoffer_reclassification')
+    if not records and needs_review:
+        return held('review_required')
+
+    needs_pending = bool(needs_review or classification == 'mixed' or fallback)
+    try:
+        result = await retry_io(lambda:commit_jobs(db,receipt,records,fallback,error,
+            initial_status='pending' if needs_pending else None))
+    except Exception as exc:
+        if needs_pending and pending_rpc_unavailable(exc):
+            # Fail closed: the old RPC must never publish uncertain jobs as active.
+            return held('pending_rpc_unavailable')
+        raise
+    return {'outcome':result,'jobs':len(records) if result not in {'unchanged','superseded','held'} else 0,
+            'retry':fallback,'needs_review':needs_review,'review_reasons':review_reasons,
+            'classification':classification}
 
 
 async def ingest_native_message(gemini, db, message, chat_id, channel, dry_run=False, storage='native', parser='hybrid'):
@@ -177,11 +300,19 @@ async def ingest_native_message(gemini, db, message, chat_id, channel, dry_run=F
     return 'upserted_raw' if result['retry'] else ('upserted' if result['jobs'] else 'not_job')
 
 
+def review_held(receipt):
+    return str(receipt.get('error_type') or '').startswith(REVIEW_PREFIX)
+
+
 async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
     now = datetime.now(timezone.utc).isoformat()
     # Reserve retry capacity so old failures cannot be starved by a busy channel.
-    retries = await retry_io(lambda:db.table('telegram_ingestion_messages').select('*').eq('state','retry').lte('next_attempt_at',now).order('next_attempt_at').limit(6).execute())
-    pending = await retry_io(lambda:db.table('telegram_ingestion_messages').select('*').eq('state','pending').lte('next_attempt_at',now).order('posted_at',desc=True).limit(limit).execute())
+    # Held receipts are fetched but never processed, so they cannot loop forever.
+    retry_rows = await retry_io(lambda:db.table('telegram_ingestion_messages').select('*').eq('state','retry').lte('next_attempt_at',now).order('next_attempt_at').limit(24).execute())
+    pending_rows = await retry_io(lambda:db.table('telegram_ingestion_messages').select('*').eq('state','pending').lte('next_attempt_at',now).order('posted_at',desc=True).limit(limit).execute())
+    held_count = sum(review_held(row) for row in retry_rows.data + pending_rows.data)
+    retries = SimpleNamespace(data=[row for row in retry_rows.data if not review_held(row)][:6])
+    pending = SimpleNamespace(data=[row for row in pending_rows.data if not review_held(row)])
     gate=asyncio.Semaphore(3)
     async def process(receipt):
         async with gate:
@@ -206,4 +337,4 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
         await asyncio.gather(*tasks,return_exceptions=True)
     return {'processed':len(outcomes),'jobs':sum(o['jobs'] for o in outcomes),
             'retrying':sum(o['retry'] for o in outcomes),'failed':sum(o['outcome']=='failed' for o in outcomes),
-            'deferred':len(pending_tasks)}
+            'deferred':len(pending_tasks),'review_held':held_count}
