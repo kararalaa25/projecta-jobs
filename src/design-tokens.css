@@ -10,7 +10,7 @@
   --ds-ink-900: #0b1525;
   --ds-ink-700: #243750;
   --ds-ink-500: #526b8b;
-  --ds-ink-300: #8095ae;
+  --ds-ink-300: #5f6f83;
   --ds-ink-100: #e2edf7;
   --ds-surface:  #ffffff;
   --ds-page:     #f7f9fc;
@@ -74,25 +74,62 @@
   --ds-text-xl:   22px;
 }
 
-/* ── Dark mode support ── */
+/* ── Dark mode support ──
+   Text tokens clear 7:1 against their dark tinted surfaces; Arabic body
+   copy and timestamps rely on --ds-ink-300/500. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ds-ink-900: #e8f0f9;
-    --ds-ink-700: #c4d4e8;
-    --ds-ink-500: #8099b8;
-    --ds-ink-300: #516887;
-    --ds-ink-100: #1e2f44;
-    --ds-surface:  #121f30;
-    --ds-page:     #0d1824;
-    --ds-shadow-card: 0 4px 20px rgba(0,0,0,0.3);
-    --ds-shadow-card-hover: 0 10px 32px rgba(0,0,0,0.45);
-    --ds-shadow-sidebar: 0 2px 14px rgba(0,0,0,0.25);
-    --ds-blue-50:  #0f1e36;
-    --ds-blue-100: #142340;
-    --ds-cyan-50:  #0a1e28;
-    --ds-cyan-100: #0d2535;
-    --ds-syndi-50:  #0a1e30;
-    --ds-facil-50:  #0a1e18;
-    --ds-warn-100:  #1e1200;
+    --ds-ink-900: #eef4fb;
+    --ds-ink-700: #c8d8ea;
+    --ds-ink-500: #a9bdd4;
+    --ds-ink-300: #9fb4cf;
+    --ds-ink-100: #2a3e57;
+    --ds-surface:  #16263a;
+    --ds-page:     #0b1420;
+    --ds-shadow-card: 0 4px 20px rgba(0,0,0,0.4);
+    --ds-shadow-card-hover: 0 10px 32px rgba(0,0,0,0.55);
+    --ds-shadow-sidebar: 0 2px 14px rgba(0,0,0,0.35);
+
+    --ds-blue-900: #a9c7ff;
+    --ds-blue-700: #8fb0ff;
+    --ds-blue-50:  #12244a;
+    --ds-blue-100: #1b3260;
+
+    --ds-cyan-800: #7fd4e6;
+    --ds-cyan-50:  #10343f;
+    --ds-cyan-100: #174b5b;
+
+    --ds-syndi-800: #9cc4ff;
+    --ds-syndi-600: #7fb0ff;
+    --ds-syndi-50:  #122648;
+
+    --ds-facil-800: #7ee0b4;
+    --ds-facil-600: #6bd6a3;
+    --ds-facil-50:  #10382b;
+
+    --ds-warn-600: #f2c46b;
+    --ds-warn-100: #3a2a10;
+    --ds-warn-200: #5a431d;
+
+    --ds-ok-600: #7ee0b4;
+    --ds-ok-50:  #10382b;
+    --ds-err-600: #ffb3b8;
+  }
+
+  /* --pc-* powers most card surfaces and muted copy. Keep the same
+     semantics in dark mode so token-driven rules need no per-rule patch. */
+  :root {
+    --pc-ink: #eef4fb;
+    --pc-muted: #a9bdd4;
+    --pc-page: #0b1420;
+    --pc-surface: #16263a;
+    --pc-border: #2c425c;
+    --pc-soft: #1d3048;
+    --pc-link: #7fd4e6;
+    --pc-success: #7ee0b4;
+    --pc-success-soft: #10382b;
+    --pc-focus: #7fd4e6;
+    --pc-brand-soft: #103b47;
+    --pc-brand-border: #1d5a68;
   }
 }

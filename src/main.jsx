@@ -43,6 +43,7 @@ import './performance.css'
 import './design-tokens.css'
 import './ui-polish.css'
 import './feed-enhancements.css'
+import './theme-contrast.css'
 
 const PostJobForm=lazy(()=>import('./components/PostJobForm'))
 const AuthPanel=lazy(()=>import('./components/AuthPanel'))

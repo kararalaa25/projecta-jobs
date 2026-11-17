@@ -1,0 +1,518 @@
+/* ============================================================
+   Card contrast layer
+   Keeps every card surface/text pair at >= 4.5:1 in light mode and
+   >= 7:1 in dark mode. Arabic body copy (preview-description) and
+   relative timestamps are the primary targets. Trust presentation
+   (.verified-badge / verification-status / information modal) is
+   deliberately left untouched.
+   ============================================================ */
+
+/* Light mode: tinted contact/action pills were just under AA (3.6-4.4:1). */
+.job-actions .telegram,
+.job-actions .source-icon,
+.talent-preview-button,
+.talent-contact.phone-contact {
+  color: #0b6c8c;
+}
+.talent-contact.whatsapp-contact {
+  color: #047857;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* ── Page + card surfaces ───────────────────────────────────── */
+  body {
+    background-color: var(--pc-page);
+    color: var(--pc-ink);
+  }
+  .header,
+  .mobile-nav,
+  .mobile-drawer,
+  .reference-header.is-scrolled,
+  .training-header {
+    background-color: var(--pc-surface);
+    border-color: var(--pc-border);
+    color: var(--pc-ink);
+  }
+  .reference-board {
+    background-color: var(--pc-page);
+    background-image:
+      radial-gradient(480px 540px at 91% 13%, rgba(2,153,181,.14), transparent 80%),
+      radial-gradient(540px 510px at 8% 87%, rgba(5,150,105,.12), transparent 78%),
+      radial-gradient(390px 590px at 49% 66%, rgba(28,78,226,.10), transparent 78%);
+  }
+  .job-card,
+  .candidate-card,
+  .talent-card,
+  .course-card,
+  .pipeline-card,
+  .filter-panel,
+  .search-bar,
+  .reference-card,
+  .reference-path-card,
+  .account-application-dashboard li,
+  .app-timeline,
+  .telegram-sync-status,
+  .feed-status,
+  .feed-quick-filters,
+  .empty-state,
+  .training-section,
+  .training-filters,
+  .training-page,
+  .matching-profile-panel,
+  .applicant-note,
+  .applicant-contact-grid,
+  .activity-filter,
+  .sync-refresh,
+  .course-save,
+  .filter-sheet .filter-panel {
+    background-color: var(--pc-surface);
+    border-color: var(--pc-border);
+    color: var(--pc-ink);
+  }
+  /* Feed rules use a two-class selector for their light surface; match it. */
+  .reference-board .job-card,
+  .reference-board .filter-panel,
+  .reference-board .job-card:hover {
+    background-color: var(--pc-surface);
+    border-color: var(--pc-border);
+  }
+  .job-card:hover,
+  .talent-card:hover,
+  .course-card:hover,
+  .pipeline-card:hover,
+  .reference-board .job-card:hover {
+    border-color: #3d6285;
+  }
+  .job-card.is-expired,
+  .job-card.is-expired:hover {
+    border-color: var(--pc-border);
+  }
+  .search-bar .search-field:focus-within,
+  .filter-option:focus-within {
+    background-color: var(--pc-soft);
+  }
+  .modal-heading,
+  .filter-sheet .modal-heading,
+  .filter-sheet-actions,
+  .mobile-quick-apply-bar {
+    background-color: var(--pc-surface);
+    border-color: var(--pc-border);
+  }
+  .empty-state-icon {
+    background: var(--pc-soft);
+    border-color: var(--pc-border);
+  }
+
+  /* ── Job card copy ─────────────────────────────────────────── */
+  .job-preview h3,
+  .job-card .job-preview h3,
+  .candidate-card .job-preview h3,
+  .reference-board .job-card .job-preview h3,
+  .modal .job-preview:not(.is-compact) h3 {
+    color: var(--pc-ink);
+  }
+  .company-name,
+  .reference-board .job-card .company-name,
+  .candidate-card .company-name {
+    color: var(--ds-ink-700);
+  }
+  .listing-time,
+  .reference-board .job-card .listing-time,
+  .job-meta,
+  .listing-kind,
+  .reference-board .job-card .listing-kind,
+  .preview-label,
+  .job-preview .preview-label,
+  .reference-board .job-preview .preview-label,
+  .job-facts dt,
+  .job-preview:not(.is-compact) .job-facts dt,
+  .job-facts dd,
+  .job-preview:not(.is-compact) .job-facts dd,
+  .compact-facts>div dd,
+  .reference-board .job-card .compact-facts>div dd,
+  .reference-board .job-card .job-preview .compact-facts dd,
+  .post-links>button,
+  .post-links>a,
+  .no-contact,
+  .feed-connection,
+  .feed-source-info,
+  .filter-note,
+  .filter-note p,
+  .feed-toolbar .feed-connection {
+    color: var(--pc-muted);
+  }
+  /* Arabic descriptions: the highest-priority contrast target. */
+  .preview-description>p,
+  .job-card .job-preview.is-compact .preview-description>p,
+  .reference-board .job-card .job-preview.is-compact .preview-description>p,
+  .reference-board .job-card .preview-description p,
+  .admin-job-copy .preview-description>p,
+  .modal .job-preview:not(.is-compact) .preview-description>p {
+    color: var(--ds-ink-500);
+  }
+  .compact-facts>div dd,
+  .reference-board .job-card .compact-facts>div dd,
+  .job-preview .compact-facts>div dd,
+  .job-preview .compact-facts .province-extra,
+  .reference-board .job-card .listing-kind {
+    background-color: var(--pc-soft);
+    color: var(--pc-muted);
+  }
+  .reference-board .job-card .job-preview .compact-facts {
+    color: var(--pc-muted);
+  }
+
+  /* ── Badges / pills (excluding the verified-badge family) ──── */
+  .role-badge {
+    background-color: #22354a;
+    border-color: #344a63;
+    color: var(--ds-ink-700);
+  }
+  .role-badge.neutral,
+  .reference-board .role-badge.neutral {
+    background-color: #22354a;
+    color: var(--ds-ink-700);
+  }
+  .role-badge.featured-badge,
+  .reference-board .role-badge.featured-badge,
+  .reference-board .raw-badge,
+  .raw-badge,
+  .role-badge.expired-badge {
+    background-color: #3a2a10;
+    border-color: #5a431d;
+    color: #f2c46b;
+  }
+  .role-badge.specialty-dentistry { --specialty-bg:#103b47; --specialty-text:#a9e6ee; --specialty-border:#1d5a68; }
+  .role-badge.specialty-pharmacy  { --specialty-bg:#10382b; --specialty-text:#9fe3bb; --specialty-border:#1c5640; }
+  .role-badge.specialty-reps      { --specialty-bg:#1c2350; --specialty-text:#b6c2ff; --specialty-border:#33395f; }
+  .role-badge.specialty-nursing   { --specialty-bg:#3a2a10; --specialty-text:#f2c46b; --specialty-border:#5a431d; }
+  .role-badge.specialty-general   { --specialty-bg:#22354a; --specialty-text:#c8d8ea; --specialty-border:#344a63; }
+  .role-badge.specialty-gp        { --specialty-bg:#2a2045; --specialty-text:#cbb2ff; --specialty-border:#40335e; }
+  .role-badge.specialty-operations{ --specialty-bg:#3d1f24; --specialty-text:#ffb3b8; --specialty-border:#5a3038; }
+  .credential-badge {
+    background-color: #10382b;
+    border-color: #1c5640;
+    color: #9fe3bb;
+  }
+  .credential-badge.syndicate-badge {
+    background-color: #122648;
+    border-color: #24406f;
+    color: #9cc4ff;
+  }
+  .credential-badge.syndicate-badge svg { color: #7fb0ff; }
+  .credential-badge.facility-badge {
+    background-color: #10382b;
+    border-color: #1c5640;
+    color: #7ee0b4;
+  }
+  .credential-badge.facility-badge svg { color: #6bd6a3; }
+
+  /* ── Card actions ──────────────────────────────────────────── */
+  .job-actions .call-button,
+  .call-button {
+    background-color: var(--pc-soft);
+    color: var(--pc-muted);
+  }
+  .job-actions .whatsapp,
+  .whatsapp {
+    background-color: #10382b;
+    border-color: #1c5640;
+    color: #7ee0b4;
+  }
+  .job-actions .telegram,
+  .job-actions .source-icon,
+  .telegram {
+    background-color: #103b47;
+    border-color: #1d5a68;
+    color: #7fd4e6;
+  }
+  .job-actions .apply-icon {
+    background-color: #1c2350;
+    color: #b6c2ff;
+  }
+  .job-actions .read-full-post,
+  .read-full-post,
+  .sort-control select,
+  .filter-panel select,
+  .telegram-filter-grid select,
+  .telegram-filter-grid select[class*="specialty-"],
+  .filter-sheet .filter-panel select,
+  .application-status-control select {
+    background-color: var(--pc-soft);
+    border-color: var(--pc-border);
+    color: var(--pc-link);
+  }
+  .apply-button,
+  .reference-board .apply-button {
+    background: var(--pc-gradient) !important;
+    border-color: var(--pc-cyan) !important;
+    color: #fff !important;
+  }
+  .save-button,
+  .icon-button,
+  .talent-card-footer>div>button,
+  .course-footer>div button {
+    color: var(--pc-muted);
+  }
+  .save-button:hover,
+  .icon-button:hover {
+    color: var(--pc-link);
+    background-color: var(--pc-soft);
+  }
+  .save-button.is-saved,
+  .course-save.is-saved {
+    color: var(--pc-link);
+    background-color: var(--pc-brand-soft);
+    border-color: var(--pc-brand-border);
+  }
+
+  /* ── Filter / feed sidebar ─────────────────────────────────── */
+  .filter-panel legend,
+  .reference-board .filter-panel legend,
+  .filter-panel fieldset select {
+    color: var(--ds-ink-700);
+  }
+  .filter-panel legend svg { color: var(--pc-muted); }
+  .filter-option,
+  .reference-board .filter-option,
+  .reference-board .filter-note,
+  .reference-board .filter-note p,
+  .reference-board .results-heading h2>span,
+  .reference-board .section-eyebrow,
+  .search-help {
+    color: var(--pc-muted);
+  }
+  .filter-option:has(input:checked),
+  .reference-board .filter-option:has(input:checked) {
+    background-color: var(--pc-brand-soft);
+    color: var(--pc-link);
+  }
+  .filter-option .count,
+  .reference-board .count,
+  .listing-tabs .tabs .count {
+    background-color: var(--pc-soft);
+    color: var(--pc-muted);
+  }
+  .reference-board .listing-tabs .count {
+    background-color: var(--pc-soft);
+    color: var(--pc-link);
+  }
+  .listing-tabs .tabs button,
+  .reference-board .listing-tabs .tabs button {
+    color: var(--pc-muted);
+  }
+  .tabs button.selected,
+  .reference-board .tabs button.selected,
+  .listing-tabs .tabs button.selected {
+    background-color: var(--pc-soft);
+    color: var(--pc-link);
+    box-shadow: none;
+  }
+  .telegram-feed-intro p { color: var(--pc-muted); }
+  .telegram-sync-status .sync-last-check { color: var(--pc-ink); }
+  .telegram-sync-status.delayed,
+  .telegram-sync-status.delayed .sync-last-check {
+    background-color: #3a2a10;
+    border-color: #5a431d;
+    color: #f2c46b;
+  }
+
+  /* ── Talent cards ──────────────────────────────────────────── */
+  .talent-name h2,
+  .talent-name p,
+  .talent-meta,
+  .talent-qualification,
+  .talent-work-types,
+  .talent-cv-summary,
+  .talent-card-footer>button:first-child {
+    color: var(--pc-ink);
+  }
+  .talent-name p,
+  .talent-meta,
+  .talent-qualification,
+  .talent-work-types,
+  .talent-cv-summary {
+    color: var(--pc-muted);
+  }
+  .talent-relative-time,
+  .talent-qualification small,
+  .talent-expertise h3,
+  .talent-expertise li,
+  .talent-work-types span,
+  .talent-card-footer>div>button {
+    color: var(--pc-muted);
+  }
+  .talent-qualification,
+  .talent-work-types span {
+    background-color: var(--pc-soft);
+    border-color: var(--pc-border);
+  }
+  .talent-expertise li {
+    background-color: #12244a;
+    border-color: #1b3260;
+    color: #a9c7ff;
+  }
+  .talent-avatar { color: var(--ds-cyan-800); }
+  .talent-preview-button {
+    background-color: var(--pc-brand-soft);
+    border-color: var(--pc-brand-border);
+    color: var(--pc-link);
+  }
+  .talent-contact {
+    background-color: var(--pc-soft);
+    border-color: var(--pc-border);
+    color: var(--pc-muted);
+  }
+  .talent-contact.whatsapp-contact {
+    background-color: #10382b;
+    border-color: #1c5640;
+    color: #7ee0b4;
+  }
+  .talent-contact.phone-contact {
+    background-color: #103b47;
+    border-color: #1d5a68;
+    color: #7fd4e6;
+  }
+
+  /* ── Course cards ──────────────────────────────────────────── */
+  .training-section-heading h2,
+  .training-results-heading h2,
+  .training-empty h3,
+  .course-card h3,
+  .course-details h3 {
+    color: var(--pc-ink);
+  }
+  .training-section-heading p,
+  .training-demo-note,
+  .course-card-tags,
+  .course-summary,
+  .course-date small,
+  .course-instructor,
+  .course-location,
+  .course-location small,
+  .course-accreditation,
+  .course-details,
+  .course-context,
+  .course-register:disabled,
+  .training-results-heading>span,
+  .training-footer {
+    color: var(--pc-muted);
+  }
+  .course-demo-label,
+  .course-local-label {
+    background-color: var(--pc-soft);
+    color: var(--pc-muted);
+  }
+  .course-local-label { color: #7ee0b4; }
+  .course-date,
+  .course-date>span {
+    background-color: var(--pc-soft);
+    color: var(--pc-link);
+  }
+  .course-instructor strong { color: var(--ds-ink-700); }
+  .course-register {
+    background-color: #103b47;
+    color: #7fd4e6;
+  }
+  .course-contact {
+    background-color: #10382b;
+    color: #7ee0b4;
+  }
+  .course-footer>button { color: var(--pc-link); }
+
+  /* ── Activity / application cards ─────────────────────────── */
+  .activity-center>p,
+  .activity-options small,
+  .pipeline-header p,
+  .account-application-dashboard .pipeline-date,
+  .account-application-dashboard .app-step-time {
+    color: var(--pc-muted);
+  }
+  .pipeline-header h3,
+  .app-step-label,
+  .account-application-dashboard .app-timeline-state {
+    color: var(--pc-ink);
+  }
+  .app-step.is-future .app-step-label { color: var(--pc-muted); }
+  .activity-options>button,
+  .account-application-dashboard nav .dashboard-back {
+    color: var(--pc-link);
+  }
+  .application-state,
+  .state-submitted,
+  .state-archived {
+    background-color: #22354a;
+    border-color: #344a63;
+    color: var(--ds-ink-700);
+  }
+  .state-viewed { background-color: #122648; border-color: #24406f; color: #9cc4ff; }
+  .state-shortlisted { background-color: #3a2a10; border-color: #5a431d; color: #f2c46b; }
+  .state-accepted { background-color: #10382b; border-color: #1c5640; color: #7ee0b4; }
+  .state-rejected { background-color: #3d1f24; border-color: #5a3038; color: #ffb3b8; }
+  .application-state.status-viewed,
+  .application-state.status-reviewing {
+    background-color: #122648;
+    color: #9cc4ff;
+  }
+  .application-state.status-shortlisted,
+  .application-state.status-accepted {
+    background-color: #10382b;
+    color: #7ee0b4;
+  }
+  .application-state.status-archived,
+  .application-state.status-rejected {
+    background-color: #22354a;
+    color: var(--ds-ink-700);
+  }
+  .app-step-icon { background-color: #22354a; color: var(--pc-muted); }
+  .app-step.is-done .app-step-icon { background-color: #10382b; color: #7ee0b4; }
+  .app-step.is-current .app-step-icon { background-color: #103b47; color: #7fd4e6; }
+  .app-step.is-rejected .app-step-icon { background-color: #3d1f24; color: #ffb3b8; }
+
+  /* ── Quick-action / category chips ────────────────────────── */
+  .category-chip {
+    background-color: var(--pc-soft);
+    border-color: var(--pc-border);
+    color: var(--pc-ink);
+  }
+  .category-chip-count {
+    background-color: #22354a;
+    color: var(--pc-muted);
+  }
+  .category-chip.is-active,
+  .category-chip.is-active .category-chip-count {
+    background-color: var(--pc-link);
+    color: #08131f;
+  }
+  .quick-apply-btn.quick-apply-platform {
+    background-color: #10382b;
+    border-color: #1c5640;
+    color: #7ee0b4;
+  }
+  .feed-quick-filters .verified-filter small {
+    color: var(--pc-muted);
+  }
+
+  /* ── Reference page cards ─────────────────────────────────── */
+  .reference-section-heading p,
+  .reference-card p,
+  .reference-path-card li,
+  .reference-board .board-intro p {
+    color: var(--pc-muted);
+  }
+  .reference-path-card,
+  .reference-path-card.is-featured {
+    background-color: var(--pc-surface);
+  }
+  .reference-neutral-button { background-color: var(--pc-soft); color: var(--pc-ink); }
+  .reference-connect-actions>button,
+  .reference-connect-actions>a {
+    background-color: var(--pc-surface);
+    border-color: var(--pc-border);
+    color: var(--pc-ink);
+  }
+  .reference-connect-actions svg { color: var(--pc-muted); }
+  .reference-about,
+  .reference-features,
+  .reference-connect { background-color: var(--pc-page); }
+}
