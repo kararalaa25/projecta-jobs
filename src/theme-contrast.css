@@ -17,6 +17,7 @@
 .talent-contact.whatsapp-contact {
   color: #047857;
 }
+:root[data-theme="dark"] .menu-toggle{color:var(--pc-link);background-color:var(--pc-surface)}
 
 :root[data-theme="dark"] {
   /* ── Page + card surfaces ───────────────────────────────────── */

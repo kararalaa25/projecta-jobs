@@ -1,6 +1,6 @@
 /* One transform-driven layer glides between equal RTL touch targets. */
 @media(max-width:767px){
- .mobile-nav.liquid-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:5px 8px;height:76px;isolation:isolate;overflow:visible}
+ .mobile-nav.liquid-nav{position:fixed;z-index:35;inset-inline:16px;bottom:calc(12px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:5px 8px;height:76px;isolation:isolate;overflow:visible}
  .mobile-nav.liquid-nav>button{position:relative;z-index:1;width:100%;height:64px;min-width:48px;min-height:48px;justify-content:center;gap:4px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;color:var(--pc-muted);transition:color 300ms ease-in-out}
  .liquid-nav-indicator{position:absolute;pointer-events:none;z-index:0;right:8px;top:5px;bottom:5px;width:calc((100% - 16px)/5);transform:translate3d(calc(var(--active-index)*-100%),0,0);transition:transform 300ms cubic-bezier(.22,.8,.25,1);will-change:transform}
  .liquid-nav-indicator i{display:block;position:absolute;inset:1px 3px;border-radius:23px 23px 19px 19px;background:linear-gradient(155deg,#d4f4f8e8,#e8f0ffdb);border:1px solid #a5dce84d;box-shadow:inset 0 1px 1px #fff,0 3px 10px #087da40d}
@@ -46,6 +46,7 @@
  .marketplace[data-mobile-view="telegram"] .mobile-view-panel[data-panel="feed"],
  .marketplace[data-mobile-view="candidates"] .mobile-view-panel[data-panel="feed"],
  .marketplace[data-mobile-view="activity"] .mobile-view-panel[data-panel="activity"]{display:block}
+ .marketplace[data-mobile-view="extras"] .mobile-view-panel[data-panel="extras"]{display:block}
  .marketplace .career-hero{display:none}
  .app-footer{display:none}
  .mobile-activity-panel{padding:22px 4px 8px}

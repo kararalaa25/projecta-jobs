@@ -1,5 +1,5 @@
 /* Shared interaction polish: Projecta cyan and blue, readable pastels and RTL navigation. */
-html{scroll-behavior:smooth;scroll-padding-top:110px}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
 .search-help{font-size:11px;color:var(--pc-muted);line-height:1.9;margin:10px 5px 0}
 .role-badge.specialty-dentistry{--specialty-bg:#effafb;--specialty-text:#155e65;--specialty-border:#bce7eb}
 .role-badge.specialty-pharmacy{--specialty-bg:#eff9f3;--specialty-text:#176342;--specialty-border:#c4e8d3}
@@ -36,7 +36,7 @@ footer{flex-wrap:wrap;gap:22px}
 button:active{transform:scale(.98)}
 @media(min-width:851px){.header{gap:20px}.desktop-nav{gap:18px}.desktop-nav>a,.desktop-nav>button{font-size:12px}.header-actions{gap:14px}}
 @media(max-width:850px){.header .desktop-nav,.header .header-actions{display:none}.menu-toggle{display:flex}.header{height:76px}}
-@media(max-width:680px){html{scroll-padding-top:90px}.search-help{font-size:10px}.filter-option .role-badge{font-size:10px}.search-field{min-width:0}.search-field input{min-width:0;width:100%}}
+@media(max-width:680px){html{scroll-padding-top:72px}.search-help{font-size:10px}.filter-option .role-badge{font-size:10px}.search-field{min-width:0}.search-field input{min-width:0;width:100%}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}.feature-card:hover,.save-button:hover,button:active{transform:none}}
 /* Let completed entrance animations release transform for hover feedback. */
 .board-intro,.career-hero,.job-card{animation-fill-mode:backwards}
