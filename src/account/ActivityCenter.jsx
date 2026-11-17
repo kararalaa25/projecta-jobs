@@ -6,7 +6,7 @@ import {applicationStatus} from './application-status.js'
 export default function ActivityCenter({signedIn,onSelect,onSignIn}){
  const choose=view=>signedIn?onSelect(view):onSignIn()
  return <section className="activity-center">
-  <p className="activity-intro">{signedIn?'Follow your applications and the candidates on your postings in one place.':'Sign in to track your applications and the jobs you have posted.'}</p>
+  <p className="activity-intro">{signedIn?'تابع طلباتك، وراجع المتقدمين إلى الوظائف التي نشرتها في مكان واحد.':'سجّل الدخول لتتبّع طلباتك، والوظائف التي نشرتها.'}</p>
   {signedIn
    ?<div className="activity-tracker">
      <div className="activity-filters" role="tablist" aria-label="Filter applications">
@@ -17,8 +17,8 @@ export default function ActivityCenter({signedIn,onSelect,onSignIn}){
      <AccountApplications onExplore={()=>onSelect('jobs')} onSelect={onSelect}/>
     </div>
    :<div className="activity-options">
-     <button onClick={()=>choose('applications')}><ClipboardList size={28}/><span><strong>الوظيفة التي قدمت عليها</strong><small> حالات Requests وآخر التحدّثات </small></span></button>
-     <button onClick={()=>choose('posted')}><BriefcaseBusiness size={28}/><span><strong>الوظيفة التي نشرتها والمتقدمون عليها</strong><small>putation المتقدمين ومراجعة السير الذاتية</small></span></button>
+     <button onClick={()=>choose('applications')}><ClipboardList size={28}/><span><strong>الوظائف التي قدمت عليها</strong><small>حالات الطلبات وآخر التحديثات</small></span></button>
+     <button onClick={()=>choose('posted')}><BriefcaseBusiness size={28}/><span><strong>الوظائف التي نشرتها والمتقدمون عليها</strong><small>إدارة المتقدمين ومراجعة السير الذاتية</small></span></button>
     </div>}
  </section>
 }

@@ -18,7 +18,7 @@ export default function ApplicationTimeline({row,updatedAt}){
  const currentIndex=stageOrder.indexOf(current)
  const completed=stageOrder.slice(0,currentIndex+1).filter(s=>s!=='rejected'&&s!=='archived')
  const isTerminal=['rejected','archived'].includes(current)
- return <div className="app-timeline" dir="ltr" aria-label={`Pipeline for ${row.job?.title||'job'}`}>
+ return <div className="app-timeline" dir="ltr" aria-label={`مراحل الطلب: ${row.job?.title||'وظيفة'}`}>
   <ol className="app-timeline-steps">
    {stageOrder.map((stage,index)=>{
     const isDone=index<currentIndex&&!isTerminal

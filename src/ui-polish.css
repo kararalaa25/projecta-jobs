@@ -1042,3 +1042,395 @@ select:focus-visible {
     transform: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   10. MEDICAL-GRADE CONTROL / BUTTON / CARD POLISH
+   One calm surface for every form field, theme-coloured borders only,
+   and smooth hover/active feedback. RTL-first via logical properties.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 10.1 Form fields: one consistent, accessible control surface ── */
+.modal form input,
+.modal form select,
+.modal form textarea,
+.course-form input,
+.course-form select,
+.course-form textarea,
+.matching-form input,
+.matching-form select,
+.matching-form textarea,
+.talent-profile-form input,
+.talent-profile-form select,
+.talent-profile-form textarea {
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid var(--pc-border, #e2edf7);
+  border-radius: var(--pc-control-radius, 13px);
+  background-color: var(--ds-surface, #fff);
+  color: var(--pc-ink, #0b1525);
+  box-shadow: 0 1px 2px rgba(11, 21, 37, .03);
+  transition: border-color var(--ds-t-fast, .15s),
+              background-color var(--ds-t-fast, .15s),
+              box-shadow var(--ds-t-fast, .15s);
+}
+.modal form input:hover,
+.modal form select:hover,
+.modal form textarea:hover,
+.course-form input:hover,
+.course-form select:hover,
+.course-form textarea:hover,
+.matching-form input:hover,
+.matching-form select:hover,
+.matching-form textarea:hover,
+.talent-profile-form input:hover,
+.talent-profile-form select:hover,
+.talent-profile-form textarea:hover {
+  border-color: #b9d7e6;
+  background-color: #fff;
+}
+.modal form input:focus,
+.modal form select:focus,
+.modal form textarea:focus,
+.course-form input:focus,
+.course-form select:focus,
+.course-form textarea:focus,
+.matching-form input:focus,
+.matching-form select:focus,
+.matching-form textarea:focus,
+.talent-profile-form input:focus,
+.talent-profile-form select:focus,
+.talent-profile-form textarea:focus {
+  border-color: var(--pc-cyan, #0299b5);
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(2, 153, 181, .10);
+}
+.modal form input:active,
+.modal form select:active,
+.course-form input:active,
+.course-form select:active,
+.matching-form input:active,
+.matching-form select:active {
+  border-color: var(--pc-cyan, #0299b5);
+}
+
+/* Native selects get a designed chevron so they no longer look like
+   default UI-library widgets. Position follows the RTL inline end. */
+.modal form select,
+.course-form select,
+.matching-form select,
+.talent-profile-form select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-inline-end: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23526b8b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 13px center;
+  cursor: pointer;
+}
+[dir="ltr"] .modal form select,
+[dir="ltr"] .course-form select,
+[dir="ltr"] .matching-form select,
+[dir="ltr"] .talent-profile-form select {
+  background-position: right 13px center;
+}
+.modal form textarea,
+.course-form textarea,
+.matching-form textarea,
+.talent-profile-form textarea {
+  min-height: 104px;
+  line-height: 1.8;
+  resize: vertical;
+}
+.modal form input::placeholder,
+.course-form input::placeholder,
+.matching-form input::placeholder,
+.modal form textarea::placeholder,
+.course-form textarea::placeholder,
+.matching-form textarea::placeholder {
+  color: var(--pc-muted, #7183a0);
+  opacity: 1;
+}
+.modal form label,
+.course-form label,
+.matching-form>label,
+.talent-profile-form label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pc-ink, #0b1525);
+}
+.modal form label small,
+.course-form label small,
+.matching-form label small {
+  color: var(--pc-muted, #7183a0);
+  font-size: 11px;
+  font-weight: 400;
+}
+@media (max-width: 680px) {
+  .modal form input,
+  .modal form select,
+  .modal form textarea,
+  .course-form input,
+  .course-form select,
+  .course-form textarea,
+  .matching-form input,
+  .matching-form select,
+  .matching-form textarea,
+  .talent-profile-form input,
+  .talent-profile-form select,
+  .talent-profile-form textarea {
+    min-height: 48px;
+  }
+}
+
+/* ── 10.2 Buttons: consistent timing + a subtle press state ── */
+.primary,
+.sync-refresh,
+.activity-filter,
+.course-register,
+.activity-options>button,
+.pipeline-card button,
+.matching-profile-actions button {
+  transition: transform var(--ds-t-base, .22s),
+              box-shadow var(--ds-t-base, .22s),
+              background-color var(--ds-t-base, .22s),
+              border-color var(--ds-t-base, .22s),
+              color var(--ds-t-base, .22s),
+              filter var(--ds-t-base, .22s);
+}
+.primary:hover:not(:disabled),
+.sync-refresh:hover:not(:disabled),
+.activity-filter:hover:not(:disabled),
+.course-register:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.primary:active:not(:disabled),
+.sync-refresh:active:not(:disabled),
+.activity-filter:active:not(:disabled),
+.course-register:active:not(:disabled),
+.activity-options>button:active:not(:disabled) {
+  transform: scale(.97);
+}
+.primary:disabled,
+.sync-refresh:disabled,
+.course-register:disabled {
+  opacity: .6;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── 10.3 Telegram live-sync bar: dot, pulse, refresh ── */
+.telegram-sync-status {
+  align-items: center;
+  gap: 10px;
+  border-color: var(--pc-brand-border, #dceff6);
+  border-radius: 13px;
+  background-color: var(--ds-surface, #fff);
+  box-shadow: 0 1px 2px rgba(11, 21, 37, .03);
+  transition: border-color var(--ds-t-base, .22s),
+              box-shadow var(--ds-t-base, .22s);
+}
+.sync-dot {
+  position: relative;
+  display: inline-flex;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+  background: var(--ds-ok-600, #087f62);
+  box-shadow: 0 0 0 3px rgba(8, 127, 98, .12);
+}
+.sync-dot i {
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--ds-ok-600, #087f62);
+  border-radius: 50%;
+  opacity: 0;
+  animation: sync-pulse 2s ease-out infinite;
+}
+@keyframes sync-pulse {
+  0%   { transform: scale(.7); opacity: .55; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+.telegram-sync-status.delayed .sync-dot {
+  background: var(--ds-warn-600, #b45309);
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, .12);
+}
+.telegram-sync-status.delayed .sync-dot i { border-color: var(--ds-warn-600, #b45309); }
+.telegram-sync-status.unknown .sync-dot,
+.telegram-sync-status.loading .sync-dot {
+  background: var(--ds-ink-300, #8095ae);
+  box-shadow: 0 0 0 3px rgba(128, 149, 174, .14);
+}
+.telegram-sync-status.unknown .sync-dot i,
+.telegram-sync-status.loading .sync-dot i { animation: none; }
+.sync-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  margin-inline-start: auto;
+  padding: 7px 11px;
+  border: 1px solid var(--pc-border, #e2edf7);
+  border-radius: 10px;
+  background-color: var(--ds-surface, #fff);
+  color: var(--pc-link, #087da4);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sync-refresh:hover:not(:disabled) {
+  background-color: var(--pc-brand-soft, #edf7fb);
+  border-color: #b9d7e6;
+}
+.sync-icon-spin { animation: sync-spin .9s linear infinite; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }
+
+/* ── 10.4 Match-score pill: subtle, tone-coded hierarchy ── */
+.specialty-fit summary { gap: 8px; }
+.specialty-fit .fit-score-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--ds-r-pill, 999px);
+  background: #e9f3fc;
+  color: #1c5f9e;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.specialty-fit .fit-score-pill b { font-size: 13px; font-weight: 800; line-height: 1; }
+.specialty-fit .fit-score-pill small { font-size: 9px; font-weight: 600; opacity: .85; }
+.specialty-fit .fit-score-pill[data-tone="high"]   { background: #e6f6ee; color: var(--ds-ok-600, #087f62); }
+.specialty-fit .fit-score-pill[data-tone="medium"] { background: #e9f3fc; color: #1c5f9e; }
+.specialty-fit .fit-score-pill[data-tone="low"]    { background: #fff3e6; color: #a35412; }
+.specialty-fit .fit-score-pill[data-tone="neutral"]{ background: #eef2f7; color: var(--ds-ink-500, #526b8b); }
+.specialty-fit .fit-summary { flex: 1; min-width: 0; font-size: 11px; font-weight: 700; }
+.specialty-fit .fit-chevron { flex: 0 0 auto; color: var(--pc-muted, #7183a0); }
+.specialty-fit summary:hover { background: rgba(11, 21, 37, .03); }
+.specialty-fit .fit-row.is-match dt { color: var(--ds-ok-600, #087f62); }
+.specialty-fit .fit-coverage { color: var(--pc-ink, #0b1525); font-weight: 700; }
+.specialty-fit .fit-missing { color: #805317; }
+
+/* ── 10.5 Activity tracker: pills, pipeline cards, timeline ── */
+.activity-center .activity-intro { margin-bottom: 18px; }
+.activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.activity-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--pc-border, #e2edf7);
+  border-radius: var(--ds-r-pill, 999px);
+  background-color: var(--ds-surface, #fff);
+  color: var(--pc-muted, #7183a0);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.activity-filter:hover { background-color: var(--pc-brand-soft, #edf7fb); border-color: #b9d7e6; color: var(--pc-link, #087da4); }
+.activity-filter.active {
+  background: var(--pc-gradient);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(11, 129, 172, .22);
+}
+.pipeline-grid { display: grid; gap: 16px; }
+.pipeline-card {
+  transition: transform var(--ds-t-base, .22s),
+              box-shadow var(--ds-t-base, .22s),
+              border-color var(--ds-t-base, .22s);
+}
+.pipeline-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.pipeline-header h3 { margin: 0; font-size: 17px; font-weight: 800; line-height: 1.6; color: var(--pc-ink, #0b1525); }
+.pipeline-header p { margin: 2px 0 0; color: var(--pc-muted, #7183a0); font-size: 13px; }
+.account-application-dashboard .pipeline-date { font-size: 11px; color: var(--pc-muted, #7183a0); white-space: nowrap; }
+@media (hover: hover) {
+  .pipeline-card:hover { transform: translateY(-2px); border-color: #b9d7e6; box-shadow: var(--ds-shadow-card-hover); }
+}
+.app-timeline {
+  margin-top: 2px;
+  padding: 14px;
+  border: 1px solid var(--ds-ink-100, #e2edf7);
+  border-radius: 14px;
+  background-color: var(--ds-surface, #fff);
+}
+.app-timeline-steps { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0; padding: 0; }
+.app-step { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.app-step-icon {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; flex: 0 0 26px;
+  border-radius: 50%;
+  background: #eef2f7; color: var(--ds-ink-300, #8095ae);
+  transition: background-color var(--ds-t-base, .22s), color var(--ds-t-base, .22s), box-shadow var(--ds-t-base, .22s);
+}
+.app-step.is-done .app-step-icon { background: #e6f6ee; color: var(--ds-ok-600, #087f62); }
+.app-step.is-current .app-step-icon { background: var(--pc-brand-soft, #edf7fb); color: var(--pc-link, #087da4); box-shadow: 0 0 0 3px rgba(2, 153, 181, .10); }
+.app-step.is-rejected .app-step-icon { background: #fdecea; color: var(--ds-err-600, #c0392b); }
+.app-step.is-archived .app-step-icon { background: #eef2f7; color: var(--ds-ink-500, #526b8b); }
+.app-step-body { display: grid; gap: 1px; min-width: 0; }
+.app-step-label { font-size: 11px; font-weight: 700; line-height: 1.4; color: var(--pc-ink, #0b1525); }
+.app-step.is-future .app-step-label { color: var(--pc-muted, #7183a0); font-weight: 600; }
+.account-application-dashboard .app-step-time { font-size: 9px; color: var(--pc-muted, #7183a0); white-space: nowrap; }
+.account-application-dashboard .app-timeline-state { margin: 12px 0 0; font-size: 12px; font-weight: 700; color: var(--pc-link, #087da4); }
+
+/* ── 10.6 Course card bookmark: same treatment as job saves ── */
+.course-card { position: relative; }
+.course-card .course-card-tags { padding-inline-end: 42px; }
+.course-save {
+  position: absolute;
+  inset-block-start: 16px;
+  inset-inline-end: 16px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--pc-border, #e2edf7);
+  border-radius: 10px;
+  background-color: var(--ds-surface, #fff);
+  color: var(--pc-muted, #7183a0);
+  transition: background-color var(--ds-t-base, .22s),
+              color var(--ds-t-base, .22s),
+              border-color var(--ds-t-base, .22s),
+              transform var(--ds-t-base, .22s);
+}
+.course-save:hover { background-color: var(--pc-brand-soft, #edf7fb); color: var(--pc-link, #087da4); border-color: #b9d7e6; transform: translateY(-1px); }
+.course-save:active { transform: scale(.94); }
+.course-save.is-saved { color: var(--pc-cyan, #0299b5); border-color: #b9d7e6; background-color: var(--pc-brand-soft, #edf7fb); }
+
+/* ── 10.7 Reduced-motion safety for every new animation ── */
+@media (prefers-reduced-motion: reduce) {
+  .sync-dot i,
+  .sync-icon-spin { animation: none; }
+  .primary,
+  .sync-refresh,
+  .activity-filter,
+  .course-register,
+  .activity-options>button,
+  .pipeline-card,
+  .course-save,
+  .app-step-icon { transition: none; }
+  .primary:hover:not(:disabled),
+  .sync-refresh:hover:not(:disabled),
+  .activity-filter:hover:not(:disabled),
+  .course-register:hover:not(:disabled),
+  .course-save:hover,
+  .pipeline-card:hover { transform: none; }
+  .primary:active:not(:disabled),
+  .sync-refresh:active:not(:disabled),
+  .activity-filter:active:not(:disabled),
+  .course-register:active:not(:disabled),
+  .activity-options>button:active:not(:disabled),
+  .course-save:active { transform: none; }
+}

@@ -9,11 +9,9 @@ html{scroll-behavior:smooth;scroll-padding-top:110px}
 .role-badge[class*="specialty-"]{background:var(--specialty-bg);color:var(--specialty-text);border:1px solid var(--specialty-border);line-height:1.8}
 .filter-option .role-badge{font-size:11px;white-space:normal}
 .filter-option:has(input:checked) .role-badge{box-shadow:none}
-.telegram-filter-grid select.specialty-dentistry{background:#effafb;color:#155e65;border-color:#bce7eb}
-.telegram-filter-grid select.specialty-pharmacy{background:#eff9f3;color:#176342;border-color:#c4e8d3}
-.telegram-filter-grid select.specialty-reps{background:#f2f4ff;color:#414995;border-color:#d4d9f6}
-.telegram-filter-grid select.specialty-nursing{background:#fff8e9;color:#805317;border-color:#f2dfb2}
-.telegram-filter-grid select.specialty-general{background:#f5f6f8;color:#505d67;border-color:#dce2e5}
+/* Filter selects share the calm medical-grade surface; specialty colour lives
+   in the badge/card accents only, never on the form control border. */
+.telegram-filter-grid select[class*="specialty-"]{background:#fff;color:var(--pc-ink);border-color:var(--pc-border)}
 .desktop-nav>a,.desktop-nav>button,.footer-links>a,footer>a:last-child{position:relative;transition:color .2s ease}
 .desktop-nav>a::after,.desktop-nav>button::after,.footer-links>a::after,footer>a:last-child::after{content:"";position:absolute;inset-inline:0;bottom:-5px;height:2px;background:var(--pc-blue);transform:scaleX(0);transform-origin:right;transition:transform .2s ease}
 .desktop-nav>a:hover::after,.desktop-nav>button:hover::after,.desktop-nav>a:focus-visible::after,.desktop-nav>button:focus-visible::after,.footer-links>a:hover::after,.footer-links>a:focus-visible::after,footer>a:last-child:hover::after,footer>a:last-child:focus-visible::after{transform:scaleX(1)}
@@ -182,13 +180,11 @@ button:active{transform:scale(.98)}
 .reference-board .job-card .role-badge,.reference-board .job-card .raw-badge{max-width:100%;padding:5px 11px;white-space:normal;overflow-wrap:anywhere;line-height:1.8}
 .reference-board .job-card .listing-kind{font-size:11px;padding:3px 9px;background:#f1f6fa}
 .reference-board .job-card .compact-facts>div dd{border-radius:999px;padding:4px 9px;background:#f1f6fa;line-height:1.85}
-.reference-board .telegram-filter-grid select[class*="specialty-"]{border-radius:12px;border-color:transparent}
+.reference-board .telegram-filter-grid select[class*="specialty-"]{border-radius:12px;border-color:var(--pc-border)}
 
 /* Reusable trust signals and six distinct professional identities. */
 .role-badge.specialty-gp{--specialty-bg:#f5f0ff;--specialty-text:#65449a;--specialty-border:#e5d9f7}
 .role-badge.specialty-operations{--specialty-bg:#fff1f4;--specialty-text:#90405d;--specialty-border:#f2d8e2}
-.reference-board .telegram-filter-grid select.specialty-gp{background:#f5f0ff;color:#65449a}
-.reference-board .telegram-filter-grid select.specialty-operations{background:#fff1f4;color:#90405d}
 .identity-name{display:flex;align-items:center;gap:6px;min-width:0}
 .identity-name .company-name{min-width:0;margin:0;flex:0 1 auto}
 .verified-badge{--verification-blue:#2563eb;display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;max-width:100%;padding:4px 9px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:600;line-height:1.8;vertical-align:middle}
