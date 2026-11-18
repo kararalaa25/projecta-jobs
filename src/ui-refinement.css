@@ -1,0 +1,830 @@
+/* ============================================================
+   Projecta Jobs — consolidated UI refinement layer.
+
+   Imported after polish.css / feed-enhancements.css and before
+   theme-contrast.css. Same-specificity rules here win over the older
+   decorative layers, while the final contrast layer stays authoritative.
+   No cascade layers and no broad importance overrides: every rule is scoped.
+   ============================================================ */
+
+:root {
+  /* Re-point legacy surface tokens at the new refinement scale. Values
+     resolve per theme because --ui-primary is overridden in dark mode. */
+  --ds-r-card: var(--ui-r-card);
+  --ds-r-control: var(--ui-r-control);
+  --ds-r-badge: var(--ui-r-badge);
+  --ds-shadow-card: none;
+  --ds-shadow-card-hover: var(--ui-shadow-hover);
+  --ds-shadow-sidebar: none;
+  --pc-card-radius: var(--ui-r-card);
+  --pc-control-radius: var(--ui-r-control);
+  --pc-gradient: var(--ui-primary);
+  --pc-shadow: none;
+  --pc-section-gradient: #0b1525;
+}
+:root[data-theme="dark"] {
+  --pc-gradient: var(--ui-primary);
+}
+
+/* ── 1. Base normalization ───────────────────────────────────────────── */
+body {
+  font-size: var(--ui-text-base);
+  line-height: var(--ui-leading-arabic);
+  background-color: var(--pc-page);
+  color: var(--pc-ink);
+}
+h1, h2, h3 {
+  font-weight: 700;
+  line-height: var(--ui-leading-tight);
+  letter-spacing: 0;
+}
+h1 { font-size: var(--ui-text-3xl); }
+h2 { font-size: var(--ui-text-2xl); }
+h3 { font-size: var(--ui-text-lg); font-weight: 600; }
+
+:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+/* Match the specificity of the older feed rules without broad overrides. */
+.reference-board :is(button, a, input, select):focus-visible,
+.filter-sheet :is(button, input, select):focus-visible,
+.credential-badge:focus-visible,
+.quick-apply:focus-visible,
+.application-status-control select:focus-visible,
+.verified-filter input:focus-visible + .verified-switch {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+.primary,
+.reference-header .primary.small {
+  border: 1px solid var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-primary-fg);
+  border-radius: var(--ui-r-button);
+  box-shadow: none;
+  font-weight: 700;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.primary:hover:not(:disabled),
+.reference-header .primary.small:hover:not(:disabled) {
+  border-color: var(--ui-primary-hover);
+  background: var(--ui-primary-hover);
+  color: var(--ui-primary-fg);
+  box-shadow: none;
+  transform: none;
+}
+
+.reference-header.header {
+  background-color: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  direction: ltr;
+  transition: none;
+}
+/* The flat header is opaque at every scroll position, so its copy must use
+   the same ink in both states instead of the old over-hero white text. */
+.reference-header.header .desktop-nav a,
+.reference-header.header .login,
+.reference-header.header .admin-entry {
+  color: var(--pc-ink);
+}
+.reference-header.header .desktop-nav a:hover {
+  color: var(--ui-primary);
+}
+.modal .modal-heading {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+.overlay {
+  background: color-mix(in srgb, var(--pc-surface) 86%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.modal {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 2. Job cards: title → employer → facts → status → action ───────── */
+.reference-board .job-card,
+.reference-board .candidate-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--ui-space-4);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-card);
+  background: var(--pc-surface);
+  box-shadow: none;
+  transform: none;
+  /* override premium.css:124 career-enter so cards never fade in */
+  animation: none;
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+.reference-board .job-card:hover,
+.reference-board .candidate-card:hover {
+  box-shadow: var(--ui-shadow-hover);
+  transform: none;
+}
+
+.job-card .job-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  margin-block-end: var(--ui-space-2);
+  min-width: 0;
+}
+.reference-board .job-card h3.job-card-title {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--pc-ink);
+  font-size: var(--ui-text-md);
+  font-weight: 700;
+  line-height: var(--ui-leading-ui);
+  overflow-wrap: anywhere;
+}
+.job-card .job-card-header .save-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--ui-r-button);
+}
+
+.reference-board .job-card .job-card-employer {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-width: 0;
+  margin-block-end: var(--ui-space-2);
+}
+.reference-board .job-card .job-card-employer .company-logo {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ui-r-panel);
+}
+.reference-board .job-card .job-card-employer .card-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.reference-board .job-card .job-card-employer .company-name {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  font-weight: 700;
+  line-height: var(--ui-leading-ui);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.reference-board .job-card .job-card-employer .listing-kind {
+  font-size: var(--ui-text-xs);
+  line-height: var(--ui-leading-ui);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.reference-board .job-card .card-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-space-1);
+  min-height: 0;
+  margin: 0 0 var(--ui-space-2);
+}
+.reference-board .job-card .role-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-space-1);
+  margin-block-start: var(--ui-space-2);
+}
+.reference-board .job-card .role-badge:not([class*="specialty-"]),
+.reference-board .job-card .raw-badge {
+  border-radius: var(--ui-r-badge);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.reference-board .job-card .featured-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.reference-board .job-card .featured-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.reference-board .job-card .job-preview.is-compact {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.reference-board .job-card .job-preview.is-compact .compact-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: var(--ui-space-1) var(--ui-space-3);
+  margin-block: var(--ui-space-2);
+  padding-block: var(--ui-space-2);
+  border-block: 1px solid var(--pc-border);
+  color: var(--pc-ink);
+}
+.reference-board .job-card .job-preview.is-compact .compact-facts > div {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+.reference-board .job-card .job-preview.is-compact .compact-facts > div dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pc-ink);
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  line-height: var(--ui-leading-arabic);
+  overflow-wrap: anywhere;
+}
+.reference-board .job-card .job-preview.is-compact .compact-facts > div dd > svg {
+  width: 16px;
+  height: 16px;
+}
+.reference-board .job-card .job-preview.is-compact .province-extra {
+  font-size: var(--ui-text-xs);
+}
+
+.reference-board .job-card .card-bottom {
+  flex-wrap: wrap;
+  gap: var(--ui-space-1) var(--ui-space-2);
+  margin-block: var(--ui-space-2) 0;
+}
+.reference-board .job-card .listing-time {
+  font-size: var(--ui-text-xs);
+  line-height: var(--ui-leading-ui);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.reference-board .job-card .card-footer {
+  margin-block-start: auto;
+  padding-block-start: var(--ui-space-3);
+  border-block-start: 1px solid var(--pc-border);
+}
+.reference-board .job-card .job-actions {
+  gap: var(--ui-space-2);
+}
+.reference-board .job-card .contact-buttons {
+  gap: var(--ui-space-1);
+}
+.reference-board .job-card .contact-icon,
+.reference-board .job-card .save-button {
+  border-radius: var(--ui-r-button);
+}
+.reference-board .job-card .job-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── 3. Search, filters, sorting and feed states ────────────────────── */
+.reference-board .search-bar,
+.reference-board .filter-panel,
+.reference-board .feed-quick-filters {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-panel);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.filter-sheet .filter-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.reference-board .search-field input,
+.reference-board .search-field select,
+.reference-board .filter-panel select,
+.reference-board .sort-control select,
+.filter-sheet .filter-panel select {
+  min-height: 44px;
+  border-radius: var(--ui-r-control);
+}
+.feed-reset,
+.filter-clear,
+.sync-refresh,
+.reference-board .results-heading .filter-button {
+  min-height: 44px;
+  border-radius: var(--ui-r-button);
+}
+.reference-board .filter-active-count {
+  border-radius: var(--ui-r-pill);
+  background: var(--ui-primary);
+  color: var(--ui-primary-fg);
+}
+.modal.filter-sheet {
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-card) var(--ui-r-card) 0 0;
+  background: var(--pc-surface);
+  box-shadow: none;
+  overflow: hidden;
+}
+.filter-sheet-actions {
+  box-shadow: none;
+}
+.reference-board .results-heading,
+.reference-board .results-heading > div,
+.reference-board .results-heading h2,
+.reference-board .filter-panel legend,
+.filter-sheet .filter-panel legend,
+.reference-board .filter-option,
+.filter-sheet .filter-option {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 4. Details and application grouping (visual only) ──────────────── */
+.detail-employer {
+  margin-block: var(--ui-space-1) var(--ui-space-3);
+  color: var(--pc-muted);
+  font-size: var(--ui-text-base);
+  line-height: var(--ui-leading-arabic);
+}
+.modal .detail-trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-space-2);
+  margin-block-end: var(--ui-space-3);
+}
+.modal .job-preview:not(.is-compact) h3 {
+  margin-block-end: var(--ui-space-2);
+  color: var(--pc-ink);
+  font-size: var(--ui-text-xl);
+  font-weight: 600;
+  line-height: var(--ui-leading-tight);
+  overflow-wrap: anywhere;
+}
+.modal .job-preview:not(.is-compact) .job-facts {
+  display: grid;
+  gap: var(--ui-space-2);
+  margin-block: var(--ui-space-3);
+  padding-block: var(--ui-space-2);
+  border-block: 1px solid var(--pc-border);
+}
+
+/* ── 5. Auth, posting and modal surfaces (visual only) ──────────────── */
+.modal[class],
+.information-dialog[class] {
+  background-color: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.information-dialog[class]::backdrop {
+  background: color-mix(in srgb, var(--pc-page) 72%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.modal-heading.modal-heading,
+.information-heading.information-heading {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.auth-tabs[class],
+.post-tabs[class],
+.listing-tabs .tabs {
+  background: var(--pc-soft);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-control);
+  box-shadow: none;
+}
+.auth-tabs[class] button.selected,
+.post-tabs[class] button.selected,
+.listing-tabs .tabs button.selected {
+  background: var(--pc-surface);
+  box-shadow: none;
+}
+.form-message[class],
+.provider-helper[class],
+.notice[class],
+.local-note[class] {
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-panel);
+  box-shadow: none;
+}
+.modal[class] form :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  border-radius: var(--ui-r-control);
+}
+.modal[class] form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(:hover):not(:focus):not(:active),
+.modal[class] form textarea:not(:hover):not(:focus):not(:active) {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+  box-shadow: none;
+}
+.resume-dropzone[class],
+.resume-selected[class],
+.resume-browse[class],
+.google-button[class] {
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-control);
+  box-shadow: none;
+}
+.resume-dropzone[class] {
+  background-color: var(--pc-soft);
+}
+.resume-dropzone.is-dragging[class] {
+  background-color: var(--pc-brand-soft);
+}
+
+/* ── 6. Account and activity surfaces (visual only) ─────────────────── */
+.information-dialog.account-menu {
+  border-radius: var(--ui-r-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.account-menu[class] .information-heading {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.account-avatar.account-avatar {
+  background-image: none;
+  background-color: var(--ui-primary);
+  border-radius: var(--ui-r-panel);
+  color: var(--ui-primary-fg);
+}
+.account-completion[class],
+.account-review-status[class],
+.account-current-cv[class],
+.account-checklist[class],
+.account-application-dashboard li,
+.applicant-contact-grid[class],
+.applicant-note[class],
+.activity-center .activity-options>button {
+  background-color: var(--pc-surface);
+  background-image: none;
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-panel);
+  box-shadow: none;
+}
+.account-progress[class] {
+  background-color: var(--pc-soft);
+}
+.account-progress span {
+  background-image: none;
+  background-color: var(--ui-primary);
+}
+
+/* ── 7. Admin stays dense while its surfaces become flat ────────────── */
+.admin-shell[class] .admin-sidebar {
+  background-color: var(--pc-surface);
+  border-inline-end: 1px solid var(--pc-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.admin-shell[class] .admin-workspace,
+.admin-shell[class] .admin-surface,
+.admin-shell[class] .admin-metric,
+.admin-shell[class] .admin-table-wrap,
+.admin-shell[class] .admin-shortcuts button,
+.admin-shell[class] .admin-catalog button,
+.admin-shell[class] .admin-alert,
+.admin-shell[class] .admin-success {
+  background-color: var(--pc-surface);
+  background-image: none;
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-panel);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.admin-shell[class] .admin-sidebar nav button.active {
+  background-color: var(--pc-brand-soft);
+  background-image: none;
+  box-shadow: none;
+}
+.admin-shell[class] select,
+.admin-shell[class] .admin-search,
+.admin-shell[class] textarea {
+  border-radius: var(--ui-r-control);
+  border-color: var(--pc-border);
+  background-color: var(--pc-surface);
+  box-shadow: none;
+}
+.admin-shell[class] .admin-badge {
+  border-radius: var(--ui-r-badge);
+}
+
+/* ── 8a. Talent, training and matching surfaces (visual only) ───────── */
+.talent-directory[class] {
+  background-color: var(--pc-page);
+  background-image: none;
+}
+.talent-header[class],
+.training-header[class] {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.talent-hero-aside[class],
+.talent-search-panel[class],
+.training-filters[class],
+.training-section[class],
+.course-date[class],
+.course-context[class],
+.talent-local-note[class],
+.talent-notice[class],
+.talent-storage-error[class],
+.training-notice[class],
+.talent-pdf-toolbar[class],
+.talent-pdf-canvas[class],
+.applicant-cv .talent-pdf-reader,
+.information-content .reference-card.reference-card,
+.matching-profile-panel.matching-profile-panel {
+  background-color: var(--pc-surface);
+  background-image: none;
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-panel);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.talent-card.talent-card,
+.course-card.course-card,
+.course-form[class] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.matching-form[class] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.talent-profile-form[class] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  border-radius: var(--ui-r-control);
+}
+.talent-card.talent-card,
+.course-card.course-card {
+  background-color: var(--pc-surface);
+  background-image: none;
+  border-color: var(--pc-border);
+  box-shadow: none;
+}
+.talent-avatar[class],
+.talent-preview-button[class],
+.talent-contact[class],
+.course-register[class],
+.course-contact[class],
+.matching-profile-actions button,
+.reference-neutral-button[class] {
+  border-radius: var(--ui-r-button);
+  box-shadow: none;
+}
+/* The gradient now resolves to --ui-primary, whose dark foreground token
+   keeps every gradient button readable. This action was missed in polish.css. */
+:root[data-theme="dark"] .matching-profile-actions button.matching-setup-action {
+  color: var(--ui-primary-fg);
+}
+.applicant-cv .talent-pdf-canvas canvas {
+  box-shadow: none;
+}
+@media (hover: hover) {
+  .talent-card.talent-card:hover,
+  .course-card.course-card:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: var(--pc-border);
+  }
+}
+
+/* ── 8. Calm empty states ────────────────────────────────────────────── */
+.reference-board .empty-state {
+  padding: var(--ui-space-8) var(--ui-space-5);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-card);
+  background: var(--pc-surface);
+  box-shadow: none;
+  color: var(--pc-muted);
+}
+.reference-board .empty-state-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--ui-space-3);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--ui-r-panel);
+  background: var(--pc-soft);
+  box-shadow: none;
+  color: var(--pc-link);
+}
+.reference-board .empty-state h3 {
+  color: var(--pc-ink);
+  font-size: var(--ui-text-lg);
+  font-weight: 600;
+  line-height: var(--ui-leading-arabic);
+  overflow-wrap: anywhere;
+}
+.reference-board .empty-state p {
+  color: var(--pc-muted);
+  font-size: var(--ui-text-base);
+  line-height: var(--ui-leading-arabic);
+}
+
+@media (max-width: 680px) {
+  .reference-hero.career-hero {
+    min-height: 0;
+  }
+  .hero-content-shell {
+    padding: 96px 24px 64px;
+  }
+  .reference-hero .career-eyebrow {
+    margin-bottom: 16px;
+  }
+  .reference-hero .career-description {
+    margin-bottom: 24px;
+  }
+  .reference-board .job-card {
+    padding: var(--ui-space-3);
+  }
+  .reference-board .job-card h3.job-card-title {
+    font-size: 1rem;
+  }
+  .reference-board .job-card .job-preview.is-compact .compact-facts {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: var(--ui-space-1);
+    margin-block: 6px;
+    gap: 2px var(--ui-space-3);
+  }
+  .reference-board .job-card .job-preview.is-compact .preview-description > p {
+    margin: 6px 0 8px;
+  }
+  .reference-board .job-card .card-trust {
+    margin-block-end: var(--ui-space-1);
+  }
+  .reference-board .job-card .role-badges {
+    margin-block-start: var(--ui-space-1);
+  }
+  .reference-board .job-card .role-badge:not([class*="specialty-"]),
+  .reference-board .job-card .raw-badge {
+    padding-block: 3px;
+  }
+  .reference-board .job-card .card-bottom {
+    margin-block: var(--ui-space-1) 0;
+  }
+  .reference-board .job-card .card-footer {
+    padding-block-start: var(--ui-space-2);
+  }
+}
+
+@media (min-width: 681px) {
+  .reference-board .board-intro {
+    margin-block-end: var(--ui-space-6);
+  }
+  .reference-board .results-heading {
+    margin-block-end: var(--ui-space-3);
+  }
+  .reference-board .feed-quick-filters {
+    padding: var(--ui-space-2) var(--ui-space-4);
+    margin-block-end: var(--ui-space-4);
+  }
+  .reference-board .feed-toolbar {
+    margin-block: var(--ui-space-1) var(--ui-space-3);
+  }
+  .matching-profile-panel.matching-profile-panel {
+    padding: var(--ui-space-3) var(--ui-space-4);
+    margin-block-end: var(--ui-space-4);
+  }
+  .reference-board .filter-sidebar .filter-panel fieldset {
+    padding-block-end: var(--ui-space-4);
+    margin-block-end: var(--ui-space-4);
+  }
+  .reference-board .filter-sidebar .category-chip {
+    margin-block: var(--ui-space-1);
+  }
+}
+
+@media (max-width: 767px) {
+  .filter-sheet .category-chip {
+    padding: var(--ui-space-2) 10px;
+    line-height: 1.5;
+    gap: 6px;
+    min-height: 44px;
+  }
+  .filter-sheet .filter-panel fieldset:first-child {
+    gap: 6px;
+  }
+}
+
+/* ── 10. Landing page: flat, opaque, no glass or glow ───────────────── */
+.reference-hero.career-hero {
+  background-color: var(--pc-section-gradient);
+  background-image: none;
+  box-shadow: none;
+  animation: none;
+}
+.career-hero-backdrop {
+  display: block;
+}
+.hero-gradient-overlay {
+  display: block;
+  background: rgba(11, 21, 37, 0.78);
+  background-image: none;
+}
+.reference-hero .career-eyebrow {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-badge);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  color: var(--pc-ink);
+}
+.reference-hero .career-eyebrow>span {
+  background-color: var(--ui-primary);
+}
+.reference-hero .hero-stream-button,
+.reference-hero .hero-stream-button:first-child {
+  background-color: var(--pc-surface);
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-button);
+  box-shadow: none;
+  color: var(--pc-ink);
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.reference-hero .hero-stream-button small,
+.reference-hero .hero-stream-button strong {
+  color: var(--pc-ink);
+}
+.reference-hero .hero-stream-button:hover {
+  transform: none;
+  background-color: var(--pc-soft);
+  border-color: var(--pc-border);
+}
+.reference-features[class],
+.reference-paths[class],
+.reference-about[class],
+.reference-connect[class],
+.reference-board[class] {
+  background-color: var(--pc-page);
+  background-image: none;
+}
+.reference-card.reference-card,
+.reference-path-card.reference-path-card,
+.reference-glass-panel[class],
+.reference-glass-callout[class] {
+  background-color: var(--pc-surface);
+  background-image: none;
+  border-color: var(--pc-border);
+  border-radius: var(--ui-r-card);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+  animation: none;
+}
+.reference-card.reference-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+.reference-glass-callout button {
+  background-color: var(--ui-primary);
+  border-color: var(--ui-primary);
+  border-radius: var(--ui-r-button);
+  box-shadow: none;
+  color: var(--ui-primary-fg);
+}
+.reference-connect-actions>button,
+.reference-connect-actions>a {
+  border-radius: var(--ui-r-button);
+  box-shadow: none;
+}
+.reference-path-card.is-featured {
+  box-shadow: none;
+}
+.reference-board .tabs button.selected {
+  box-shadow: none;
+}

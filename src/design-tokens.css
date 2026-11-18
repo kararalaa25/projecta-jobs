@@ -72,6 +72,44 @@
   --ds-text-md:   15px;
   --ds-text-lg:   18px;
   --ds-text-xl:   22px;
+
+  /* ── Refinement scale (additive; legacy tokens above are preserved) ── */
+  --ui-r-card:12px;
+  --ui-r-panel:8px;
+  --ui-r-control:8px;
+  --ui-r-button:6px;
+  --ui-r-badge:6px;
+  --ui-r-pill:999px;
+
+  --ui-space-1:4px;
+  --ui-space-2:8px;
+  --ui-space-3:12px;
+  --ui-space-4:16px;
+  --ui-space-5:20px;
+  --ui-space-6:24px;
+  --ui-space-7:32px;
+  --ui-space-8:40px;
+  --ui-space-9:48px;
+  --ui-space-10:64px;
+
+  --ui-text-xs:11px;
+  --ui-text-sm:12px;
+  --ui-text-base:14px;
+  --ui-text-md:15px;
+  --ui-text-lg:18px;
+  --ui-text-xl:22px;
+  --ui-text-2xl:28px;
+  --ui-text-3xl:34px;
+  --ui-leading-tight:1.4;
+  --ui-leading-ui:1.6;
+  --ui-leading-arabic:1.8;
+
+  --ui-primary:#087da4;
+  --ui-primary-hover:#076f86;
+  --ui-primary-fg:#fff;
+  --ui-focus:#0284c7;
+  --ui-shadow-card:none;
+  --ui-shadow-hover:0 1px 2px rgb(11 21 37 / .06);
 }
 
 /* ── Dark mode support ──
@@ -128,4 +166,10 @@
   --pc-focus: #7fd4e6;
   --pc-brand-soft: #103b47;
   --pc-brand-border: #1d5a68;
+
+  /* Refinement semantics: brighter accent paired with dark foreground. */
+  --ui-primary:#2bbdce;
+  --ui-primary-hover:#7fd4e6;
+  --ui-primary-fg:#07131f;
+  --ui-focus:#7fd4e6;
 }
