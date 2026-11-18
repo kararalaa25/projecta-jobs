@@ -358,6 +358,8 @@ def validate_shared_context(text: str, jobs: list[ExtractedJob], contexts: list[
     kept: list[str] = []
     ambiguous = False
     starts = [text.find(job.source_text) for job in jobs]
+    if not jobs:
+        return [], bool(contexts)  # No grounded offer: never treat context as shareable.
     if not contexts or any(start < 0 for start in starts):
         return kept, bool(contexts) and any(start < 0 for start in starts)
     first = min(starts)

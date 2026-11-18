@@ -62,6 +62,15 @@ test('stale success heartbeat is distinguished from an idle channel', () => {
   assert.equal(findings[0].counts.lastSuccessMinutes, 120)
 })
 
+test('an active lease suppresses the stall alert only until it expires', () => {
+  const snapshot = healthy()
+  snapshot.sync.lastSuccessAt = ago(2 * 3600000)
+  snapshot.sync.leaseUntil = new Date(NOW + 60000).toISOString()
+  assert.deepEqual(detectAlerts(snapshot, DEFAULT_THRESHOLDS, NOW), [])
+  snapshot.sync.leaseUntil = ago(60000)
+  assert.deepEqual(detectAlerts(snapshot, DEFAULT_THRESHOLDS, NOW).map(item => item.key), ['ingestion_stalled'])
+})
+
 test('repeated classification failures are detected but review holds are ignored', () => {
   const snapshot = healthy()
   snapshot.retries = [

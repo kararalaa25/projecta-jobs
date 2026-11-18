@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { toJob, telegramUrl } from '../src/jobs.js'
+import { toJob, telegramUrl, fetchJobsPage } from '../src/jobs.js'
 import { createJobsHandler } from '../api/jobs.js'
 
 function response() {
@@ -87,4 +87,33 @@ test('public serialization excludes publisher identity and future internal conta
  const {publicJobOffer}=await import('../server/public-jobs.js')
  const row=publicJobOffer({id:'job',publisher_id:'private-user',moderation_notes:'private-note',contact_info:JSON.stringify({phone:'07701234567',company_name:'عيادة',source_text_hash:'internal-hash',moderator_email:'private@example.test',role_categories:['Dentists']})})
  assert.equal(row.publisher_id,undefined);assert.equal(row.moderation_notes,undefined);assert.deepEqual(JSON.parse(row.contact_info),{phone:'07701234567',company_name:'عيادة',role_categories:['Dentists']})
+})
+test('fetchJobsPage forwards the requested feed and combines the caller signal with a deadline',async()=>{
+ const originalFetch=globalThis.fetch
+ let url,signal
+ globalThis.fetch=async(request,init)=>{url=request;signal=init.signal;return {ok:true,json:async()=>({jobs:[],hasMore:false,total:0})}}
+ try{
+  assert.deepEqual(await fetchJobsPage(undefined,0,'telegram'),{hasMore:false,total:0,jobs:[]})
+  assert.match(url,/offset=0&feed=telegram$/)
+  assert.equal(signal.aborted,false)
+ }finally{globalThis.fetch=originalFetch}
+})
+test('caller aborts stay AbortError while the client deadline becomes a retryable timeout',async()=>{
+ const originalFetch=globalThis.fetch,originalTimeout=AbortSignal.timeout
+ try{
+ globalThis.fetch=async(_url,{signal})=>new Promise((_resolve,reject)=>{
+  if(signal.aborted)return reject(signal.reason)
+  signal.addEventListener('abort',()=>reject(signal.reason),{once:true})
+ })
+  const controller=new AbortController()
+  const aborted=fetchJobsPage(controller.signal)
+  controller.abort()
+  await assert.rejects(aborted,error=>error.name==='AbortError')
+  AbortSignal.timeout=()=>{
+   const expired=new AbortController()
+   expired.abort(Object.assign(Error('deadline'),{name:'TimeoutError'}))
+   return expired.signal
+  }
+  await assert.rejects(fetchJobsPage(),/انتهت مهلة تحميل فرص العمل/)
+ }finally{globalThis.fetch=originalFetch;AbortSignal.timeout=originalTimeout}
 })

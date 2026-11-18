@@ -10,6 +10,7 @@ const jobId='11111111-1111-4111-8111-111111111111',otherId='22222222-2222-4222-8
 let pipelineStatus='submitted',renewals=0,pipelineHarness=false
 let releaseJobs
 const jobGate=new Promise(resolve=>{releaseJobs=resolve})
+let jobsRequests=0,delayJobs=false,failJobs=false,releaseDelayedJobs,statusWithoutDate=false,failStatus=false
 const created=new Date(Date.now()-6*86400000).toISOString()
 const row={id:jobId,title:'طبيب أسنان لعيادة مرخصة',description:'مطلوب طبيب أسنان للعمل في عيادة بغداد',role_category:'Dentists',employment_type:'full_time',location_city:'Baghdad',salary_range:'1500000',source:'manual',created_at:created,expires_at:new Date(Date.now()+24*86400000).toISOString(),contact_info:JSON.stringify({company_name:'عيادة اختبار مرخصة',phone:'07701234567',telegram:'clinic_jobs'})}
 const candidate={id:'published-doctor',source:'platform',name:'د. اختبار موثق',headline:'طبيب أسنان',role:'Dentists',city:'Baghdad',qualification:'بكالوريوس طب أسنان',bio:'خبرة طبية',experience:6,skills:['ترميم الأسنان'],workTypes:['Full-time'],availability:'available',phone:null,whatsappEnabled:false,updatedAt:created,verification:{status:'verified',kind:'dentist',credentials:['syndicate_membership']}}
@@ -45,7 +46,16 @@ await page.route('**/*',async route=>{
   if(view==='applicants')return route.fulfill({json:{job:{title:row.title,company:'عيادة اختبار'},rows:[{id:'application',name:'طبيب اختبار',status:pipelineStatus,created_at:created,cover_letter:'نبذة مهنية للاختبار',hasCv:false,verification:candidate.verification}],hasMore:false}})
   return route.fulfill({json:{rows:[{id:'application',job:{title:row.title,company:'عيادة اختبار'},status:pipelineStatus,created_at:created}],hasMore:false}})
  }
- if(url.pathname==='/api/jobs'){await jobGate;return route.fulfill({json:{jobs:[row,{...row,id:otherId,title:'إعلان غير موثق',contact_info:JSON.stringify({company_name:'جهة غير موثقة',phone:'07801234567'})},{...row,id:expiredId,title:'إعلان منتهي',expires_at:'2020-01-01'},{...row,id:telegramId,title:'وظيفة تليجرام للاختبار',source:'telegram',contact_info:JSON.stringify({company_name:'مجتمع التليجرام',phone:'07701234567',parsing_status:'parsed'})}],hasMore:false}})}
+ if(url.pathname==='/api/jobs'){
+  await jobGate
+  jobsRequests++
+  if(failJobs){failJobs=false;return route.fulfill({status:500,json:{error:'feed offline'}})}
+  if(delayJobs)await new Promise(resolve=>{releaseDelayedJobs=resolve})
+  return route.fulfill({json:{jobs:[row,{...row,id:otherId,title:'إعلان غير موثق',contact_info:JSON.stringify({company_name:'جهة غير موثقة',phone:'07801234567'})},{...row,id:expiredId,title:'إعلان منتهي',expires_at:'2020-01-01'},{...row,id:telegramId,title:'وظيفة تليجرام للاختبار',source:'telegram',contact_info:JSON.stringify({company_name:'مجتمع التليجرام',phone:'07701234567',parsing_status:'parsed'})}],hasMore:false}})}
+ if(url.pathname==='/api/telegram-status'){
+  if(failStatus){failStatus=false;return route.fulfill({status:503,json:{}})}
+  return route.fulfill({json:{status:'ok',lastCheckedAt:statusWithoutDate?null:new Date(Date.now()-60000).toISOString(),intervalSeconds:300}})
+ }
  if(url.pathname==='/api/profile-trust')return route.fulfill({json:{jobs:(url.searchParams.get('ids')||'').split(',').map(id=>({id,verification:id===jobId?{status:'verified',kind:'clinic',credentials:['facility_license']}:{status:'unverified',kind:'professional',credentials:[]}}))}})
  if(url.pathname==='/api/directory')return route.fulfill({json:{items:url.searchParams.get('kind')==='talent'?[candidate]:[],hasMore:false}})
  if(url.pathname==='/api/platform')return route.fulfill({json:{settings:{},catalog:[...catalog.roles.map((r,i)=>({id:r.id,label:r.ar,kind:'role',active:true,position:i})),...catalog.governorates.map((g,i)=>({id:g.id,label:g.ar,kind:'location',active:true,position:i}))]}})
@@ -203,6 +213,105 @@ await badge.focus()
 assert.equal(await page.getByRole('tooltip').evaluate(node=>getComputedStyle(node).animationName),'none')
 await badge.press('Escape')
 
+// ── Telegram count chip and manual feed refresh ─────────────────────────
+const waitForJobsRequests=async target=>{
+ for(let attempt=0;attempt<100;attempt++){
+  if(jobsRequests>=target)return
+  await new Promise(resolve=>setTimeout(resolve,20))
+ }
+ throw Error(`expected ${target} jobs requests, saw ${jobsRequests}`)
+}
+const readChip=()=>page.locator('.results-count--telegram').evaluate(node=>{const style=getComputedStyle(node),box=node.getBoundingClientRect();return {display:style.display,color:style.color,background:style.backgroundColor,weight:parseInt(style.fontWeight,10),size:parseFloat(style.fontSize),left:box.left,right:box.right}})
+await page.getByRole('switch',{name:'عضوية موثقة فقط'}).uncheck()
+await page.getByRole('tab',{name:'وظائف التليجرام'}).click()
+const chip=page.locator('.results-count--telegram')
+await chip.waitFor()
+let style=await readChip()
+assert.equal(style.display,'inline-flex')
+assert.equal(style.color,'rgb(5, 204, 140)','exact Telegram green on navy')
+assert.equal(style.background,'rgb(11, 21, 37)','navy chip keeps green at AA contrast')
+assert.ok(style.weight>=700,`chip weight ${style.weight} must be bold`)
+assert.ok(style.size>=18,`chip size ${style.size}px must be readable`)
+assert.ok((await chip.innerText()).includes('١'),'chip still announces the count')
+if(await page.evaluate(()=>document.documentElement.dataset.theme)!=='dark')await page.getByRole('switch',{name:'التبديل إلى الوضع الداكن'}).click()
+await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark')
+style=await readChip()
+assert.equal(style.color,'rgb(5, 204, 140)','dark theme keeps exact green')
+assert.equal(style.background,'rgb(11, 21, 37)','dark theme keeps navy chip')
+await page.getByRole('switch',{name:'التبديل إلى الوضع الفاتح'}).click()
+await page.waitForFunction(()=>document.documentElement.dataset.theme==='light')
+assert.ok((await page.locator('.sync-last-check').innerText()).includes('متزامن مع تيليجرام'),'backend status ok is treated as live')
+const syncRefresh=page.locator('.sync-refresh')
+statusWithoutDate=true
+await syncRefresh.click()
+await page.waitForFunction(()=>document.querySelector('.sync-last-check')?.textContent?.trim()==='متزامن مع تيليجرام')
+assert.equal((await page.locator('.sync-last-check').innerText()).includes('آخر تحديث قبل'),false,'no dangling relative-time suffix without a valid timestamp')
+await page.waitForFunction(()=>!document.querySelector('.sync-refresh')?.disabled)
+statusWithoutDate=false
+await syncRefresh.click()
+await page.waitForFunction(()=>document.querySelector('.sync-last-check')?.textContent?.includes('آخر تحديث قبل'))
+await page.waitForFunction(()=>!document.querySelector('.sync-refresh')?.disabled)
+failStatus=true
+await syncRefresh.click()
+await page.locator('.telegram-sync-status.unknown').waitFor()
+assert.ok((await page.locator('.telegram-sync-status').innerText()).includes('تعذر الوصول إلى حالة المزامنة'))
+assert.equal(await page.locator('.telegram-sync-status time').count(),1,'a failed refresh preserves the previous timestamp')
+await page.getByRole('tab',{name:'وظائف المنصة',exact:false}).click()
+assert.equal(await chip.count(),0,'non-Telegram headings have no special count chip')
+assert.equal(await page.locator('.reference-board .results-heading h2 > span').count(),1)
+await page.getByRole('tab',{name:'وظائف التليجرام'}).click()
+await chip.waitFor()
+for(const width of [320,375,768,1024,1440]){
+ await page.setViewportSize({width,height:900})
+ const responsive=await readChip()
+ assert.equal(responsive.display,'inline-flex',`chip stays inline-flex at ${width}px`)
+ assert.equal(responsive.color,'rgb(5, 204, 140)',`chip keeps exact green at ${width}px`)
+ assert.equal(responsive.background,'rgb(11, 21, 37)',`chip keeps navy at ${width}px`)
+ assert.ok(responsive.left>=-1&&responsive.right<=width+1,`chip inside viewport at ${width}px`)
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false,`no horizontal overflow at ${width}px`)
+}
+await page.setViewportSize({width:375,height:812})
+const search=page.getByRole('searchbox',{name:'البحث في الإعلانات'})
+const citySelect=page.getByRole('combobox',{name:'تصفية حسب المحافظة'})
+await search.fill('تليجرام')
+await citySelect.selectOption('Baghdad')
+await page.locator('.job-card').filter({hasText:'وظيفة تليجرام للاختبار'}).first().waitFor()
+const beforeCards=await page.locator('.job-card').count(),cardText=await page.locator('.job-card').first().innerText()
+assert.equal(beforeCards,1)
+const beforeRequests=jobsRequests,refreshButton=page.locator('.feed-status-compact button')
+delayJobs=true
+await refreshButton.click()
+await page.waitForFunction(()=>document.querySelector('.feed-status-compact')?.getAttribute('aria-busy')==='true')
+await waitForJobsRequests(beforeRequests+1)
+assert.equal(await refreshButton.isDisabled(),true,'button disabled while refresh is in flight')
+assert.ok((await page.locator('.feed-status-compact').innerText()).includes('جارٍ التحديث'))
+await refreshButton.evaluate(node=>node.click())
+await new Promise(resolve=>setTimeout(resolve,150))
+assert.equal(jobsRequests,beforeRequests+1,'double click issues exactly one additional request')
+assert.equal(await search.inputValue(),'تليجرام','search survives refresh')
+assert.equal(await citySelect.inputValue(),'Baghdad','city filter survives refresh')
+assert.equal(await page.locator('.job-card').count(),beforeCards,'old cards stay visible while loading')
+assert.equal(await page.locator('.job-card').first().innerText(),cardText)
+assert.equal(await page.locator('.job-card-skeleton').count(),0,'no skeleton replaces existing cards')
+delayJobs=false
+releaseDelayedJobs()
+await page.waitForFunction(()=>document.querySelector('.feed-status-compact')?.getAttribute('aria-busy')==='false')
+assert.equal(await refreshButton.isDisabled(),false)
+failJobs=true
+await refreshButton.click()
+await waitForJobsRequests(beforeRequests+2)
+await page.getByRole('button',{name:'إعادة محاولة تحميل الفرص'}).waitFor()
+assert.ok((await page.locator('.feed-status-compact').innerText()).includes('تعذر تحميل الفرص'))
+assert.equal(await page.locator('.job-card').count(),beforeCards,'failed refresh keeps existing cards')
+assert.equal(await page.locator('.job-card').first().innerText(),cardText)
+await page.getByRole('button',{name:'إعادة محاولة تحميل الفرص'}).click()
+await waitForJobsRequests(beforeRequests+3)
+await page.waitForFunction(()=>document.querySelector('.feed-status-compact')?.getAttribute('aria-busy')==='false')
+assert.ok((await refreshButton.innerText()).includes('تحديث'),'retry restores the normal refresh label')
+await search.fill('')
+await citySelect.selectOption('All cities')
+await page.setViewportSize({width:1280,height:900})
+
 await page.goto('http://localhost:5173/talent',{waitUntil:'networkidle'})
 await page.getByRole('switch',{name:'عضوية موثقة فقط'}).check()
 assert.equal(await page.locator('.talent-card').count(),1)
@@ -222,4 +331,4 @@ await page.evaluate(()=>window.refreshApplications())
 await page.waitForFunction(()=>document.querySelector('.app-timeline-state')?.textContent?.trim()==='تمت الأرشفة')
 assert.deepEqual(errors,[])
 await browser.close()
-console.log('PASS: mobile quick apply + full application, touch/keyboard tooltip, verified job/candidate filters, timestamps, desktop visibility, RTL, 375/767/768/1280px layouts, filter sheet keyboard/resize/reset/apply, skeletons, empty recovery, reduced motion, employer stages and realtime updates')
+console.log('PASS: mobile quick apply + full application, touch/keyboard tooltip, verified job/candidate filters, timestamps, desktop visibility, RTL, 320/375/767/768/1024/1280/1440px layouts, Telegram count chip colors in light and dark, live sync status and failure copy, coalesced manual refresh with preserved filters/cards, retry recovery, filter sheet keyboard/resize/reset/apply, skeletons, empty recovery, reduced motion, employer stages and realtime updates')

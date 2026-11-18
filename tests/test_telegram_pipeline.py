@@ -222,6 +222,22 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         db.table.return_value.update.return_value.eq.return_value.eq.assert_called_once_with('lease_owner','owner')
         self.assertNotIn('last_success_at',db.table.return_value.update.call_args.args[0])
 
+    async def test_clean_sync_records_success_and_releases_only_owned_lease(self):
+        db=MagicMock()
+        clean={'processed':0,'jobs':0,'retrying':0,'failed':0,'deferred':0,'review_held':0}
+        with patch.object(scraper,'check_database_schema',return_value='native'), \
+             patch.object(scraper,'required',side_effect=RuntimeError('Gemini unavailable')), \
+             patch.object(sync,'sync_public_channel',AsyncMock(return_value={'status':'complete','queued':0})), \
+             patch.object(pipeline,'drain_inbox',AsyncMock(return_value=clean)):
+            result=await sync.scheduled_sync(db,'owner',['clinic'])
+        self.assertIsNone(result['error'])
+        state=db.table.return_value.update.call_args.args[0]
+        self.assertIn('last_success_at',state)
+        self.assertIsNone(state['lease_owner'])
+        self.assertIsNone(state['lease_until'])
+        self.assertIsNone(state['last_error'])
+        db.table.return_value.update.return_value.eq.return_value.eq.assert_called_once_with('lease_owner','owner')
+
 
 class OptionBPipelineTests(unittest.IsolatedAsyncioTestCase):
     """Synthetic classification, hold and pending-publication regressions."""
@@ -452,3 +468,50 @@ class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(pipeline.diagnostic_category(exc), 'ValueError')
         self.assertNotIn('07701234567', pipeline.diagnostic_category(exc))
         self.assertLessEqual(len(f'failed:commit:{pipeline.diagnostic_category(exc)}'), 100)
+
+
+class FallbackValueErrorTests(unittest.IsolatedAsyncioTestCase):
+    """Regression for failed:fallback:ValueError from min([]) in shared-context validation."""
+
+    # Synthetic text only. "فرص عمل"/"الوظائف" create sections but are not JOB_WORDs,
+    # so no grounded offer exists and the footer must go to review, not inheritance.
+    text = '\n'.join([
+        'فرص عمل في بغداد',
+        '1. طبيب أسنان في العاصمة',
+        '2. صيدلاني في البصرة',
+        'للتقديم لجميع الوظائف واتساب 07701234567',
+    ])
+
+    def test_fallback_post_keeps_ungrounded_sections_for_review(self):
+        parsed = pipeline.fallback_post(self.text)
+        self.assertEqual(parsed.jobs, [])
+        self.assertEqual(parsed.shared_context, [])
+        self.assertTrue(getattr(parsed, 'needs_review', False))
+        self.assertIn('ambiguous_shared_contact', getattr(parsed, 'review_reasons', []))
+
+    async def test_process_receipt_holds_instead_of_raising_from_fallback(self):
+        db = MagicMock()
+        with patch.object(scraper, 'parse_jobs', AsyncMock(side_effect=ValueError('synthetic AI failure'))):
+            result = await pipeline.process_receipt(None, db, receipt(self.text), 'native')
+        self.assertEqual(result['outcome'], 'held')
+        self.assertEqual(result['reason'], 'review_required')
+        payload = db.table.return_value.update.call_args.args[0]
+        self.assertEqual(payload['error_type'], 'review:review_required')
+        self.assertEqual(set(payload), {'state', 'error_type', 'next_attempt_at', 'updated_at'})
+        db.rpc.assert_not_called()
+
+    async def test_drain_inbox_records_no_failure_and_publishes_no_jobs(self):
+        db = MagicMock()
+        chain = db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute
+        chain.side_effect = [SimpleNamespace(data=[receipt(self.text)]), SimpleNamespace(data=[])]
+        with patch.object(scraper, 'parse_jobs', AsyncMock(side_effect=ValueError('synthetic AI failure'))):
+            result = await pipeline.drain_inbox(None, db, 'native')
+        self.assertEqual(result['failed'], 0)
+        self.assertEqual(result['jobs'], 0)
+        self.assertEqual(result['processed'], 1)
+        updates = [call.args[0]['error_type'] for call in db.table.return_value.update.call_args_list]
+        self.assertEqual(updates, ['review:review_required'])
+        self.assertFalse(any(value.startswith('failed:') for value in updates))
+        db.rpc.assert_not_called()
+        tables = [call.args[0] for call in db.table.call_args_list]
+        self.assertNotIn('job_offers', tables)

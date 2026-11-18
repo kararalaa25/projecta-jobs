@@ -78,7 +78,23 @@ export async function fetchJobsByIds(ids,signal){
  return visibleJobs(body.jobs)
 }
 export async function fetchJobsPage(signal, offset=0, feed='all') {
-  const response = await fetch(`/api/jobs?offset=${offset}&feed=${encodeURIComponent(feed)}`, { signal, cache:'no-store', headers: { Accept: 'application/json' } })
+  // A hung request must not leave the feed spinning forever. Caller aborts stay
+  // AbortError so the realtime layer can ignore them; only the client deadline
+  // is surfaced as a retryable failure.
+  const deadline = AbortSignal.timeout(15000)
+  const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline
+  let response
+  try {
+    response = await fetch(`/api/jobs?offset=${offset}&feed=${encodeURIComponent(feed)}`, { signal: requestSignal, cache:'no-store', headers: { Accept: 'application/json' } })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    if (deadline.aborted) {
+      const timeout = new Error('انتهت مهلة تحميل فرص العمل. يرجى إعادة المحاولة.')
+      timeout.name = 'TimeoutError'
+      throw timeout
+    }
+    throw error
+  }
   if (!response.ok) throw new Error('تعذر تحميل فرص العمل. يرجى إعادة المحاولة.')
   const payload = await response.json()
   if (!Array.isArray(payload.jobs)) throw new Error('تعذر قراءة بيانات الإعلانات.')

@@ -342,6 +342,17 @@ class ClassificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kept, [])
         self.assertTrue(ambiguous)
 
+    def test_shared_context_without_grounded_jobs_is_never_shareable(self):
+        footer = 'للتقديم لجميع الوظائف واتساب 07701234567'
+        text = '\n'.join([
+            'فرص عمل في بغداد',
+            '1. طبيب أسنان في العاصمة',
+            '2. صيدلاني في البصرة',
+            footer,
+        ])
+        self.assertEqual(scraper.validate_shared_context(text, [], [footer]), ([], True))
+        self.assertEqual(scraper.validate_shared_context(text, [], []), ([], False))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -48,5 +48,10 @@ export function startJobFeed({client,onSnapshot,onUpsert,onRemove,onLoad,onConne
  const timer=win.setInterval(()=>{if(doc.visibilityState!=='hidden')void refresh()},interval)
  win.addEventListener('online',foreground);win.addEventListener('focus',foreground);doc.addEventListener('visibilitychange',foreground)
  void refresh()
- return()=>{closed=true;lifecycle.abort();win.clearInterval(timer);if(batchTimer)win.clearTimeout(batchTimer);win.removeEventListener('online',foreground);win.removeEventListener('focus',foreground);doc.removeEventListener('visibilitychange',foreground);if(channel)void client.removeChannel(channel)}
+ const stop=()=>{closed=true;lifecycle.abort();win.clearInterval(timer);if(batchTimer)win.clearTimeout(batchTimer);win.removeEventListener('online',foreground);win.removeEventListener('focus',foreground);doc.removeEventListener('visibilitychange',foreground);if(channel)void client.removeChannel(channel)}
+ // Manual refreshes reuse the same guarded request and lifecycle as the feed's
+ // own polling, so callers never open a second subscription or racing fetch.
+ stop.refresh=refresh
+ stop.stop=stop
+ return stop
 }
