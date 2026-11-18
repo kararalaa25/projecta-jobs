@@ -5,13 +5,13 @@ import {createJobsHandler} from '../api/jobs.js'
 const id='11111111-1111-4111-8111-111111111111'
 const settle=()=>new Promise(resolve=>setTimeout(resolve,0))
 function harness(overrides={}){
- let handler,status,removed=0,jobTimer,interval
+ let handler,status,removed=0,subscriptions=0,jobTimer,interval
  const listeners=new Map(),doc={visibilityState:'visible',addEventListener(){},removeEventListener(){}}
  const win={setTimeout(fn){jobTimer=fn;return 1},clearTimeout(){},setInterval(fn){interval=fn;return 2},clearInterval(){},addEventListener(k,fn){listeners.set(k,fn)},removeEventListener(k){listeners.delete(k)}}
- const channel={on(type,filter,fn){assert.equal(type,'postgres_changes');assert.equal(filter.table,'job_offers');assert.deepEqual(filter.select,['id','source','status']);handler=fn;return this},subscribe(fn){status=fn;return this}}
+ const channel={on(type,filter,fn){assert.equal(type,'postgres_changes');assert.equal(filter.table,'job_offers');assert.deepEqual(filter.select,['id','source','status']);handler=fn;return this},subscribe(fn){subscriptions++;status=fn;return this}}
  const snapshots=[],updates=[],deletions=[],states=[]
  const stop=startJobFeed({client:{channel(name){assert.equal(name,'public:jobs');return channel},removeChannel(){removed++}},win,doc,onSnapshot:v=>snapshots.push(v),onUpsert:v=>updates.push(v),onRemove:v=>deletions.push(v),onConnection:v=>states.push(v),onLoad(){},fetchAll:async()=>[],fetchByIds:async ids=>ids.map(id=>({id,title:'sanitized'})),...overrides})
- return {event:v=>handler(v),status:v=>status(v),flush:()=>jobTimer(),poll:()=>interval(),stop,snapshots,updates,deletions,states,listeners,get removed(){return removed}}
+ return {event:v=>handler(v),status:v=>status(v),flush:()=>jobTimer(),poll:()=>interval(),stop,snapshots,updates,deletions,states,listeners,get subscriptions(){return subscriptions},get removed(){return removed}}
 }
 test('socket INSERT fetches only sanitized API cards; duplicate notifications batch and DELETE removes',async()=>{
  let idsSeen
@@ -40,4 +40,42 @@ test('API targeted reads validate IDs, exclude internal fields, and disable CDN 
  await handler({method:'GET',url:'/api/jobs?ids='+id},res)
  assert.equal(res.statusCode,200);assert.deepEqual(filters,[['id',[id]]]);assert.equal(res.body.hasMore,false);assert.ok(!JSON.stringify(res.body).includes('private'));assert.equal(res.headers['Vercel-CDN-Cache-Control'],'no-store')
  await handler({method:'GET',url:'/api/jobs?ids=invalid'},res);assert.equal(res.statusCode,400)
+})
+test('refresh() coalesces in-flight requests without opening another subscription',async()=>{
+ let calls=0,resolve
+ const states=[]
+ const h=harness({fetchAll:()=>{calls++;return new Promise(r=>{resolve=r})},onLoad:value=>states.push(value)})
+ await settle()
+ assert.equal(calls,1)
+ const first=h.stop.refresh(),second=h.stop.refresh()
+ assert.equal(second,first,'concurrent refreshes share the same promise')
+ assert.equal(calls,1,'no extra fetch while one is pending')
+ assert.equal(h.subscriptions,1,'refresh never resubscribes')
+ resolve([]);await first
+ const third=h.stop.refresh()
+ resolve([]);await third
+ assert.equal(calls,2)
+ assert.equal(h.subscriptions,1)
+ assert.deepEqual(states,['loading','ready','loading','ready'])
+ h.stop()
+})
+test('stop() aborts a refresh in flight and ignores its AbortError',async()=>{
+ let signal
+ const states=[]
+ const h=harness({fetchAll:s=>{signal=s;return new Promise((_,reject)=>s.addEventListener('abort',()=>{const error=Error('aborted');error.name='AbortError';reject(error)}))},onLoad:value=>states.push(value)})
+ const pending=h.stop.refresh()
+ h.stop()
+ assert.equal(signal.aborted,true)
+ await assert.doesNotReject(pending)
+ assert.deepEqual(states,['loading'],'an abort must not emit an error state')
+ assert.equal(h.removed,1)
+})
+test('a failed refresh reports the final error state and keeps the last snapshot',async()=>{
+ const states=[],snapshots=[]
+ const h=harness({fetchAll:async(_signal,_feed,{onPage})=>{onPage([{id:'kept'}]);throw Error('offline')},onLoad:value=>states.push(value),onSnapshot:value=>snapshots.push(value)})
+ await settle()
+ assert.deepEqual(snapshots.at(-1),[{id:'kept'}])
+ assert.equal(snapshots.length,1,'failed refresh does not replace the visible snapshot')
+ assert.deepEqual(states,['loading','error'])
+ h.stop()
 })
