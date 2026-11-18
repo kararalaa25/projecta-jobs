@@ -40,6 +40,31 @@ test('missing config and database failures return safe visible errors',async()=>
 test('feed does not accept write requests',async()=>{
   const res=response();await createJobsHandler({})({method:'POST'},res);assert.equal(res.statusCode,405)
 })
+test('pending Telegram rows cannot reach the public feed (active-only query)',async()=>{
+  const filters=[]
+  const query={select(){return this},eq(...args){filters.push(args);return this},gt(){return this},order(){return this},limit(){return this},range(){return this},abortSignal(){return Promise.resolve({data:[],error:null})}}
+  const res=response()
+  await createJobsHandler({SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'private-test-key'},()=>({from(){return query}}))({method:'GET'},res)
+  assert.equal(res.statusCode,200)
+  assert.deepEqual(filters.find(f=>f[0]==='status'),['status','active'],'public feed must always filter status=active')
+  assert.ok(!filters.some(f=>f[0]==='status'&&f[1]==='pending'),'pending must never be selected for the public feed')
+})
+test('targeted realtime refetch reads cannot return pending rows',async()=>{
+  const filters=[]
+  const query={select(){return this},eq(...args){filters.push(args);return this},gt(){return this},in(){return this},order(){return this},range(){return this},abortSignal(){return Promise.resolve({data:[],error:null})}}
+  const res=response()
+  const id='11111111-1111-4111-8111-111111111111'
+  await createJobsHandler({SUPABASE_URL:'https://example.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'private-test-key'},()=>({from(){return query}}))({method:'GET',url:'/api/jobs?ids='+id},res)
+  assert.equal(res.statusCode,200)
+  assert.deepEqual(filters.find(f=>f[0]==='status'),['status','active'],'targeted reads used by realtime refetch must filter status=active')
+})
+test('public serialization strips internal classification and review metadata',async()=>{
+  const {publicJobOffer}=await import('../server/public-jobs.js')
+  const row=publicJobOffer({id:'job',contact_info:JSON.stringify({phone:'07701234567',classification:'mixed',disposition:'job_offer',needs_review:true,review_reasons:['mixed_content']})})
+  const meta=JSON.parse(row.contact_info)
+  assert.equal(meta.phone,'07701234567')
+  for(const key of ['classification','disposition','needs_review','review_reasons'])assert.equal(meta[key],undefined,`internal key ${key} leaked publicly`)
+})
 
 
 test('Iraqi contact normalization and promo filtering',async()=>{

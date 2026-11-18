@@ -221,3 +221,148 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['error'],'RuntimeError')
         db.table.return_value.update.return_value.eq.return_value.eq.assert_called_once_with('lease_owner','owner')
         self.assertNotIn('last_success_at',db.table.return_value.update.call_args.args[0])
+
+
+class OptionBPipelineTests(unittest.IsolatedAsyncioTestCase):
+    """Synthetic classification, hold and pending-publication regressions."""
+
+    def mixed_post(self):
+        vacancy = 'مطلوب طبيب أسنان للعمل في عيادة ببغداد'
+        sale = 'يوجد كرسي أسنان للبيع'
+        return vacancy + '. كذلك ' + sale + '.', scraper.ParsedPost(jobs=[
+            scraper.ExtractedJob(is_job_offer=True, title='طبيب أسنان', role_category='Dentists',
+                source_text=vacancy, disposition='job_offer', company_name=None, city=None,
+                contact_phone=None, contact_telegram=None, salary_text=None, employment_type=None),
+            scraper.ExtractedJob(is_job_offer=False, title='كرسي أسنان', role_category=None,
+                source_text=sale, disposition='marketplace_item', company_name=None, city=None,
+                contact_phone=None, contact_telegram=None, salary_text=None, employment_type=None),
+        ], classification='mixed', needs_review=True, review_reasons=['mixed_content'])
+
+    def with_jobs(self, text, count=1):
+        result = receipt(text)
+        result['job_ids'] = [f'00000000-0000-4000-8000-{i + 1:012d}' for i in range(count)]
+        return result
+
+    async def test_mixed_post_publishes_only_vacancy_as_pending(self):
+        text, parsed = self.mixed_post()
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), receipt(text), 'native')
+        self.assertEqual(len(commit.call_args.args[2]), 1)
+        self.assertEqual(commit.call_args.args[2][0]['role_category'], 'Dentists')
+        self.assertEqual(commit.call_args.kwargs['initial_status'], 'pending')
+        self.assertTrue(result['needs_review'])
+
+    async def test_clean_single_job_uses_active_commit_without_pending_status(self):
+        text = 'مطلوب طبيب أسنان للعمل في عيادة ببغداد'
+        parsed = scraper.ParsedPost(jobs=[offer(text)], classification='job_offer',
+            needs_review=False, review_reasons=[])
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), receipt(text), 'native')
+        self.assertEqual(len(commit.call_args.args[2]), 1)
+        self.assertIsNone(commit.call_args.kwargs.get('initial_status'))
+        self.assertNotEqual(result.get('reason'), 'held')
+
+    async def test_ambiguous_non_mixed_announcement_routes_to_pending(self):
+        text = 'فرصة عمل طبية في بغداد — التفاصيل غير واضحة'
+        parsed = scraper.ParsedPost(jobs=[offer(text)], classification='job_offer',
+            needs_review=True, review_reasons=['unknown_specialty'])
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), receipt(text), 'native')
+        self.assertEqual(len(commit.call_args.args[2]), 1)
+        self.assertEqual(commit.call_args.kwargs['initial_status'], 'pending')
+        self.assertTrue(result['needs_review'])
+
+    def test_commit_jobs_routes_pending_without_downgrading_to_old_rpc(self):
+        db, row = MagicMock(), receipt('synthetic')
+        pipeline.commit_jobs(db, row, [{'id': 'x'}], initial_status='pending')
+        self.assertEqual(db.rpc.call_args.args[0], pipeline.PENDING_RPC)
+        self.assertEqual(db.rpc.call_args.args[1]['p_initial_status'], 'pending')
+        db.reset_mock()
+        pipeline.commit_jobs(db, row, [])
+        self.assertEqual(db.rpc.call_args.args[0], 'commit_telegram_jobs')
+        self.assertNotIn('p_initial_status', db.rpc.call_args.args[1])
+
+    async def test_missing_pending_rpc_holds_without_calling_old_rpc(self):
+        text, parsed = self.mixed_post()
+        unavailable = RuntimeError('PGRST202 function not found')
+        unavailable.code = 'PGRST202'
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', side_effect=unavailable) as commit, \
+             patch.object(pipeline, 'hold_receipt') as hold:
+            result = await pipeline.process_receipt(None, MagicMock(), receipt(text), 'native')
+        self.assertEqual(result['outcome'], 'held')
+        self.assertEqual(result['reason'], 'pending_rpc_unavailable')
+        self.assertEqual(commit.call_count, 1)
+        hold.assert_called_once()
+
+    async def test_existing_jobs_survive_uncertain_reclassification(self):
+        row = self.with_jobs('مطلوب طبيب أسنان في بغداد')
+        parsed = scraper.ParsedPost(jobs=[], classification='marketplace_item')
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'hold_receipt') as hold, \
+             patch.object(pipeline, 'commit_jobs') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), row, 'native')
+        self.assertEqual(result['reason'], 'nonoffer_reclassification')
+        hold.assert_called_once()
+        commit.assert_not_called()
+
+    async def test_explicit_full_closure_still_commits_atomic_removal(self):
+        text = 'تم إغلاق جميع فرص العمل المذكورة في هذا الإعلان'
+        row = self.with_jobs(text)
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=scraper.ParsedPost(jobs=[]))), \
+             patch.object(pipeline, 'published_source_hashes', return_value={'older-hash'}), \
+             patch.object(pipeline, 'hold_receipt') as hold, \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            await pipeline.process_receipt(None, MagicMock(), row, 'native')
+        self.assertEqual(commit.call_args.args[2], [])
+        self.assertFalse(commit.call_args.args[3])
+        self.assertIsNone(commit.call_args.kwargs['initial_status'])
+        hold.assert_not_called()
+
+    async def test_negated_or_single_closure_is_held_not_deleted(self):
+        cases = [('تم إغلاق الباب، لكن لم يُغلق الإعلان', 1), ('تم إغلاق فرصة طبيب الأسنان فقط', 2)]
+        for text, count in cases:
+            row = self.with_jobs(text, count)
+            with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=scraper.ParsedPost(jobs=[]))), \
+                 patch.object(pipeline, 'published_source_hashes', return_value={'older-hash'}), \
+                 patch.object(pipeline, 'hold_receipt') as hold, \
+                 patch.object(pipeline, 'commit_jobs') as commit:
+                result = await pipeline.process_receipt(None, MagicMock(), row, 'native')
+            self.assertEqual(result['reason'], 'nonoffer_reclassification', text)
+            hold.assert_called_once()
+            commit.assert_not_called()
+
+    async def test_partial_group_shrinkage_is_held(self):
+        text, parsed = self.mixed_post()
+        parsed.classification, parsed.needs_review, parsed.review_reasons = 'job_offer', False, []
+        row = self.with_jobs(text, 2)
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'hold_receipt') as hold, \
+             patch.object(pipeline, 'commit_jobs') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), row, 'native')
+        self.assertEqual(result['reason'], 'partial_group_change')
+        hold.assert_called_once()
+        commit.assert_not_called()
+
+    def test_unlabeled_whatsapp_footer_is_shared_but_role_contact_is_not(self):
+        text = 'فرص عمل في بغداد\n1. مطلوب طبيب أسنان\n2. مطلوب صيدلاني\nواتساب 07701234567'
+        message = SimpleNamespace(id=17, raw_text=text, date=datetime(2026, 11, 1, tzinfo=timezone.utc))
+        rows = pipeline.job_records(pipeline.fallback_post(text), message, 123, 'clinic', 'native_contacts', True)
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            self.assertEqual(row['contact_whatsapp'], '9647701234567')
+
+    async def test_review_held_receipts_are_not_retried(self):
+        db = MagicMock()
+        held = self.with_jobs('held')
+        held['error_type'] = 'review:nonoffer_reclassification'
+        normal = self.with_jobs('new')
+        chain = db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute
+        chain.side_effect = [SimpleNamespace(data=[held, normal]), SimpleNamespace(data=[])]
+        with patch.object(pipeline, 'process_receipt', AsyncMock(return_value={'outcome': 'complete', 'jobs': 1, 'retry': False})) as process:
+            result = await pipeline.drain_inbox(None, db, 'native')
+        self.assertEqual(process.call_count, 1)
+        self.assertEqual(result['review_held'], 1)

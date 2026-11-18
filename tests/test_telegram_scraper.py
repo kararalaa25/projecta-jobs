@@ -258,5 +258,90 @@ class PipelineTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(scraper.channels_from_env(), ['@clinic', -100123])
 
 
+class ClassificationTests(unittest.IsolatedAsyncioTestCase):
+    """Synthetic fixtures only; no Telegram or database data is used."""
+
+    def job(self, section, *, offer=True, disposition=None, role='Dentists', title='طبيب أسنان'):
+        return scraper.ExtractedJob(is_job_offer=offer, title=title, role_category=role,
+            source_text=section, disposition=disposition, company_name=None, city=None,
+            contact_phone=None, contact_telegram=None, salary_text=None, employment_type=None)
+
+    async def parse(self, text, jobs, **fields):
+        payload = scraper.ParsedPost(jobs=jobs, **fields)
+        with patch.object(scraper, '_parse_schema', AsyncMock(return_value=payload)):
+            return await scraper.parse_jobs(None, text)
+
+    async def test_mixed_post_keeps_vacancy_and_flags_review(self):
+        vacancy = 'مطلوب طبيب أسنان للعمل في عيادة ببغداد'
+        sale = 'يوجد كرسي أسنان للبيع'
+        text = vacancy + '. كذلك ' + sale + '.'
+        parsed = await self.parse(text, [self.job(vacancy),
+            self.job(sale, offer=False, disposition='marketplace_item', role=None, title='كرسي أسنان')],
+            classification='mixed')
+        self.assertEqual(parsed.classification, 'mixed')
+        self.assertTrue(parsed.needs_review)
+        self.assertIn('mixed_content', parsed.review_reasons)
+        self.assertEqual([job.disposition or 'job_offer' for job in parsed.jobs],
+                         ['job_offer', 'marketplace_item'])
+
+    async def test_legacy_response_without_new_fields_is_unchanged(self):
+        section = 'مطلوب طبيب أسنان في بغداد'
+        parsed = await self.parse(section, [self.job(section)])
+        self.assertEqual(parsed.classification, 'job_offer')
+        self.assertFalse(parsed.needs_review)
+        self.assertEqual(parsed.review_reasons, [])
+
+    async def test_pure_marketplace_post_has_no_vacancy(self):
+        sale = 'كرسي أسنان للبيع بسعر مناسب'
+        parsed = await self.parse(sale, [self.job(sale, offer=False, disposition='marketplace_item',
+                                                  role=None, title='كرسي أسنان')])
+        self.assertEqual(parsed.classification, 'marketplace_item')
+        self.assertFalse(parsed.needs_review)
+
+    async def test_contradictory_dispositions_and_post_class_are_rejected(self):
+        section = 'مطلوب طبيب أسنان في بغداد'
+        with self.assertRaisesRegex(ValueError, 'Contradictory'):
+            await self.parse(section, [self.job(section, disposition='marketplace_item')])
+        with self.assertRaisesRegex(ValueError, 'Contradictory'):
+            await self.parse(section, [self.job(section)], classification='ignore')
+
+    async def test_unknown_specialty_is_flagged_not_invented(self):
+        section = 'مطلوب طبيب أسنان في بغداد'
+        parsed = await self.parse(section, [self.job(section, role=None)])
+        self.assertTrue(parsed.needs_review)
+        self.assertIn('unknown_specialty', parsed.review_reasons)
+        self.assertEqual(parsed.classification, 'job_offer')
+
+    def test_arabic_closure_variants_and_negation(self):
+        for text in ['تم إغلاق جميع فرص العمل', 'انتهت الفرصة', 'الوظيفة ملغية',
+                     'POSITION FILLED', 'no longer available', 'أُغلقت الوظيفة']:
+            self.assertTrue(scraper.explicit_closure(text), text)
+        self.assertFalse(scraper.explicit_closure('تم إغلاق الباب ثم أعيد فتحه، لم يُغلق الإعلان'))
+        self.assertFalse(scraper.explicit_closure('الفرصة ما زالت متاحة'))
+        self.assertFalse(scraper.explicit_closure('not closed'))
+        self.assertTrue(scraper.all_positions_signal('تم إغلاق جميع الفرص'))
+        self.assertFalse(scraper.all_positions_signal('تم إغلاق فرصة واحدة'))
+
+    def test_structural_shared_context_validation(self):
+        first = '1. مطلوب طبيب أسنان'
+        second = '2. مطلوب صيدلاني'
+        jobs = [self.job(first), self.job(second, role='Pharmacists', title='صيدلاني')]
+        footer = 'واتساب 07701234567'
+        text = '\n'.join([first, second, footer])
+        kept, ambiguous = scraper.validate_shared_context(text, jobs, [footer])
+        self.assertEqual(kept, [footer])
+        self.assertFalse(ambiguous)
+        role_footer = 'مطلوب طبيب أسنان للتقديم 07701234567'
+        text2 = '\n'.join([first, second, role_footer])
+        kept, ambiguous = scraper.validate_shared_context(text2, jobs, [role_footer])
+        self.assertEqual(kept, [])
+        self.assertTrue(ambiguous)
+        two_numbers = 'للتقديم 07701234567 أو 07801234567'
+        text3 = '\n'.join([first, second, two_numbers])
+        kept, ambiguous = scraper.validate_shared_context(text3, jobs, [two_numbers])
+        self.assertEqual(kept, [])
+        self.assertTrue(ambiguous)
+
+
 if __name__ == '__main__':
     unittest.main()

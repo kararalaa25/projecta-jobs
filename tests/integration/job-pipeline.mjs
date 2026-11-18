@@ -7,7 +7,7 @@ create schema auth;create table auth.users(id uuid primary key,email_confirmed_a
 create table public.job_offers(id uuid primary key default gen_random_uuid(),publisher_id uuid,title text,description text,source text default 'manual',status text default 'active',created_at timestamptz default now());
 create table public.job_applications(id uuid primary key default gen_random_uuid(),job_id uuid references public.job_offers(id),applicant_id uuid,status text default 'submitted' check(status in('submitted','reviewing','accepted','rejected')));
 grant all on public.job_offers,public.job_applications to service_role;`)
-await db.exec(readFileSync('supabase/migrations/20261110170414_job_trust_pipeline_distribution.sql','utf8'))
+await db.exec(readFileSync('supabase/migrations/20261110223752_job_trust_pipeline_distribution.sql','utf8'))
 assert.equal((await db.query("select relrowsecurity from pg_class where oid='public.job_broadcast_outbox'::regclass")).rows[0].relrowsecurity,true)
 assert.equal((await db.query("select count(*)::integer as count from pg_proc p join pg_namespace n on p.pronamespace=n.oid where n.nspname='public' and p.prosecdef")).rows[0].count,0)
 const owner='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222'
