@@ -36,10 +36,6 @@
   }
   .reference-board {
     background-color: var(--pc-page);
-    background-image:
-      radial-gradient(480px 540px at 91% 13%, rgba(2,153,181,.14), transparent 80%),
-      radial-gradient(540px 510px at 8% 87%, rgba(5,150,105,.12), transparent 78%),
-      radial-gradient(390px 590px at 49% 66%, rgba(28,78,226,.10), transparent 78%);
   }
   .job-card,
   .candidate-card,

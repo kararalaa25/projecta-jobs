@@ -329,6 +329,117 @@ assert.equal(await page.locator('.app-timeline-state').innerText(),'مُرشَّ
 pipelineStatus='archived'
 await page.evaluate(()=>window.refreshApplications())
 await page.waitForFunction(()=>document.querySelector('.app-timeline-state')?.textContent?.trim()==='تمت الأرشفة')
+// ── Refinement contract: flat dock, tokenized surfaces, icon-only chrome ──
+const mainSource=readFileSync('src/main.jsx','utf8')
+const adminSource=readFileSync('src/admin/AdminApp.jsx','utf8')
+const talentSource=readFileSync('src/talent/TalentDirectory.jsx','utf8')
+for(const marker of ['<Radio size={14} strokeWidth={1.75} aria-hidden="true"/> مباشر','<RefreshCw size={14} strokeWidth={1.75} aria-hidden="true"/> تحديث تلقائي','<X size={16}/>'])assert.ok(mainSource.includes(marker),`main icon marker missing: ${marker}`)
+for(const marker of ['<BadgeCheck size={14} strokeWidth={1.75} aria-hidden="true"/> معتمد','<Star size={14} strokeWidth={1.75} aria-hidden="true"/> مميز','<ExternalLink size={14} strokeWidth={1.75} aria-hidden="true"/> فتح السيرة الذاتية','<ExternalLink size={14} strokeWidth={1.75} aria-hidden="true"/> عرض مستند الترخيص'])assert.ok(adminSource.includes(marker),`admin icon marker missing: ${marker}`)
+assert.ok(talentSource.includes('<X size={16} strokeWidth={1.75} aria-hidden="true"/>'),'talent notice uses the X icon')
+for(const [source,symbol] of [[mainSource,'●'],[mainSource,'◌'],[adminSource,'✓'],[adminSource,'★'],[adminSource,'↗'],[talentSource,'×']])assert.equal(source.includes(symbol),false,`legacy chrome symbol ${symbol} must be gone`)
+
+pipelineHarness=false
+await page.goto('http://localhost:5173',{waitUntil:'domcontentloaded'})
+await page.locator('.job-card').first().waitFor()
+await page.setViewportSize({width:375,height:812})
+const flatDock=page.locator('.mobile-nav.liquid-nav')
+assert.equal(await flatDock.locator(':scope > button').count(),5,'dock keeps exactly five controls')
+assert.equal(await flatDock.locator('svg.mobile-nav-surface').count(),0)
+assert.equal(await flatDock.locator('.liquid-nav-indicator').count(),0)
+assert.equal(await flatDock.locator('.mobile-post-orb').count(),0)
+const dockStyle=await flatDock.evaluate(node=>{const style=getComputedStyle(node);return {boxShadow:style.boxShadow,backdrop:style.backdropFilter,image:style.backgroundImage,radius:style.borderRadius}})
+assert.deepEqual(dockStyle,{boxShadow:'none',backdrop:'none',image:'none',radius:'12px'})
+const buttonWidths=await flatDock.locator(':scope > button').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().width))
+assert.ok(Math.max(...buttonWidths)-Math.min(...buttonWidths)<=1,'all five dock controls are equal width')
+const connection=page.locator('.feed-connection')
+assert.equal(await connection.locator('svg').count(),1,'feed status uses one lucide icon')
+const connectionText=(await connection.innerText()).trim()
+assert.ok(connectionText==='مباشر'||connectionText==='تحديث تلقائي',`feed status text preserved: ${connectionText}`)
+const connectionIcon=await connection.locator('svg').evaluate(node=>({hidden:node.getAttribute('aria-hidden'),width:node.getAttribute('width'),height:node.getAttribute('height'),stroke:node.getAttribute('stroke-width')}))
+assert.deepEqual(connectionIcon,{hidden:'true',width:'14',height:'14',stroke:'1.75'})
+
+// ── AA contrast guard: the three refinement failures, measured at 375px ──
+const aaRGB=value=>value.match(/[\d.]+/g).slice(0,3).map(Number)
+const aaLuminance=value=>{const [r,g,b]=aaRGB(value).map(v=>{const c=v/255;return c<=.03928?c/12.92:((c+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b}
+const aaRatio=(a,b)=>{const [hi,lo]=[aaLuminance(a),aaLuminance(b)].sort((x,y)=>y-x);return (hi+.05)/(lo+.05)}
+const readAA=()=>page.evaluate(()=>{
+ const effectiveBg=node=>{for(let current=node;current;current=current.parentElement){const bg=getComputedStyle(current).backgroundColor;if(bg&&!/^rgba\(0, 0, 0, 0\)$/.test(bg))return bg}return null}
+ const read=selector=>{const node=document.querySelector(selector),style=getComputedStyle(node);return {color:style.color,background:effectiveBg(node)}}
+ return {setup:read('.matching-setup-action'),dock:read('.mobile-nav.liquid-nav>button.active'),heading:read('.mobile-activity-panel h2')}
+})
+const assertAA=async theme=>{
+ await page.waitForTimeout(500)
+ for(const [name,{color,background}] of Object.entries(await readAA())){
+  const ratio=aaRatio(color,background)
+  assert.ok(ratio>=4.5,`${theme} ${name} contrast ${ratio.toFixed(2)}:1 (${color} on ${background})`)
+ }
+}
+// The header switch is drawer-only at 375px, so flip the root theme token directly.
+const setAATheme=theme=>page.evaluate(value=>{document.documentElement.dataset.theme=value},theme)
+await setAATheme('light')
+await assertAA('light')
+await setAATheme('dark')
+await assertAA('dark')
+await setAATheme('light')
+
+await page.setViewportSize({width:1280,height:900})
+const cardStyle=await page.locator('.job-card').first().evaluate(node=>{const style=getComputedStyle(node);return {radius:style.borderRadius,shadow:style.boxShadow,image:style.backgroundImage}})
+assert.equal(cardStyle.radius,'12px')
+assert.equal(cardStyle.shadow,'none')
+assert.equal(cardStyle.image,'none')
+assert.equal(await page.getByRole('combobox',{name:'تصفية حسب المحافظة'}).evaluate(node=>getComputedStyle(node).borderRadius),'8px','controls use the tokenized radius')
+const landing=await page.evaluate(()=>{
+ const style=selector=>getComputedStyle(document.querySelector(selector))
+ return {
+  boardImage:style('.reference-board').backgroundImage,
+  heroImage:style('.reference-hero.career-hero').backgroundImage,
+  heroAnimation:style('.reference-hero.career-hero').animationName,
+  backdropDisplay:style('.career-hero-backdrop').display,
+  overlayDisplay:style('.hero-gradient-overlay').display,
+  overlayImage:style('.hero-gradient-overlay').backgroundImage,
+  overlayColor:style('.hero-gradient-overlay').backgroundColor,
+  glassFilter:style('.reference-glass-panel').backdropFilter,
+  headerFilter:style('.reference-header.header').backdropFilter,
+  headerDirection:style('.reference-header.header').direction,
+  navDirection:style('.reference-header .desktop-nav').direction,
+  hasBrand:Boolean(document.querySelector('.reference-header.header .brand')),
+  heroTitle:document.querySelector('#career-title')?.textContent||'',
+ }
+})
+assert.equal(landing.boardImage,'none')
+assert.equal(landing.heroImage,'none')
+assert.equal(landing.heroAnimation,'none')
+assert.equal(landing.backdropDisplay,'block','brand hero image stays visible')
+assert.equal(landing.overlayDisplay,'block','flat hero scrim stays visible')
+assert.equal(landing.overlayImage,'none','hero scrim is flat, not a gradient')
+assert.equal(landing.overlayColor,'rgba(11, 21, 37, 0.78)')
+assert.equal(landing.glassFilter,'none')
+assert.equal(landing.headerFilter,'none')
+assert.equal(landing.headerDirection,'ltr')
+assert.equal(landing.navDirection,'rtl')
+assert.equal(landing.hasBrand,true)
+assert.ok(landing.heroTitle.includes('خطوتك القادمة'))
+for(const label of ['وظائف المنصة','وظائف التليجرام','ابدأ بخطوتك المناسبة','عن بروجكتا'])assert.ok(await page.getByText(label,{exact:false}).count()>0,`landing copy preserved: ${label}`)
+const readEyebrow=()=>page.locator('.reference-hero .career-eyebrow').evaluate(node=>{const style=getComputedStyle(node);return {color:style.color,background:style.backgroundColor}})
+const channels=value=>value.match(/[\d.]+/g).slice(0,3).map(Number)
+const luminance=value=>{const [r,g,b]=channels(value).map(v=>{const c=v/255;return c<=0.03928?c/12.92:((c+0.055)/1.055)**2.4});return 0.2126*r+0.7152*g+0.0722*b}
+const contrast=(a,b)=>{const [lighter,darker]=[luminance(a),luminance(b)].sort((x,y)=>y-x);return (lighter+0.05)/(darker+0.05)}
+await page.waitForFunction(()=>document.documentElement.dataset.theme==='light')
+await page.waitForTimeout(500)
+const lightEyebrow=await readEyebrow()
+assert.equal(lightEyebrow.color,'rgb(11, 21, 37)','light eyebrow text uses --pc-ink')
+assert.equal(lightEyebrow.background,'rgb(255, 255, 255)','light eyebrow pill uses --pc-surface')
+assert.ok(contrast(lightEyebrow.color,lightEyebrow.background)>=4.5,'light eyebrow meets WCAG AA')
+await page.getByRole('switch',{name:'التبديل إلى الوضع الداكن'}).click()
+await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark')
+await page.waitForTimeout(500)
+const darkEyebrow=await readEyebrow()
+assert.equal(darkEyebrow.color,'rgb(238, 244, 251)','dark eyebrow text uses --pc-ink')
+assert.equal(darkEyebrow.background,'rgb(22, 38, 58)','dark eyebrow pill uses --pc-surface')
+assert.ok(contrast(darkEyebrow.color,darkEyebrow.background)>=4.5,'dark eyebrow meets WCAG AA')
+await page.getByRole('switch',{name:'التبديل إلى الوضع الفاتح'}).click()
+await page.waitForFunction(()=>document.documentElement.dataset.theme==='light')
+await page.waitForTimeout(500)
 assert.deepEqual(errors,[])
 await browser.close()
 console.log('PASS: mobile quick apply + full application, touch/keyboard tooltip, verified job/candidate filters, timestamps, desktop visibility, RTL, 320/375/767/768/1024/1280/1440px layouts, Telegram count chip colors in light and dark, live sync status and failure copy, coalesced manual refresh with preserved filters/cards, retry recovery, filter sheet keyboard/resize/reset/apply, skeletons, empty recovery, reduced motion, employer stages and realtime updates')
