@@ -366,3 +366,68 @@ class OptionBPipelineTests(unittest.IsolatedAsyncioTestCase):
             result = await pipeline.drain_inbox(None, db, 'native')
         self.assertEqual(process.call_count, 1)
         self.assertEqual(result['review_held'], 1)
+
+
+class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
+    """Sanitized stage/category attribution for exceptions escaping process_receipt."""
+
+    def setUp(self):
+        pipeline._STAGE.set('unknown')
+
+    def db_with_row(self, row):
+        db = MagicMock()
+        chain = db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute
+        chain.side_effect = [SimpleNamespace(data=[row]), SimpleNamespace(data=[])]
+        return db
+
+    async def test_escaping_commit_error_records_stage_and_sanitized_category(self):
+        text = 'مطلوب طبيب أسنان في بغداد'
+        parsed = scraper.ParsedPost(jobs=[offer(text)], classification='job_offer')
+        db = self.db_with_row(receipt(text))
+        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+             patch.object(pipeline, 'commit_jobs', side_effect=RuntimeError('secret 07701234567')):
+            result = await pipeline.drain_inbox(None, db, 'native')
+        self.assertEqual(result['failed'], 1)
+        updates = db.table.return_value.update.call_args_list
+        self.assertEqual(len(updates), 1)
+        payload = updates[0].args[0]
+        self.assertEqual(payload['error_type'], 'failed:commit:RuntimeError')
+        self.assertEqual(set(payload), {'error_type', 'updated_at'})
+        self.assertNotIn('07701234567', str(updates))
+        self.assertEqual(db.table.return_value.update.return_value.eq.call_args.args,
+                         ('message_key', 'clinic:17'))
+        tables = [call.args[0] for call in db.table.call_args_list]
+        self.assertNotIn('job_offers', tables)
+        self.assertNotIn('telegram_sync_checkpoints', tables)
+
+    async def test_escaping_fallback_error_records_fallback_stage(self):
+        text = 'مطلوب طبيب أسنان في بغداد'
+        db = self.db_with_row(receipt(text))
+        with patch.object(scraper, 'parse_jobs', AsyncMock(side_effect=ValueError('bad model output'))), \
+             patch.object(pipeline, 'fallback_post', side_effect=RuntimeError('fallback down')):
+            result = await pipeline.drain_inbox(None, db, 'native')
+        self.assertEqual(result['failed'], 1)
+        payload = db.table.return_value.update.call_args.args[0]
+        self.assertEqual(payload['error_type'], 'failed:fallback:RuntimeError')
+        db.rpc.assert_not_called()
+
+    async def test_diagnostic_write_failure_does_not_interrupt_ingestion(self):
+        db = self.db_with_row(receipt('مطلوب طبيب أسنان في بغداد'))
+        db.table.return_value.update.side_effect = OSError('diagnostics unavailable')
+        with patch.object(pipeline, 'process_receipt', AsyncMock(side_effect=RuntimeError('boom'))):
+            result = await pipeline.drain_inbox(None, db, 'native')
+        self.assertEqual(result['processed'], 1)
+        self.assertEqual(result['failed'], 1)
+
+    def test_review_hold_error_type_is_not_rewritten(self):
+        db = MagicMock()
+        row = receipt('synthetic')
+        row['error_type'] = 'review:review_required'
+        self.assertIsNone(pipeline.record_failed_receipt(db, row, RuntimeError('boom')))
+        db.table.assert_not_called()
+
+    def test_diagnostic_category_never_includes_exception_text(self):
+        exc = ValueError('secret phone 07701234567')
+        self.assertEqual(pipeline.diagnostic_category(exc), 'ValueError')
+        self.assertNotIn('07701234567', pipeline.diagnostic_category(exc))
+        self.assertLessEqual(len(f'failed:commit:{pipeline.diagnostic_category(exc)}'), 100)
