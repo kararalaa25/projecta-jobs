@@ -396,6 +396,8 @@ class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('07701234567', str(updates))
         self.assertEqual(db.table.return_value.update.return_value.eq.call_args.args,
                          ('message_key', 'clinic:17'))
+        db.table.return_value.update.return_value.eq.return_value.or_.assert_called_once_with(
+            'error_type.is.null,error_type.not.like.review:%')
         tables = [call.args[0] for call in db.table.call_args_list]
         self.assertNotIn('job_offers', tables)
         self.assertNotIn('telegram_sync_checkpoints', tables)
@@ -419,12 +421,31 @@ class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['processed'], 1)
         self.assertEqual(result['failed'], 1)
 
-    def test_review_hold_error_type_is_not_rewritten(self):
+    async def test_review_hold_error_type_is_not_rewritten(self):
         db = MagicMock()
         row = receipt('synthetic')
         row['error_type'] = 'review:review_required'
-        self.assertIsNone(pipeline.record_failed_receipt(db, row, RuntimeError('boom')))
+        self.assertIsNone(await pipeline.record_failed_receipt(db, row, RuntimeError('boom')))
         db.table.assert_not_called()
+
+    async def test_concurrent_failures_keep_their_own_stage(self):
+        first, second = receipt('مطلوب طبيب أسنان في بغداد'), receipt('مطلوب صيدلاني في البصرة')
+        second['message_key'], second['message_id'] = 'clinic:18', 18
+        db = self.db_with_row(first)
+        db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.side_effect = [
+            SimpleNamespace(data=[first, second]), SimpleNamespace(data=[])]
+
+        async def fail(gemini, database, row, storage):
+            pipeline.set_stage('commit' if row['message_id'] == 17 else 'fallback')
+            await asyncio.sleep(0)
+            raise RuntimeError('boom')
+
+        with patch.object(pipeline, 'process_receipt', side_effect=fail):
+            result = await pipeline.drain_inbox(None, db, 'native')
+        self.assertEqual(result['failed'], 2)
+        values = [call.args[0]['error_type']
+                  for call in db.table.return_value.update.call_args_list]
+        self.assertCountEqual(values, ['failed:commit:RuntimeError', 'failed:fallback:RuntimeError'])
 
     def test_diagnostic_category_never_includes_exception_text(self):
         exc = ValueError('secret phone 07701234567')

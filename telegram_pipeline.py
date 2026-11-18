@@ -169,19 +169,24 @@ def diagnostic_category(exc):
     return (name or 'Exception')[:48]
 
 
-def record_failed_receipt(db, receipt, exc):
+async def record_failed_receipt(db, receipt, exc):
     """Attach sanitized stage/category to a failed receipt, without interrupting ingestion."""
-    if str(receipt.get('error_type') or '').startswith(REVIEW_PREFIX):
-        return None  # Never rewrite a moderation hold.
     try:
+        if str(receipt.get('error_type') or '').startswith(REVIEW_PREFIX):
+            return None  # Never rewrite a moderation hold.
         stage = _STAGE.get()
         if stage not in DIAGNOSTIC_STAGES:
             stage = 'unknown'
         value = f'{DIAGNOSTIC_PREFIX}{stage}:{diagnostic_category(exc)}'[:100]
         now = datetime.now(timezone.utc).isoformat()
-        db.table('telegram_ingestion_messages').update({
-            'error_type': value, 'updated_at': now,
-        }).eq('message_key', receipt['message_key']).execute()
+
+        def write():
+            db.table('telegram_ingestion_messages').update({
+                'error_type': value, 'updated_at': now,
+            }).eq('message_key', receipt['message_key']).or_(
+                'error_type.is.null,error_type.not.like.review:%').execute()
+
+        await asyncio.to_thread(write)  # A failing DB must not block other receipts.
         return value
     except Exception as diag_exc:
         LOG.warning('Failure diagnostic unavailable (%s)', type(diag_exc).__name__)
@@ -358,6 +363,7 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
     gate=asyncio.Semaphore(3)
     async def process(receipt):
         async with gate:
+            token = _STAGE.set('unknown')
             try:
                 return await process_receipt(gemini,db,receipt,storage)
             except asyncio.CancelledError:
@@ -367,8 +373,10 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
                 if stage not in DIAGNOSTIC_STAGES:
                     stage = 'unknown'
                 LOG.warning('Inbox write remains pending (stage=%s, %s)',stage,type(exc).__name__)
-                record_failed_receipt(db,receipt,exc)
+                await record_failed_receipt(db,receipt,exc)
                 return {'outcome':'failed','jobs':0,'retry':True}
+            finally:
+                _STAGE.reset(token)
     tasks=[asyncio.create_task(process(r)) for r in retries.data+pending.data]
     done,pending_tasks=set(),set()
     try:
