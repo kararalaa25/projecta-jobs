@@ -657,7 +657,7 @@ h3 { font-size: var(--ui-text-lg); font-weight: 600; }
     padding: var(--ui-space-4);
   }
   .reference-board .job-card h3.job-card-title {
-    font-size: var(--ui-text-base);
+    font-size: 1rem;
   }
   .reference-board .job-card .job-preview.is-compact .compact-facts {
     grid-template-columns: minmax(0, 1fr);
