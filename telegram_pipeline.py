@@ -4,6 +4,7 @@ The inbox is service-role only. Both cron and Telethon use this module; local
 outboxes are a secondary recovery aid, never the source of serverless durability.
 """
 import asyncio
+import contextvars
 import json
 import logging
 import re
@@ -15,6 +16,10 @@ import telegram_scraper as scraper
 
 LOG = logging.getLogger('telegram_pipeline')
 PARSER_VERSION = 3
+
+DIAGNOSTIC_PREFIX = 'failed:'
+DIAGNOSTIC_STAGES = frozenset({'parse','records','fallback','hold','deletion','commit'})
+_STAGE = contextvars.ContextVar('telegram_ingestion_stage', default='unknown')
 
 
 async def retry_io(call, attempts=3):
@@ -152,6 +157,42 @@ PENDING_RPC = 'commit_telegram_jobs_initial_status'
 REVIEW_PREFIX = 'review:'
 
 
+def set_stage(stage):
+    """Mark the processing stage for a possible later failure diagnostic."""
+    if stage in DIAGNOSTIC_STAGES:
+        _STAGE.set(stage)
+
+
+def diagnostic_category(exc):
+    """Sanitized exception class only; never exception text or post content."""
+    name = ''.join(ch for ch in type(exc).__name__ if ch.isascii() and (ch.isalnum() or ch == '_'))
+    return (name or 'Exception')[:48]
+
+
+async def record_failed_receipt(db, receipt, exc):
+    """Attach sanitized stage/category to a failed receipt, without interrupting ingestion."""
+    try:
+        if str(receipt.get('error_type') or '').startswith(REVIEW_PREFIX):
+            return None  # Never rewrite a moderation hold.
+        stage = _STAGE.get()
+        if stage not in DIAGNOSTIC_STAGES:
+            stage = 'unknown'
+        value = f'{DIAGNOSTIC_PREFIX}{stage}:{diagnostic_category(exc)}'[:100]
+        now = datetime.now(timezone.utc).isoformat()
+
+        def write():
+            db.table('telegram_ingestion_messages').update({
+                'error_type': value, 'updated_at': now,
+            }).eq('message_key', receipt['message_key']).or_(
+                'error_type.is.null,error_type.not.like.review:%').execute()
+
+        await asyncio.to_thread(write)  # A failing DB must not block other receipts.
+        return value
+    except Exception as diag_exc:
+        LOG.warning('Failure diagnostic unavailable (%s)', type(diag_exc).__name__)
+        return None
+
+
 def pending_rpc_unavailable(exc):
     """True only for a missing/unsupported additive RPC, never for data errors."""
     code = str(getattr(exc, 'code', ''))
@@ -219,12 +260,14 @@ def deletion_decision(db, receipt, text, records):
 
 
 async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
+    set_stage('parse')
     message = SimpleNamespace(id=receipt['message_id'],raw_text=receipt['raw_text'],date=datetime.fromisoformat(receipt['posted_at'].replace('Z','+00:00')))
     records, fallback, error = [], False, None
     classification, needs_review, review_reasons = None, False, []
     prior_ids = receipt.get('job_ids') or []
 
     def held(reason):
+        set_stage('hold')
         hold_receipt(db, receipt, reason)
         return {'outcome':'held','jobs':0,'retry':True,'held':True,'reason':reason}
 
@@ -238,6 +281,7 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
                 parsed = await scraper.parse_jobs(gemini,message.raw_text)
             if any(j.is_job_offer and (not j.role_category or not j.title or not j.title.strip()) for j in parsed.jobs):
                 raise ValueError('Incomplete extracted offering')
+            set_stage('records')
             records = job_records(parsed,message,receipt['chat_id'],receipt['channel'],storage,fallback)
             if any(j.is_job_offer for j in parsed.jobs) and not records:
                 raise ValueError('No valid grounded offerings')
@@ -248,6 +292,7 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
             raise
         except Exception as exc:
             fallback,error = True,type(exc).__name__
+            set_stage('fallback')
             parsed = fallback_post(message.raw_text)
             records = job_records(parsed,message,receipt['chat_id'],receipt['channel'],storage,True)
             # Keep the original readable while AI is unavailable, without marking complete.
@@ -259,12 +304,14 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
 
     if prior_ids and records and len(records) < len(prior_ids):
         return held('partial_group_change')
+    set_stage('deletion')
     if prior_ids and not records and deletion_decision(db, receipt, message.raw_text, records) == 'hold':
         return held('nonoffer_reclassification')
     if not records and needs_review:
         return held('review_required')
 
     needs_pending = bool(needs_review or classification == 'mixed' or fallback)
+    set_stage('commit')
     try:
         result = await retry_io(lambda:commit_jobs(db,receipt,records,fallback,error,
             initial_status='pending' if needs_pending else None))
@@ -316,13 +363,20 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
     gate=asyncio.Semaphore(3)
     async def process(receipt):
         async with gate:
+            token = _STAGE.set('unknown')
             try:
                 return await process_receipt(gemini,db,receipt,storage)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                LOG.warning('Inbox write remains pending (%s)',type(exc).__name__)
+                stage = _STAGE.get()
+                if stage not in DIAGNOSTIC_STAGES:
+                    stage = 'unknown'
+                LOG.warning('Inbox write remains pending (stage=%s, %s)',stage,type(exc).__name__)
+                await record_failed_receipt(db,receipt,exc)
                 return {'outcome':'failed','jobs':0,'retry':True}
+            finally:
+                _STAGE.reset(token)
     tasks=[asyncio.create_task(process(r)) for r in retries.data+pending.data]
     done,pending_tasks=set(),set()
     try:
