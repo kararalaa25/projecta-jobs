@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {accountApplications} from '../server/account-applications.js'
+import {applicantStatusKey,applicantStatusLabel} from '../src/account/application-status.js'
 const owner='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',applicant='33333333-3333-4333-8333-333333333333',job='44444444-4444-4444-8444-444444444444',foreign='55555555-5555-4555-8555-555555555555',application='66666666-6666-4666-8666-666666666666',asset='77777777-7777-4777-8777-777777777777'
 function database(){
  const calls=[],tables={job_offers:[{id:job,publisher_id:owner,title:'طبيب أسنان',status:'active',contact_info:JSON.stringify({company_name:'عيادة المثال',private_data:'SECRET-LICENSE'})},{id:foreign,publisher_id:other,title:'Other employer',contact_info:'{}'}],job_applications:[{id:application,job_id:job,applicant_id:applicant,status:'submitted',created_at:'2026-11-01',cover_letter:'نبذة مهنية للمتقدم',resume_asset_id:asset}],resume_assets:[{id:asset,user_id:applicant,object_path:'private/cv.pdf',state:'ready',filename:'cv.pdf',mime_type:'application/pdf'}]}
@@ -33,4 +34,10 @@ test('account history falls back on missing lifecycle columns while preserving o
  const result=await accountJobQuery(db,q=>q.eq('publisher_id',owner).maybeSingle())
  assert.equal(result.id,job);assert.equal(calls.length,2)
  for(const [,column,value] of calls){assert.equal(column,'publisher_id');assert.equal(value,owner)}
+})
+test('applicant status collapses the pipeline to three Arabic labels',()=>{
+ const label=status=>applicantStatusLabel(applicantStatusKey(status))
+ for(const status of ['submitted','pending','reviewing','viewed','shortlisted','unknown',undefined])assert.equal(label(status),'قيد المراجعة')
+ assert.equal(label('accepted'),'مقبول')
+ for(const status of ['rejected','archived'])assert.equal(label(status),'غير مقبول')
 })

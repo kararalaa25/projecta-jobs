@@ -4,6 +4,7 @@ import {createHmac} from 'node:crypto'
 import {hasVerifiedCredentials} from '../config/profile-trust.js'
 import {talentMatches} from '../src/talent/data.js'
 import {quickApplyContact} from '../src/quick-apply.js'
+import {primaryContact} from '../src/contacts.js'
 import {JOB_LIFETIME_MS,isJobFresh} from '../config/job-lifecycle.js'
 import {authorizedDispatcher,dispatchJobBroadcasts} from '../server/job-broadcasts.js'
 import {createApplicationsHandler} from '../api/applications.js'
@@ -26,6 +27,15 @@ test('quick apply uses real validated job contacts, prefills a safe message and 
  assert.equal(contact.channel,'whatsapp');assert.equal(url.hostname,'wa.me');assert.equal(url.pathname,'/9647701234567');assert.ok(url.searchParams.get('text').includes(job.title))
  assert.equal(quickApplyContact({...job,phone:'invalid'}).channel,'telegram')
  for(const extra of [{sample:true},{live:false},{type:'candidates'},{phone:'invalid',telegram:'javascript:alert(1)'}])assert.equal(quickApplyContact({...job,...extra}),null)
+})
+test('one contact per card prefers Telegram, then explicit WhatsApp, then a plain phone',()=>{
+ const phone='٠٧٧٠١٢٣٤٥٦٧',persian='۰۷۷۰۱۲۳۴۵۶۷'
+ assert.deepEqual(primaryContact({telegram:'@clinic_jobs',whatsapp:phone,phone}),{channel:'telegram',href:'https://t.me/clinic_jobs'})
+ assert.deepEqual(primaryContact({whatsapp:phone,phone}),{channel:'whatsapp',href:'https://wa.me/9647701234567'})
+ assert.deepEqual(primaryContact({phone}),{channel:'phone',href:'tel:07701234567'})
+ assert.deepEqual(primaryContact({phone:persian}),{channel:'phone',href:'tel:07701234567'})
+ assert.deepEqual(primaryContact({whatsapp:'bad',phone:'07701234567'}),{channel:'phone',href:'tel:07701234567'})
+ for(const value of [{},{telegram:'bad handle!',whatsapp:'123',phone:'abc'},null])assert.equal(primaryContact(value),null)
 })
 test('expiry boundary is exactly 30 days and employer renewal overrides original publication',()=>{
  const published=Date.parse('2026-10-01T00:00:00Z'),now=published+JOB_LIFETIME_MS

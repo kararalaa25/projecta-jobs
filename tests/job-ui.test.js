@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {specialtyClass,normalizeSearch,jobSearchText,matchesSearch} from '../src/job-ui.js'
+import {specialtyClass,normalizeSearch,jobSearchText,matchesSearch,jobShareHash,sharedJobId} from '../src/job-ui.js'
 
 test('specialty colors cover the catalog, legacy nursing roles and unknown categories',()=>{
  for(const [role,color] of [['Dentists','dentistry'],['Pharmacists','pharmacy'],['Medical Reps','reps'],['Assistants & Techs','nursing'],['Dental Assistants','nursing'],['General Physicians','gp'],['Receptionists / Admin','operations'],['Unsorted','general'],['Custom specialty','general']])assert.equal(specialtyClass(role),'specialty-'+color)
@@ -15,4 +15,13 @@ test('instant search tolerates Arabic diacritics, alef variants, whitespace and 
 test('the same query matches both job feeds while preserving distinct feed membership',()=>{
  const common={title:'صيدلاني',company:'Clinic',role:'Pharmacists',city:'Baghdad'}
  for(const source of ['manual','telegram'])assert.equal(matchesSearch(jobSearchText({...common,source}),'بغداد صيادلة'),true)
+})
+test('job share hash roundtrips the stable job id and ignores unrelated hashes',()=>{
+ const id='job-١٢٣ ?&/#'
+ const hash=jobShareHash({id})
+ assert.equal(hash,`job=${encodeURIComponent(id)}`)
+ assert.equal(sharedJobId(hash),id)
+ assert.equal(sharedJobId('#'+hash),id)
+ for(const value of ['#features','#projecta-about','#job=','#job=%ZZ','',null])assert.equal(sharedJobId(value),null)
+ assert.equal(jobShareHash({}),'')
 })

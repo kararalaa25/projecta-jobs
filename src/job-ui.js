@@ -13,3 +13,16 @@ export function jobSearchText(job){
 export function matchesSearch(text,query){
  return normalizeSearch(query).split(' ').every(word=>text.includes(word))
 }
+/** Hash-only deep link (no server route). Uses the same stable id JobCard and main.jsx use. */
+export function jobShareHash(job){
+ const id=String(job?.id||'').trim()
+ return id?`job=${encodeURIComponent(id)}`:''
+}
+/** Reads an id back from `#job=…` (or the raw `job=…` form); null for unrelated hashes. */
+export function sharedJobId(hash){
+ const value=String(hash||'').replace(/^#/,'')
+ if(!value.startsWith('job='))return null
+ const encoded=value.slice(4)
+ if(!encoded)return null
+ try{return decodeURIComponent(encoded)||null}catch{return null}
+}

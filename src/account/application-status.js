@@ -32,3 +32,13 @@ export const applicationStatusIcon = {
  archived:    'Archive',
  rejected:    'XCircle'
 }
+
+/** Applicant-facing view: every in-flight stage is simply "under review". */
+export function applicantStatusKey(status){
+ return status==='accepted'?'accepted':status==='rejected'||status==='archived'?'rejected':'pending'
+}
+
+/** Arabic label for the three applicant-facing status keys. */
+export function applicantStatusLabel(key){
+ return key==='accepted'?'مقبول':key==='rejected'?'غير مقبول':'قيد المراجعة'
+}

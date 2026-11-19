@@ -1,24 +1,54 @@
-import {Phone,Send,ArrowUpLeft,FileText} from 'lucide-react'
-import {normalizeIraqiPhone,telegramHandle} from '../contacts'
-import {quickApplyContact} from '../quick-apply.js'
+import {useEffect,useRef,useState} from 'react'
+import {Phone,Send,ArrowUpLeft,Share2} from 'lucide-react'
+import {primaryContact} from '../contacts'
+import {jobShareHash,sharedJobId} from '../job-ui.js'
 import WhatsAppIcon from './WhatsAppIcon'
 
 
 export default function JobContactActions({job,onRead,onApply}){
- const phone=normalizeIraqiPhone(job.phone)
- const whatsapp=normalizeIraqiPhone(job.whatsapp)?.whatsapp||phone?.whatsapp
- const telegram=telegramHandle(job.telegram)
- const quick=quickApplyContact(job)
+ const contact=primaryContact(job)
+ const jobId=job?.id
+ const onReadRef=useRef(onRead),opened=useRef(false),timer=useRef(null)
+ const [feedback,setFeedback]=useState('')
+ useEffect(()=>{onReadRef.current=onRead},[onRead])
+ useEffect(()=>{
+  opened.current=false
+  const openIfShared=()=>{
+   if(opened.current||!jobId||typeof window==='undefined')return
+   if(sharedJobId(window.location.hash)!==jobId)return
+   opened.current=true
+   onReadRef.current?.()
+  }
+  openIfShared()
+  window.addEventListener('hashchange',openIfShared)
+  return()=>window.removeEventListener('hashchange',openIfShared)
+ },[jobId])
+ useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current)},[])
+ function flash(message){
+  setFeedback(message)
+  if(timer.current)clearTimeout(timer.current)
+  timer.current=setTimeout(()=>setFeedback(''),2400)
+ }
+ async function share(){
+  const url=new URL(window.location.href)
+  url.hash=jobShareHash(job)
+  const data={title:job?.title||'فرصة عمل',url:url.toString()}
+  if(navigator.share&&(!navigator.canShare||navigator.canShare(data))){
+   try{await navigator.share(data);return}
+   catch(error){if(error?.name==='AbortError')return}
+  }
+  try{await navigator.clipboard.writeText(data.url);flash('تم نسخ رابط الوظيفة')}
+  catch{flash('تعذّر نسخ الرابط')}
+ }
+ const label=contact?.channel==='telegram'?'التواصل عبر تليغرام':contact?.channel==='whatsapp'?'التواصل عبر واتساب':'اتصال هاتفي'
+ const Icon=contact?.channel==='telegram'?Send:contact?.channel==='whatsapp'?WhatsAppIcon:Phone
  return <div className="job-actions">
-  {quick&&<a className={`quick-apply quick-apply-${quick.channel}`} href={quick.href} target="_blank" rel="noopener noreferrer">{quick.channel==='whatsapp'?<WhatsAppIcon/>:<Send size={18} aria-hidden="true"/>}{quick.label}</a>}
-  <div className="contact-buttons">
-   {phone&&<a className="contact-icon call-button" href={`tel:${phone.local}`} aria-label="اتصال هاتفي" title="اتصال هاتفي"><Phone size={18} aria-hidden="true"/></a>}
-   {whatsapp&&<a className="contact-icon whatsapp" href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label="التواصل عبر واتساب" title="التواصل عبر واتساب"><WhatsAppIcon/></a>}
-   {telegram&&<a className="contact-icon telegram" href={`https://t.me/${telegram}`} target="_blank" rel="noopener noreferrer" aria-label="التواصل عبر تليغرام" title="التواصل عبر تليغرام"><Send size={18} aria-hidden="true"/></a>}
-   {onApply&&<button className="contact-icon apply-icon" onClick={onApply} aria-label="التقديم لهذه الفرصة" title="التقديم لهذه الفرصة"><FileText size={18} aria-hidden="true"/><span className="full-apply-label">طلب توظيف كامل</span></button>}
-   {job.sourceUrl&&<a className="contact-icon source-icon" href={job.sourceUrl} target="_blank" rel="noopener noreferrer" aria-label="فتح المنشور الأصلي" title="فتح المنشور الأصلي"><ArrowUpLeft size={18} aria-hidden="true"/></a>}
+  {contact?<a className="primary small contact-primary" href={contact.href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}><Icon size={18} aria-hidden="true"/><span>تواصل</span></a>:<span className="no-contact">لم تُذكر وسائل تواصل مباشرة</span>}
+  <div className="job-actions-secondary">
+   <div className="contact-buttons"><button type="button" className="contact-icon share-button" onClick={share} aria-label="مشاركة رابط الوظيفة" title="مشاركة رابط الوظيفة"><Share2 size={18} aria-hidden="true"/></button></div>
+   {onApply&&<button type="button" className="read-full-post" onClick={onApply}>طلب توظيف كامل</button>}
+   {onRead&&<button type="button" className="read-full-post" onClick={onRead}><span>{job.type==='candidates'?'الملف كاملاً':'المنشور كاملاً'}</span><ArrowUpLeft size={15} aria-hidden="true"/></button>}
+   {feedback&&<span className="share-feedback" role="status">{feedback}</span>}
   </div>
-  {onRead&&<button className="read-full-post" onClick={onRead}><span>{job.type==='candidates'?'الملف كاملاً':'المنشور كاملاً'}</span><ArrowUpLeft size={15} aria-hidden="true"/></button>}
-  {!phone&&!whatsapp&&!telegram&&job.live&&<span className="no-contact">لم تُذكر وسائل تواصل مباشرة</span>}
  </div>
 }

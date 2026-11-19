@@ -8,6 +8,17 @@ export function telegramHandle(value) {
   const match = String(value || '').match(/^(?:@|https?:\/\/(?:t\.me|telegram\.me)\/)?([A-Za-z][A-Za-z0-9_]{4,31})\/?$/i)
   return match?.[1] || null
 }
+/** One contact per job card: Telegram, then an explicit WhatsApp, then a plain phone. Deliberately does not promote a phone to WhatsApp. */
+export function primaryContact(job) {
+  const value = job || {}
+  const telegram = telegramHandle(value.telegram)
+  if (telegram) return { channel: 'telegram', href: `https://t.me/${telegram}` }
+  const whatsapp = normalizeIraqiPhone(value.whatsapp)?.whatsapp
+  if (whatsapp) return { channel: 'whatsapp', href: `https://wa.me/${whatsapp}` }
+  const phone = normalizeIraqiPhone(value.phone)?.local
+  if (phone) return { channel: 'phone', href: `tel:${phone}` }
+  return null
+}
 export function extractContacts(text) {
   const value = digits(text)
   const matches = [...value.matchAll(/(?<!\d)(?:\+?964[\s().-]*0?7(?:[\s().-]*\d){9}|07(?:[\s().-]*\d){9})(?!\d)/g)]

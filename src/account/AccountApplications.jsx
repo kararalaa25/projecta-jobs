@@ -1,4 +1,4 @@
-import ApplicationTimeline from './ApplicationTimeline'
+import ApplicationStatusBadge from './ApplicationStatusBadge'
 import ApplicantCard from './ApplicantCard'
 import useTrustSync from '../useTrustSync'
 import {useEffect,useState,useRef} from 'react'
@@ -34,7 +34,7 @@ export default function AccountApplications({publisher=false,onExplore,onSelect}
      <div><h3>{row.job?.title||'إعلان غير متاح'}</h3><p>{row.job?.company||'جهة العمل'}</p></div>
      <time dateTime={row.created_at} className="pipeline-date">{exactDate(row.created_at)}</time>
     </div>
-    <ApplicationTimeline row={row} updatedAt={row.updated_at}/>
+    <ApplicationStatusBadge status={row.status} applicant/>
    </>}
   </li>)}</ul>}
   {!loading&&!error&&(offset>0||more)&&<nav aria-label="صفحات الطلبات"><button disabled={!offset} onClick={()=>setOffset(value=>Math.max(0,value-20))}>السابق</button><button disabled={!more} onClick={()=>setOffset(value=>value+20)}>التالي</button></nav>}
