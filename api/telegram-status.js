@@ -1,13 +1,15 @@
 import {serverClient} from '../server/supabase.js'
 import {headers,json} from '../server/http.js'
 
+export const SYNC_INTERVAL_SECONDS=1200
+
 export function publicSyncStatus(row,now=Date.now()){
  const parsed=Date.parse(row?.last_success_at)
  const valid=Number.isFinite(parsed)&&parsed<=now+60000
  const lastCheckedAt=valid?new Date(parsed).toISOString():null
  const checking=Date.parse(row?.lease_until)>now
- const delayed=Boolean(row?.last_error)||(valid&&now-parsed>15*60000)
- return {lastCheckedAt,intervalSeconds:300,status:checking?'checking':delayed?'delayed':valid?'ok':'unknown'}
+ const delayed=Boolean(row?.last_error)||(valid&&now-parsed>45*60000)
+ return {lastCheckedAt,intervalSeconds:SYNC_INTERVAL_SECONDS,status:checking?'checking':delayed?'delayed':valid?'ok':'unknown'}
 }
 export function createTelegramStatusHandler(env=process.env,factory=serverClient){
  return async(req,res)=>{
@@ -18,7 +20,7 @@ export function createTelegramStatusHandler(env=process.env,factory=serverClient
    if(result.error)throw result.error
    return json(res,200,publicSyncStatus(result.data?.[0]))
   }catch{
-   return json(res,503,{lastCheckedAt:null,intervalSeconds:300,status:'unknown'})
+   return json(res,503,{lastCheckedAt:null,intervalSeconds:SYNC_INTERVAL_SECONDS,status:'unknown'})
   }
  }
 }

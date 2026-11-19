@@ -14,7 +14,7 @@ export function createNotificationSetupHandler(env=process.env,factory=null,fetc
   if(action.startsWith('telegram.')){
    if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_WEBHOOK_SECRET)return json(res,503,{error:'Telegram not configured'})
    const operation=action==='telegram.register'?'setWebhook':'getWebhookInfo'
-   const response=await fetcher(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${operation}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(operation==='setWebhook'?{url:'https://projecta-jobs.vercel.app/api/telegram/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,allowed_updates:['message']}:{}),signal:AbortSignal.timeout(12000)}),data=await response.json()
+   const response=await fetcher(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${operation}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(operation==='setWebhook'?{url:'https://projecta-jobs.vercel.app/api/telegram/webhook',secret_token:env.TELEGRAM_WEBHOOK_SECRET,allowed_updates:['message','channel_post','edited_channel_post']}:{}),signal:AbortSignal.timeout(12000)}),data=await response.json()
    return json(res,200,{provider:'telegram',status:response.status,ok:data.ok===true,errorCode:data.error_code||null,...(operation==='getWebhookInfo'?{url:data.result?.url||'',pendingUpdates:data.result?.pending_update_count||0,lastError:data.result?.last_error_message||null}:{})})
   }
   if(!env.WHATSAPP_ACCESS_TOKEN||!/^\d+$/.test(env.WHATSAPP_PHONE_NUMBER_ID||''))return json(res,503,{error:'WhatsApp not configured'})

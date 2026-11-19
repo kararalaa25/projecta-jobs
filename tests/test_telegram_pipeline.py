@@ -209,7 +209,7 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
     async def test_processing_budget_defers_receipts_without_failing_sync(self):
         db=MagicMock()
         db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.side_effect=[SimpleNamespace(data=[]),SimpleNamespace(data=[receipt('new')])]
-        async def blocked(*args):await asyncio.Event().wait()
+        async def blocked(*args,**kwargs):await asyncio.Event().wait()
         with patch.object(pipeline,'process_receipt',side_effect=blocked):
             result=await pipeline.drain_inbox(None,db,'native',budget_seconds=.01)
         self.assertEqual(result['deferred'],1);self.assertEqual(result['failed'],0);self.assertEqual(result['processed'],0)
@@ -237,6 +237,83 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(state['lease_until'])
         self.assertIsNone(state['last_error'])
         db.table.return_value.update.return_value.eq.return_value.eq.assert_called_once_with('lease_owner','owner')
+
+
+class BatchInboxTests(unittest.IsolatedAsyncioTestCase):
+    def db_with_rows(self, rows):
+        db = MagicMock()
+        chain = db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute
+        chain.side_effect = [SimpleNamespace(data=rows), SimpleNamespace(data=[])]
+        return db
+
+    def receipt_for(self, text, message_id=17):
+        row = receipt(text)
+        row['message_id'] = message_id
+        row['message_key'] = f'clinic:{message_id}'
+        return row
+
+    async def test_local_gate_skips_ai_and_commits_empty_group(self):
+        row = self.receipt_for('شكرا للجميع')
+        with patch.object(scraper, 'parse_jobs', AsyncMock()) as parse, \
+             patch.object(pipeline, 'commit_jobs', return_value='complete') as commit:
+            result = await pipeline.process_receipt(None, MagicMock(), row, 'native')
+        parse.assert_not_called()
+        self.assertEqual(commit.call_args.args[2], [])
+        self.assertFalse(commit.call_args.args[3])
+        self.assertTrue(result['filtered'])
+
+    async def test_drain_uses_one_batched_ai_call_for_all_eligible_receipts(self):
+        texts = ['مطلوب طبيب أسنان في بغداد هاتف 07701234567',
+                 'مطلوب صيدلاني في البصرة هاتف 07801234567']
+        rows = [self.receipt_for(texts[0], 17), self.receipt_for(texts[1], 18)]
+        parsed = {0: scraper.ParsedPost(jobs=[]), 1: scraper.ParsedPost(jobs=[])}
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock(return_value=parsed)) as batch, \
+             patch.object(pipeline, 'process_receipt', AsyncMock(return_value={
+                 'outcome': 'complete', 'jobs': 0, 'retry': False, 'filtered': False})) as process:
+            result = await pipeline.drain_inbox(MagicMock(), self.db_with_rows(rows), 'native')
+        batch.assert_awaited_once()
+        self.assertEqual(batch.call_args.args[1], texts)
+        self.assertEqual(process.call_count, 2)
+        self.assertEqual([call.kwargs['parsed'] for call in process.call_args_list], [parsed[0], parsed[1]])
+        self.assertEqual(result['batched'], 2)
+        self.assertEqual(result['processed'], 2)
+
+    async def test_filtered_receipts_do_not_enter_ai_batch(self):
+        short = self.receipt_for('شكرا للجميع', 17)
+        job = self.receipt_for('مطلوب طبيب أسنان في بغداد هاتف 07701234567', 18)
+        parsed = {0: scraper.ParsedPost(jobs=[])}
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock(return_value=parsed)) as batch, \
+             patch.object(pipeline, 'process_receipt', AsyncMock(return_value={
+                 'outcome': 'complete', 'jobs': 0, 'retry': False, 'filtered': False})) as process:
+            result = await pipeline.drain_inbox(MagicMock(), self.db_with_rows([short, job]), 'native')
+        self.assertEqual(batch.call_args.args[1], [job['raw_text']])
+        self.assertEqual(sum(call.kwargs['prefiltered'] for call in process.call_args_list), 1)
+        self.assertEqual(result['batched'], 1)
+
+    async def test_batch_failure_uses_fallback_without_per_message_ai(self):
+        rows = [self.receipt_for('مطلوب طبيب أسنان في بغداد هاتف 07701234567', 17),
+                self.receipt_for('مطلوب صيدلاني في البصرة هاتف 07801234567', 18)]
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock(side_effect=TimeoutError())) as batch, \
+             patch.object(scraper, 'parse_jobs', AsyncMock()) as single, \
+             patch.object(pipeline, 'process_receipt', AsyncMock(return_value={
+                 'outcome': 'retry', 'jobs': 0, 'retry': True, 'filtered': False})) as process:
+            result = await pipeline.drain_inbox(None, self.db_with_rows(rows), 'native')
+        batch.assert_awaited_once()
+        single.assert_not_awaited()
+        self.assertEqual([call.kwargs['batch_failure'] for call in process.call_args_list], ['TimeoutError', 'TimeoutError'])
+        self.assertEqual(result['batch_error'], 'TimeoutError')
+
+    async def test_oversized_post_is_not_deferred_forever(self):
+        row = self.receipt_for('مطلوب طبيب أسنان في بغداد ' + ('x' * (scraper.BATCH_MAX_CHARS + 1)))
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock()) as batch, \
+             patch.object(pipeline, 'process_receipt', AsyncMock(return_value={
+                 'outcome': 'retry', 'jobs': 0, 'retry': True, 'filtered': False})) as process:
+            result = await pipeline.drain_inbox(None, self.db_with_rows([row]), 'native')
+        batch.assert_not_awaited()
+        process.assert_awaited_once()
+        self.assertEqual(process.call_args.kwargs['batch_failure'], 'InputExceedsBatchLimit')
+        self.assertEqual(result['batched'], 0)
+        self.assertEqual(result['deferred'], 0)
 
 
 class OptionBPipelineTests(unittest.IsolatedAsyncioTestCase):
@@ -400,7 +477,7 @@ class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         text = 'مطلوب طبيب أسنان في بغداد'
         parsed = scraper.ParsedPost(jobs=[offer(text)], classification='job_offer')
         db = self.db_with_row(receipt(text))
-        with patch.object(scraper, 'parse_jobs', AsyncMock(return_value=parsed)), \
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock(return_value={0: parsed})), \
              patch.object(pipeline, 'commit_jobs', side_effect=RuntimeError('secret 07701234567')):
             result = await pipeline.drain_inbox(None, db, 'native')
         self.assertEqual(result['failed'], 1)
@@ -421,7 +498,7 @@ class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
     async def test_escaping_fallback_error_records_fallback_stage(self):
         text = 'مطلوب طبيب أسنان في بغداد'
         db = self.db_with_row(receipt(text))
-        with patch.object(scraper, 'parse_jobs', AsyncMock(side_effect=ValueError('bad model output'))), \
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock(side_effect=ValueError('bad model output'))), \
              patch.object(pipeline, 'fallback_post', side_effect=RuntimeError('fallback down')):
             result = await pipeline.drain_inbox(None, db, 'native')
         self.assertEqual(result['failed'], 1)
@@ -451,7 +528,7 @@ class InboxDiagnosticTests(unittest.IsolatedAsyncioTestCase):
         db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute.side_effect = [
             SimpleNamespace(data=[first, second]), SimpleNamespace(data=[])]
 
-        async def fail(gemini, database, row, storage):
+        async def fail(gemini, database, row, storage, **kwargs):
             pipeline.set_stage('commit' if row['message_id'] == 17 else 'fallback')
             await asyncio.sleep(0)
             raise RuntimeError('boom')
@@ -504,7 +581,7 @@ class FallbackValueErrorTests(unittest.IsolatedAsyncioTestCase):
         db = MagicMock()
         chain = db.table.return_value.select.return_value.eq.return_value.lte.return_value.order.return_value.limit.return_value.execute
         chain.side_effect = [SimpleNamespace(data=[receipt(self.text)]), SimpleNamespace(data=[])]
-        with patch.object(scraper, 'parse_jobs', AsyncMock(side_effect=ValueError('synthetic AI failure'))):
+        with patch.object(scraper, 'parse_jobs_batch', AsyncMock(side_effect=ValueError('synthetic AI failure'))):
             result = await pipeline.drain_inbox(None, db, 'native')
         self.assertEqual(result['failed'], 0)
         self.assertEqual(result['jobs'], 0)

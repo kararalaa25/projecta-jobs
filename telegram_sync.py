@@ -17,6 +17,46 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+CURSOR_COLUMN = 'last_processed_message_id'
+
+
+def cursor_value(value):
+    """Treat an absent or legacy checkpoint value as no cursor."""
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def missing_cursor_column(exc):
+    code = str(getattr(exc, 'code', ''))
+    return code in {'42703', 'PGRST204'} or CURSOR_COLUMN in str(exc).lower()
+
+
+async def load_checkpoint(db, key):
+    """Read the DB cursor, tolerating deployments before the manual migration."""
+    table = lambda: db.table('telegram_sync_checkpoints')
+    try:
+        result = await asyncio.to_thread(lambda: table().select(
+            f'last_success_at,counts,{CURSOR_COLUMN}').eq('channel', key).limit(1).execute())
+        row = result.data[0] if result.data else {}
+        return row, True
+    except Exception as exc:
+        if not missing_cursor_column(exc):
+            raise
+    result = await asyncio.to_thread(lambda: table().select(
+        'last_success_at,counts').eq('channel', key).limit(1).execute())
+    row = result.data[0] if result.data else {}
+    return row, False
+
+
+def checkpoint_cursor(row, has_column):
+    value = row.get(CURSOR_COLUMN) if has_column else None
+    if value is None:
+        value = (row.get('counts') or {}).get(CURSOR_COLUMN)
+    return cursor_value(value)
+
+
 async def store_changed_posts(db, posts, chat_id, source, storage):
     from telegram_pipeline import enqueue_post, retry_io
     counts = {'inserted': 0, 'updated': 0, 'unchanged': 0, 'filtered': 0, 'queued': 0}
@@ -32,19 +72,35 @@ async def store_changed_posts(db, posts, chat_id, source, storage):
 
 async def sync_public_channel(db, channel, storage):
     key = str(channel).strip().lower().lstrip('@')
-    state = await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').select('last_success_at').eq('channel', key).limit(1).execute())
-    previous = state.data[0]['last_success_at'] if state.data else None
-    # Public previews can expose a post late. Revisit at least 24 hours even
-    # when checkpoints are current; stable source IDs make this inexpensive to deduplicate.
-    since = min(datetime.fromisoformat(previous.replace('Z', '+00:00')) - timedelta(hours=1), utcnow() - timedelta(days=1)) if previous else utcnow() - timedelta(days=3)
+    state, has_column = await load_checkpoint(db, key)
+    previous = state.get('last_success_at')
+    after_id = checkpoint_cursor(state, has_column)
+    previous_at = None
+    if isinstance(previous, str):
+        try:
+            previous_at = datetime.fromisoformat(previous.replace('Z', '+00:00'))
+        except ValueError:
+            previous_at = None
+    # Only a channel without a stored cursor needs a time-based backfill.
+    # Once a cursor exists, fetching is strictly newer-message-only.
+    since = None
+    if after_id is None:
+        since = (min(previous_at - timedelta(hours=1), utcnow() - timedelta(days=1))
+                 if previous_at else utcnow() - timedelta(days=3))
     started = utcnow().isoformat()
     # Never advance a checkpoint on incomplete history, HTTP or database failures.
     for attempt in range(3):
         try:
-            chat_id, source, posts = await scraper.fetch_public_posts(channel, None, since, max_pages=200, fresh=True)
+            chat_id, source, posts = await scraper.fetch_public_posts(
+                channel, None, since, max_pages=200, fresh=True, after_id=after_id)
             counts = await store_changed_posts(db, posts, chat_id, source, storage)
             counts.update(fetched=len(posts),newest_source_post_at=max((p.date.isoformat() for p in posts),default=None))
-            await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').upsert({'channel': key, 'last_success_at': started, 'counts': counts}, on_conflict='channel').execute())
+            new_cursor = max([after_id or 0] + [post.id for post in posts]) or None
+            counts[CURSOR_COLUMN] = new_cursor
+            checkpoint = {'channel': key, 'last_success_at': started, 'counts': counts}
+            if has_column:
+                checkpoint[CURSOR_COLUMN] = new_cursor
+            await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').upsert(checkpoint, on_conflict='channel').execute())
             return {'status': 'complete', **counts}
         except asyncio.CancelledError:
             raise
@@ -139,12 +195,19 @@ async def listen(client, gemini, db, channels, storage, parser='hybrid', catchup
                 # Checkpoints also cover reconnects/outages beyond the last 100 posts.
                 for entity in entities:
                     key = sources[entity.id]
-                    state = await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').select('last_success_at').eq('channel', key.lower()).limit(1).execute())
-                    since = datetime.fromisoformat(state.data[0]['last_success_at'].replace('Z', '+00:00')) - timedelta(hours=1) if state.data else utcnow() - timedelta(days=3)
+                    state, has_column = await load_checkpoint(db, key.lower())
+                    after_id = checkpoint_cursor(state, has_column)
+                    previous = state.get('last_success_at')
+                    since = None
+                    if after_id is None:
+                        since = (datetime.fromisoformat(previous.replace('Z', '+00:00')) - timedelta(hours=1)
+                                 if isinstance(previous, str) else utcnow() - timedelta(days=3))
                     started = utcnow().isoformat()
                     posts = []
                     async for post in client.iter_messages(entity, limit=None):
-                        if post.date < since:
+                        if after_id is not None and post.id <= after_id:
+                            break
+                        if since and post.date < since:
                             break
                         posts.append(post)
                     for post in reversed(posts):
@@ -152,7 +215,12 @@ async def listen(client, gemini, db, channels, storage, parser='hybrid', catchup
                             raise RuntimeError("Catch-up remains incomplete")
                     # Failed live writes remain in the durable local outbox; replay
                     # above and on the next cycle continues independently of history.
-                    await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').upsert({'channel': key.lower(), 'last_success_at': started}, on_conflict='channel').execute())
+                    new_cursor = max([after_id or 0] + [post.id for post in posts]) or None
+                    checkpoint = {'channel': key.lower(), 'last_success_at': started,
+                                  'counts': {CURSOR_COLUMN: new_cursor}}
+                    if has_column:
+                        checkpoint[CURSOR_COLUMN] = new_cursor
+                    await asyncio.to_thread(lambda: db.table('telegram_sync_checkpoints').upsert(checkpoint, on_conflict='channel').execute())
             except asyncio.CancelledError:
                 raise
             except Exception as exc:

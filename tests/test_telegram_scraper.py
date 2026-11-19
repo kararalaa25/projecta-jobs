@@ -354,5 +354,46 @@ class ClassificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(scraper.validate_shared_context(text, [], []), ([], False))
 
 
+class IntakeAndBatchTests(unittest.IsolatedAsyncioTestCase):
+    def test_local_gate_rejects_short_or_unrelated_posts_without_ai(self):
+        self.assertFalse(scraper.ingestion_allowed('شكرا للجميع'))
+        self.assertFalse(scraper.ingestion_allowed('تم الاغلاق'))
+        self.assertFalse(scraper.ingestion_allowed('random unrelated announcement with no useful tokens here'))
+        for text in ('مطلوب صيدلاني للعمل في بغداد هاتف 07701234567',
+                     'Dentist needed at our Baghdad clinic',
+                     'تم إغلاق جميع فرص العمل المذكورة في هذا الإعلان'):
+            self.assertTrue(scraper.ingestion_allowed(text), text)
+
+    async def test_batch_extraction_uses_one_provider_call_and_restores_order(self):
+        texts = ['مطلوب طبيب أسنان في بغداد هاتف 07701234567',
+                 'مطلوب صيدلاني في البصرة هاتف 07801234567']
+        def job(text, role, title):
+            return scraper.ExtractedJob(is_job_offer=True, title=title, role_category=role,
+                source_text=text, company_name=None, city=None, contact_phone=None,
+                contact_telegram=None, salary_text=None, employment_type=None)
+        batch = scraper.ParsedBatch(posts=[
+            scraper.BatchPost(index=1, jobs=[job(texts[1], 'Pharmacists', 'صيدلاني')]),
+            scraper.BatchPost(index=0, jobs=[job(texts[0], 'Dentists', 'طبيب أسنان')]),
+        ])
+        client = MagicMock()
+        client.aio.models.generate_content = AsyncMock(return_value=SimpleNamespace(text=batch.model_dump_json()))
+        with patch.object(scraper, 'discover_models', AsyncMock(return_value=['gemini-test'])):
+            parsed = await scraper.parse_jobs_batch(client, texts)
+        self.assertEqual(client.aio.models.generate_content.call_count, 1)
+        self.assertEqual(set(parsed), {0, 1})
+        self.assertEqual(parsed[0].jobs[0].source_text, texts[0])
+        self.assertEqual(parsed[1].jobs[0].source_text, texts[1])
+
+    async def test_batch_missing_index_fails_closed(self):
+        text = 'مطلوب طبيب أسنان في بغداد هاتف 07701234567'
+        job = scraper.ExtractedJob(is_job_offer=True, title='طبيب أسنان', role_category='Dentists',
+            source_text=text, company_name=None, city=None, contact_phone=None,
+            contact_telegram=None, salary_text=None, employment_type=None)
+        batch = scraper.ParsedBatch(posts=[scraper.BatchPost(index=0, jobs=[job])])
+        with patch.object(scraper, '_parse_schema', AsyncMock(return_value=batch)):
+            with self.assertRaisesRegex(ValueError, 'indexes'):
+                await scraper.parse_jobs_batch(None, [text, text])
+
+
 if __name__ == '__main__':
     unittest.main()

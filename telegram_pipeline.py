@@ -259,9 +259,11 @@ def deletion_decision(db, receipt, text, records):
     return 'delete'
 
 
-async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
+async def process_receipt(gemini, db, receipt, storage, parser='hybrid', *,
+                          parsed=None, prefiltered=False, batch_failure=None):
     set_stage('parse')
     message = SimpleNamespace(id=receipt['message_id'],raw_text=receipt['raw_text'],date=datetime.fromisoformat(receipt['posted_at'].replace('Z','+00:00')))
+    text = message.raw_text
     records, fallback, error = [], False, None
     classification, needs_review, review_reasons = None, False, []
     prior_ids = receipt.get('job_ids') or []
@@ -271,14 +273,32 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
         hold_receipt(db, receipt, reason)
         return {'outcome':'held','jobs':0,'retry':True,'held':True,'reason':reason}
 
-    # A course in one section must not suppress an entire multi-offer compilation.
-    if message.raw_text.strip() and len(message.raw_text.strip())>=20:
+    def use_fallback(reason):
+        nonlocal fallback, error, parsed, records, needs_review, review_reasons
+        fallback, error = True, reason
+        set_stage('fallback')
+        parsed = fallback_post(text)
+        records = job_records(parsed,message,receipt['chat_id'],receipt['channel'],storage,True)
+        # Keep the original readable while AI is unavailable, without marking complete.
+        if not records and scraper.raw_job_allowed(text):
+            records=[scraper.raw_record(message,receipt['chat_id'],receipt['channel'],storage)]
+        needs_review = True
+        review_reasons = list(getattr(parsed,'review_reasons',[]) or [])
+        LOG.warning('AI extraction pending retry (%s)',error)
+
+    # The local gate and a failed batch both avoid any per-message provider call.
+    if prefiltered or not scraper.ingestion_allowed(text):
+        parsed = scraper.ParsedPost(jobs=[])
+    elif batch_failure:
+        use_fallback(batch_failure)
+    elif text.strip():
         try:
-            if parser=='regex':
-                parsed = fallback_post(message.raw_text)
-                fallback = True  # Explicit regex mode still leaves AI enrichment pending.
-            else:
-                parsed = await scraper.parse_jobs(gemini,message.raw_text)
+            if parsed is None:
+                if parser=='regex':
+                    parsed = fallback_post(text)
+                    fallback = True  # Explicit regex mode still leaves AI enrichment pending.
+                else:
+                    parsed = await scraper.parse_jobs(gemini,text)
             if any(j.is_job_offer and (not j.role_category or not j.title or not j.title.strip()) for j in parsed.jobs):
                 raise ValueError('Incomplete extracted offering')
             set_stage('records')
@@ -291,21 +311,12 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            fallback,error = True,type(exc).__name__
-            set_stage('fallback')
-            parsed = fallback_post(message.raw_text)
-            records = job_records(parsed,message,receipt['chat_id'],receipt['channel'],storage,True)
-            # Keep the original readable while AI is unavailable, without marking complete.
-            if not records and scraper.raw_job_allowed(message.raw_text):
-                records=[scraper.raw_record(message,receipt['chat_id'],receipt['channel'],storage)]
-            needs_review = True
-            review_reasons = list(getattr(parsed,'review_reasons',[]) or [])
-            LOG.warning('AI extraction pending retry (%s)',error)
+            use_fallback(type(exc).__name__)
 
     if prior_ids and records and len(records) < len(prior_ids):
         return held('partial_group_change')
     set_stage('deletion')
-    if prior_ids and not records and deletion_decision(db, receipt, message.raw_text, records) == 'hold':
+    if prior_ids and not records and deletion_decision(db, receipt, text, records) == 'hold':
         return held('nonoffer_reclassification')
     if not records and needs_review:
         return held('review_required')
@@ -322,7 +333,7 @@ async def process_receipt(gemini, db, receipt, storage, parser='hybrid'):
         raise
     return {'outcome':result,'jobs':len(records) if result not in {'unchanged','superseded','held'} else 0,
             'retry':fallback,'needs_review':needs_review,'review_reasons':review_reasons,
-            'classification':classification}
+            'classification':classification,'filtered':prefiltered or not scraper.ingestion_allowed(text)}
 
 
 async def ingest_native_message(gemini, db, message, chat_id, channel, dry_run=False, storage='native', parser='hybrid'):
@@ -360,12 +371,42 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
     held_count = sum(review_held(row) for row in retry_rows.data + pending_rows.data)
     retries = SimpleNamespace(data=[row for row in retry_rows.data if not review_held(row)][:6])
     pending = SimpleNamespace(data=[row for row in pending_rows.data if not review_held(row)])
+    candidates = retries.data + pending.data
+
+    # Deterministic local filtering happens before any provider call. Filtered
+    # receipts still commit an empty group so edited offers are removed safely.
+    filtered = [not scraper.ingestion_allowed(row['raw_text']) for row in candidates]
+    parseable = [index for index, is_filtered in enumerate(filtered) if not is_filtered]
+    selected, oversized, batch_chars = [], [], 0
+    for index in parseable:
+        size = len(candidates[index]['raw_text'])
+        # A single post too large for the batch still gets a deterministic
+        # fallback; it must not be deferred forever by the size guard.
+        if size > scraper.BATCH_MAX_CHARS:
+            oversized.append(index)
+            continue
+        if (len(selected) >= scraper.BATCH_MAX_POSTS
+                or batch_chars + size > scraper.BATCH_MAX_CHARS):
+            break
+        selected.append(index)
+        batch_chars += size
+    deferred_limit = len(parseable) - len(selected) - len(oversized)
+
+    parsed_results, batch_failure = {}, None
+    if selected:
+        try:
+            parsed_results = await scraper.parse_jobs_batch(
+                gemini, [candidates[index]['raw_text'] for index in selected])
+        except Exception as exc:
+            batch_failure = type(exc).__name__
+
     gate=asyncio.Semaphore(3)
-    async def process(receipt):
+    async def process(receipt, *, parsed=None, is_filtered=False, failure=None):
         async with gate:
             token = _STAGE.set('unknown')
             try:
-                return await process_receipt(gemini,db,receipt,storage)
+                return await process_receipt(gemini,db,receipt,storage,parsed=parsed,
+                    prefiltered=is_filtered,batch_failure=failure)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -377,7 +418,20 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
                 return {'outcome':'failed','jobs':0,'retry':True}
             finally:
                 _STAGE.reset(token)
-    tasks=[asyncio.create_task(process(r)) for r in retries.data+pending.data]
+
+    tasks=[]
+    for index, receipt in enumerate(candidates):
+        if filtered[index]:
+            tasks.append(asyncio.create_task(process(receipt, is_filtered=True)))
+    for order, index in enumerate(selected):
+        failure = batch_failure
+        if failure is None and order not in parsed_results:
+            failure = 'MissingBatchResult'
+        tasks.append(asyncio.create_task(process(candidates[index],
+            parsed=parsed_results.get(order), failure=failure)))
+    for index in oversized:
+        tasks.append(asyncio.create_task(process(candidates[index],
+            failure='InputExceedsBatchLimit')))
     done,pending_tasks=set(),set()
     try:
         if tasks:
@@ -391,4 +445,6 @@ async def drain_inbox(gemini, db, storage, limit=24, budget_seconds=125):
         await asyncio.gather(*tasks,return_exceptions=True)
     return {'processed':len(outcomes),'jobs':sum(o['jobs'] for o in outcomes),
             'retrying':sum(o['retry'] for o in outcomes),'failed':sum(o['outcome']=='failed' for o in outcomes),
-            'deferred':len(pending_tasks),'review_held':held_count}
+            'deferred':len(pending_tasks)+deferred_limit,'review_held':held_count+sum(o.get('held',False) for o in outcomes),
+            'filtered':sum(o.get('filtered',False) for o in outcomes),
+            'batched':len(selected),'batch_error':batch_failure}
