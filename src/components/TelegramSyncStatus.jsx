@@ -60,7 +60,7 @@ export default function TelegramSyncStatus({compact=false}){
    <span className="sync-last-check">
     {live?<>متزامن مع تيليجرام{valid?` · آخر تحديث قبل ${relative}`:''}</>:valid?<>آخر تحقق من القنوات: <time dateTime={checked.toISOString()}>{format.format(checked)}</time></>:sync?.status==='unknown'?'جارٍ إعادة التحقق من المزامنة تلقائياً…':'جارٍ التحقق من آخر مزامنة…'}
    </span>
-   {!compact&&<span>فحص تلقائي كل {number(5)} دقائق · وقت الإعلان هو وقت نشره الأصلي.</span>}
+   
    {sync?.status==='checking'&&<span>جارٍ فحص القنوات الآن…</span>}
    {sync?.status==='delayed'&&<span>تأخرت آخر مزامنة؛ تستمر إعادة المحاولة تلقائياً.</span>}
    {sync?.status==='unknown'&&<span>{sync.error||'ستتم إعادة المحاولة تلقائياً.'}</span>}
